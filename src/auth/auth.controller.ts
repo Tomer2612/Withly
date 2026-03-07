@@ -45,7 +45,7 @@ export class AuthController {
 
   }
 
-  @Get('google/redirect')
+  @Get('google/callback')
   @SkipThrottle()
   @UseGuards(AuthGuard('google'))
   async googleAuthRedirect(@Req() req, @Res() res) {
