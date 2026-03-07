@@ -42,6 +42,7 @@ interface Community {
   topic?: string | null;
   memberCount?: number | null;
   rules?: string[];
+  showOnlineMembers?: boolean;
 }
 
 interface Comment {
