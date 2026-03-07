@@ -98,6 +98,9 @@ export class AuthService {
           isEmailVerified: true, // Google users are verified
         },
       });
+
+      // Send welcome email (non-blocking)
+      this.emailService.sendWelcomeEmail(user.email, user.name).catch(console.error);
     }
 
     const payload = { email: user.email, sub: user.id };

@@ -24,6 +24,21 @@ function LoginContent() {
   const [passwordError, setPasswordError] = useState('');
   const [returnUrl, setReturnUrl] = useState<string | null>(null);
 
+  // Clear any expired tokens on mount
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (!payload.exp || payload.exp * 1000 < Date.now()) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('userProfileCache');
+          document.cookie = 'auth-token=; path=/; max-age=0';
+        }
+      }
+    } catch { localStorage.removeItem('token'); document.cookie = 'auth-token=; path=/; max-age=0'; }
+  }, []);
+
   useEffect(() => {
     // Check for Google auth error
     const errorParam = searchParams.get('error');

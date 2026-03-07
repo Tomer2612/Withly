@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { jwtDecode } from 'jwt-decode';
+import WithlyLogo from './icons/WithlyLogo';
 import NotificationBell from './NotificationBell';
 import { MessagesBell } from './ChatWidget';
 import UserProfileDropdown from './UserProfileDropdown';
@@ -30,26 +31,46 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
   useEffect(() => {
     setMounted(true);
 
-    // Read cached profile immediately
-    const cached = localStorage.getItem('userProfileCache');
-    if (cached) {
-      try {
-        setUserProfile(JSON.parse(cached));
-      } catch {}
-    }
+    const clearSession = () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('userProfileCache');
+      document.cookie = 'auth-token=; path=/; max-age=0';
+      setUserEmail(null);
+      setUserId(null);
+      setUserProfile(null);
+    };
 
     const token = localStorage.getItem('token');
     if (token && token.split('.').length === 3) {
       try {
         const decoded = jwtDecode<JwtPayload>(token);
+
+        // Check if token is expired
+        if (decoded.exp && decoded.exp * 1000 < Date.now()) {
+          clearSession();
+          return;
+        }
+
         setUserEmail(decoded.email);
         setUserId(decoded.sub);
 
-        // Fetch fresh user profile
+        // Read cached profile immediately
+        const cached = localStorage.getItem('userProfileCache');
+        if (cached) {
+          try { setUserProfile(JSON.parse(cached)); } catch {}
+        }
+
+        // Fetch fresh user profile and validate token server-side
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
           headers: { Authorization: `Bearer ${token}` },
         })
-          .then((res) => (res.ok ? res.json() : null))
+          .then((res) => {
+            if (res.status === 401) {
+              clearSession();
+              return null;
+            }
+            return res.ok ? res.json() : null;
+          })
           .then((data) => {
             if (data) {
               const profile = { name: data.name, profileImage: data.profileImage };
@@ -60,14 +81,19 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
           .catch(console.error);
       } catch (e) {
         console.error('Invalid token:', e);
+        clearSession();
       }
+    } else if (token) {
+      // Malformed token
+      clearSession();
     }
   }, []);
 
   return (
     <header dir="rtl" className="flex items-center justify-between px-8 py-4 bg-white border-b h-[72px]" style={{ borderColor: '#E1E1E2' }}>
-      <Link href="/" className="text-xl font-bold text-black hover:opacity-75 transition">
+      <Link href="/" className="flex items-center gap-2 text-xl font-bold text-black hover:opacity-75 transition">
         Withly
+        <WithlyLogo size={28} />
       </Link>
       
       <div className="flex gap-6 items-center">

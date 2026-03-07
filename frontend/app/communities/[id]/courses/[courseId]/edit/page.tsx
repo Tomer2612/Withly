@@ -519,6 +519,14 @@ export default function EditCoursePage() {
           newErrors[`lesson_${chapterIndex}_${lessonIndex}_duration`] = `משך השיעור לא יכול לעלות על ${MAX_LESSON_DURATION} דקות`;
         }
 
+        // YouTube URL validation
+        if (lesson.videoUrl && lesson.videoUrl.trim()) {
+          const ytMatch = lesson.videoUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+          if (!ytMatch) {
+            newErrors[`lesson_${chapterIndex}_${lessonIndex}_videoUrl`] = 'קישור לא תקין. יש להזין קישור YouTube תקין';
+          }
+        }
+
         // Content validation - lesson must have at least one content type (unless it's a quiz)
         if (lesson.lessonType === 'content') {
           const hasVideo = !!lesson.videoUrl;
@@ -1325,9 +1333,12 @@ export default function EditCoursePage() {
                                             type="text"
                                             value={lesson.videoUrl}
                                             onChange={(e) => updateLesson(chapterIndex, lessonIndex, { videoUrl: e.target.value })}
-                                            className="w-full p-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
+                                            className={`w-full p-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-black focus:border-black ${errors[`lesson_${chapterIndex}_${lessonIndex}_videoUrl`] ? 'border-red-500' : 'border-gray-300'}`}
                                             placeholder="https://www.youtube.com/watch?v=..."
                                           />
+                                          {errors[`lesson_${chapterIndex}_${lessonIndex}_videoUrl`] && (
+                                            <p className="text-red-500 text-sm mt-1">{errors[`lesson_${chapterIndex}_${lessonIndex}_videoUrl`]}</p>
+                                          )}
                                         </div>
                                         <div>
                                           <label className="block text-black font-normal mb-1" style={{ fontSize: '14px' }}>

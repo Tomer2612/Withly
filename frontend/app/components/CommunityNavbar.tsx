@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import UsersIcon from './icons/UsersIcon';
+import WithlyLogo from './icons/WithlyLogo';
 import NotificationBell from './NotificationBell';
 import { MessagesBell } from './ChatWidget';
 import UserProfileDropdown from './UserProfileDropdown';
@@ -101,10 +102,14 @@ export default function CommunityNavbar({
   return (
     <header dir="rtl" className="sticky top-0 z-40 flex items-center justify-between px-8 py-4 bg-white border-b border-gray-200 h-[72px]">
       {/* Right side: Withly Logo + Community name - FIXED WIDTH */}
-      <div className="flex items-center gap-6 w-[280px] flex-shrink-0">
-        <Link href="/" className="text-xl font-bold text-black hover:opacity-75 transition">
-          Withly
+      <div className="flex items-center w-[280px] flex-shrink-0">
+        <Link href="/" className="hover:opacity-75 transition flex-shrink-0 px-6">
+          <WithlyLogo size={28} />
         </Link>
+        
+        <div className="w-px h-[30px] bg-gray-400 flex-shrink-0" />
+        
+        <div className="pr-6">
         
         {/* Community Switcher */}
         <div className="relative" ref={dropdownRef}>
@@ -174,6 +179,7 @@ export default function CommunityNavbar({
               ))}
             </div>
           )}
+        </div>
         </div>
       </div>
 

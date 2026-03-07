@@ -113,6 +113,7 @@ export class CommunitiesController {
       trialCancelled?: boolean;
       cardLastFour?: string;
       cardBrand?: string;
+      showOnlineMembers?: string;
     },
     @UploadedFiles() files?: { image?: any[]; logo?: any[]; galleryImages?: any[] },
   ) {
@@ -168,6 +169,7 @@ export class CommunitiesController {
       body.trialCancelled,
       body.cardLastFour,
       body.cardBrand,
+      body.showOnlineMembers !== undefined ? body.showOnlineMembers === 'true' : undefined,
     );
   }
 

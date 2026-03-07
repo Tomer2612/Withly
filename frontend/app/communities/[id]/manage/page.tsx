@@ -101,6 +101,9 @@ export default function ManageCommunityPage() {
   const [galleryVideos, setGalleryVideos] = useState<string[]>([]);
   const [newVideoUrl, setNewVideoUrl] = useState('');
   
+  // Online members indicator
+  const [showOnlineMembers, setShowOnlineMembers] = useState(true);
+  
   // Price
   const [price, setPrice] = useState<number>(10);
   const [isPaidCommunity, setIsPaidCommunity] = useState(false);
@@ -205,6 +208,7 @@ export default function ManageCommunityPage() {
         setTrialCancelled(data.trialCancelled || false);
         setCardLastFour(data.cardLastFour || null);
         setCardBrand(data.cardBrand || null);
+        setShowOnlineMembers(data.showOnlineMembers !== false);
         
         // Load logo
         if (data.logo) {
@@ -403,6 +407,9 @@ export default function ManageCommunityPage() {
       
       // Gallery videos (YouTube URLs)
       formData.append('existingGalleryVideos', JSON.stringify(galleryVideos));
+      
+      // Online members indicator
+      formData.append('showOnlineMembers', showOnlineMembers.toString());
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`, {
         method: 'PUT',
@@ -948,6 +955,26 @@ export default function ManageCommunityPage() {
                     </div>
                     <p className="text-xs text-gray-500">תומך בקישורים מסוג youtube.com/watch</p>
                   </div>
+                </div>
+
+                {/* Show Online Members Toggle */}
+                <div className="flex items-center justify-between gap-6">
+                  <div className="flex-1 text-right">
+                    <h3 className="font-medium text-gray-900 text-base">הצגת חברים מחוברים</h3>
+                    <p className="text-sm text-gray-500 mt-1">הצגת מספר החברים המחוברים כרגע בעמוד הפיד</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowOnlineMembers(!showOnlineMembers)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-full border bg-white text-sm font-medium transition"
+                    style={{ borderColor: '#E1E1E2', color: '#3F3F46' }}
+                  >
+                    <div 
+                      className="w-2.5 h-2.5 rounded-full border" 
+                      style={{ borderColor: '#1D1D20', backgroundColor: showOnlineMembers ? '#A7EA7B' : '#D1D5DB' }} 
+                    />
+                    {showOnlineMembers ? 'כבה תצוגה' : 'הפעל תצוגה'}
+                  </button>
                 </div>
 
                 {/* Delete Community - Only for owners */}

@@ -150,6 +150,7 @@ export class CommunitiesService {
     trialCancelled?: boolean,
     cardLastFour?: string | null,
     cardBrand?: string | null,
+    showOnlineMembers?: boolean,
   ) {
     try {
       const id = await this.resolveId(idOrSlug);
@@ -216,6 +217,9 @@ export class CommunitiesService {
       }
       if (cardBrand !== undefined) {
         updateData.cardBrand = cardBrand;
+      }
+      if (showOnlineMembers !== undefined) {
+        updateData.showOnlineMembers = showOnlineMembers;
       }
 
       return await this.prisma.community.update({

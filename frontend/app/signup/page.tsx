@@ -62,6 +62,21 @@ const isValidName = (name: string) => {
 function SignupContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Clear any expired tokens on mount
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (!payload.exp || payload.exp * 1000 < Date.now()) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('userProfileCache');
+          document.cookie = 'auth-token=; path=/; max-age=0';
+        }
+      }
+    } catch { localStorage.removeItem('token'); document.cookie = 'auth-token=; path=/; max-age=0'; }
+  }, []);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

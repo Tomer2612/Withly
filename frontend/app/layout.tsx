@@ -17,7 +17,7 @@ const assistant = Assistant({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Withly - מאגר הקהילות הגדול בארץ',
+    default: 'Withly',
     template: '%s | Withly',
   },
   description: 'הצטרפו לקהילות מקצועיות, למדו מהמומחים הטובים ביותר, והתחברו עם אנשים בעלי תחומי עניין משותפים. Withly - הבית של הקהילות המובילות בישראל.',
@@ -30,20 +30,20 @@ export const metadata: Metadata = {
     locale: 'he_IL',
     url: 'https://withly.co.il',
     siteName: 'Withly',
-    title: 'Withly - מאגר הקהילות הגדול בארץ',
+    title: 'Withly',
     description: 'הצטרפו לקהילות מקצועיות, למדו מהמומחים הטובים ביותר, והתחברו עם אנשים בעלי תחומי עניין משותפים.',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Withly - מאגר הקהילות הגדול בארץ',
+        alt: 'Withly',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Withly - מאגר הקהילות הגדול בארץ',
+    title: 'Withly',
     description: 'הצטרפו לקהילות מקצועיות, למדו מהמומחים הטובים ביותר, והתחברו עם אנשים בעלי תחומי עניין משותפים.',
     images: ['/og-image.png'],
   },

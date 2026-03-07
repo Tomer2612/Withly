@@ -8,102 +8,158 @@ export class EmailService {
   private fromEmail: string;
   private frontendUrl: string;
 
+  // Inline SVG logo for emails (matches WithlyLogo component)
+  private readonly logoSvg = `<svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#c0)"><path d="M28.27 1c-.74 0-1.46.22-2.07.63-.62.41-1.1.99-1.38 1.67-.28.68-.35 1.43-.21 2.16.14.72.5 1.39 1.02 1.91.52.52 1.19.88 1.91 1.02.72.14 1.47.07 2.16-.21.68-.28 1.26-.76 1.67-1.37.41-.62.63-1.34.63-2.07 0-.99-.39-1.94-1.09-2.64C30.21 1.39 29.26 1 28.27 1Z" fill="#163300"/><path d="M3.73 1c-.74 0-1.46.22-2.07.63C1.04 2.04.57 2.62.28 3.3.002 3.98-.07 4.73.07 5.46c.14.72.5 1.39 1.02 1.91.52.52 1.19.88 1.91 1.02.72.14 1.47.07 2.16-.21.68-.28 1.26-.76 1.67-1.37.41-.62.63-1.34.63-2.07 0-.99-.39-1.94-1.09-2.64C5.67 1.39 4.72 1 3.73 1Z" fill="#163300"/><path d="M4.75 26.81l-.74-1.13c-.69-1-1.32-2.04-1.87-3.12-.77-1.51-2.58-5.11-2.04-7.89.07-.36.23-1.15.79-1.9.31-.42.72-.77 1.19-1.01.4-.18.84-.27 1.28-.27.54.01 1.08.15 1.56.4.52.27.85.59 1.39 1.12.5.5.95 1.05 1.34 1.63 1.27 1.83 2.52 3.85 2.95 4.56-.07.76-.38 3.12-2.08 5.15-1.44 1.72-3.1 2.27-3.77 2.45Z" fill="#163300"/><path d="M27.26 26.81l.74-1.13c.69-1 1.32-2.04 1.87-3.12.77-1.51 2.58-5.11 2.04-7.88-.07-.36-.23-1.16-.79-1.9-.31-.43-.72-.77-1.19-1.01-.4-.18-.84-.27-1.28-.27-.54.01-1.08.15-1.56.4-.52.27-.85.59-1.39 1.12-.5.5-.95 1.05-1.34 1.63-1.27 1.83-2.52 3.85-2.95 4.57.07.76.38 3.11 2.08 5.15 1.44 1.72 3.1 2.27 3.77 2.45" fill="#163300"/><path d="M16 1c-.74 0-1.46.22-2.07.63-.61.41-1.09.99-1.37 1.67-.28.68-.36 1.43-.21 2.16.14.72.5 1.39 1.02 1.91.52.52 1.19.88 1.91 1.02.72.14 1.47.07 2.16-.21.68-.28 1.26-.76 1.67-1.37.41-.62.63-1.34.63-2.07 0-.49-.1-.97-.28-1.43-.19-.45-.47-.86-.81-1.21-.35-.35-.76-.62-1.21-.81C16.97 1.1 16.49 1 16 1Z" fill="#A7EA7B"/><path d="M16 23.46l1.07 2.29c1.09 2.33 2.42 3.95 3.95 4.8.4.23.86.36 1.33.36 1.28 0 3.19-1.04 5.66-5.25l-.03.01c-.3.08-.62.12-.93.12-1.33 0-2.47-.74-3.39-2.2-.36-.58-.65-1.2-.86-1.85l-1.85-5.44c-.67-1.86-1.55-3.21-2.6-4.01-.67-.52-1.5-.79-2.34-.79-.85 0-1.67.28-2.34.79-1.06.8-1.94 2.15-2.62 4.04l-1.84 5.41c-.21.65-.5 1.27-.86 1.86-.92 1.46-2.06 2.2-3.39 2.2-.31 0-.62-.04-.93-.12l-.03-.01c2.46 4.2 4.37 5.25 5.66 5.25.47-.01.93-.13 1.34-.37 1.52-.85 2.85-2.47 3.94-4.8L16 23.46Z" fill="#A7EA7B"/></g><defs><clipPath id="c0"><rect width="32" height="32" fill="white"/></clipPath></defs></svg>`;
+
   constructor(private configService: ConfigService) {
     this.resend = new Resend(this.configService.get<string>('RESEND_API_KEY'));
     this.fromEmail = this.configService.get<string>('EMAIL_FROM') || 'noreply@withly.co.il';
     this.frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
   }
 
-  async sendVerificationEmail(email: string, name: string, token: string): Promise<void> {
-    const verificationLink = `${this.frontendUrl}/verify-email?token=${token}`;
-
-    const htmlBody = `
+  /** Shared email wrapper: thick green bar → logo+Withly text → thin divider → content → thin divider → footer */
+  private buildEmailHtml(bodyContent: string): string {
+    return `
       <!DOCTYPE html>
       <html dir="rtl" lang="he">
       <head>
         <meta charset="UTF-8">
-        <style>
-          body { font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px; }
-          .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; padding: 40px; }
-          .header { text-align: center; margin-bottom: 30px; }
-          .header h1 { color: #000; margin: 0; }
-          .content { text-align: right; line-height: 1.8; }
-          .button { display: inline-block; background: #000; color: white !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; margin: 20px 0; }
-          .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 12px; text-align: center; }
-          .signature { margin-top: 20px; }
-        </style>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600&display=swap" rel="stylesheet">
       </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>🏘️ Withly</h1>
-          </div>
-          <div class="content">
-            <p>שלום ${name},</p>
-            <p>תודה שבחרת להצטרף ל-Withly! כדי להשלים את תהליך ההרשמה ולהפעיל את החשבון, יש לאמת את כתובת המייל בלחיצה על הכפתור:</p>
-            <div style="text-align: center;">
-              <a href="${verificationLink}" class="button">אימות כתובת המייל</a>
-            </div>
-            <p>אם לא נרשמת לשירות, ניתן להתעלם מהודעה זו והפרטים שלך יימחקו מהמערכת.</p>
-            <p><strong>הקישור יהיה תקף למשך 24 שעות בלבד.</strong></p>
-            <p class="signature">בברכה,<br/>צוות Withly</p>
-          </div>
-          <div class="footer">
-            <p>© 2025 Withly. כל הזכויות שמורות.</p>
-          </div>
-        </div>
+      <body style="margin: 0; padding: 0; background-color: #F4F4F5; font-family: 'Assistant', Arial, sans-serif; font-size: 16px; font-weight: 400; color: #000000; direction: rtl;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #F4F4F5; padding: 40px 20px;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #FFFFFF; border: 1px solid #D0D0D4; border-radius: 12px; overflow: hidden;">
+                <!-- Thick green accent bar (536x25 visible inside 600 card) -->
+                <tr>
+                  <td style="height: 25px; background-color: #A7EA7B; line-height: 0; font-size: 0;">&nbsp;</td>
+                </tr>
+                <!-- Withly Logo + Text -->
+                <tr>
+                  <td align="center" style="padding: 28px 36px 20px 36px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding-left: 8px; font-family: 'Assistant', Arial, sans-serif; font-size: 20px; font-weight: 600; color: #000000; vertical-align: middle;">Withly</td>
+                        <td style="vertical-align: middle;">${this.logoSvg}</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <!-- Thin green divider -->
+                <tr>
+                  <td style="padding: 0 36px;">
+                    <div style="height: 1px; background-color: #A7EA7B;"></div>
+                  </td>
+                </tr>
+                <!-- Main content -->
+                ${bodyContent}
+                <!-- Thin green divider -->
+                <tr>
+                  <td style="padding: 0 36px;">
+                    <div style="height: 1px; background-color: #A7EA7B;"></div>
+                  </td>
+                </tr>
+                <!-- Footer -->
+                <tr>
+                  <td style="padding: 24px 36px 28px 36px;">
+                    <p style="margin: 0; font-size: 16px; font-weight: 400; line-height: 1.5; text-align: center; color: #000000; font-family: 'Assistant', Arial, sans-serif;">&#1499;&#1500; &#1492;&#1494;&#1499;&#1493;&#1497;&#1493;&#1514; &#1513;&#1502;&#1493;&#1512;&#1493;&#1514; <span dir="ltr" style="unicode-bidi: embed;">Withly</span> 2026</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
       </body>
       </html>
     `;
+  }
 
-    const textBody = `שלום ${name},\n\nתודה שבחרת להצטרף ל-Withly! כדי להשלים את תהליך ההרשמה ולהפעיל את החשבון, יש לאמת את כתובת המייל בלחיצה על הקישור:\n${verificationLink}\n\nאם לא נרשמת לשירות, ניתן להתעלם מהודעה זו והפרטים שלך יימחקו מהמערכת.\nהקישור יהיה תקף למשך 24 שעות בלבד.\n\nבברכה,\nצוות Withly`;
+  async sendVerificationEmail(email: string, name: string, token: string): Promise<void> {
+    const verificationLink = `${this.frontendUrl}/verify-email?token=${token}`;
+
+    const bodyContent = `
+                <tr>
+                  <td style="padding: 28px 36px 0 36px;">
+                    <p style="margin: 0 0 16px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif;">&#1513;&#1500;&#1493;&#1501; <span style="font-weight: 600;">${name}</span>,</p>
+                    <p style="margin: 0 0 4px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif;">&#1514;&#1493;&#1491;&#1492; &#1513;&#1489;&#1495;&#1512;&#1514; &#1500;&#1492;&#1510;&#1496;&#1512;&#1507; &#1500;-<span dir="ltr" style="unicode-bidi: embed; font-weight: 600;">Withly</span>!</p>
+                    <p style="margin: 0 0 24px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif;">&#1499;&#1491;&#1497; &#1500;&#1492;&#1513;&#1500;&#1497;&#1501; &#1488;&#1514; &#1514;&#1492;&#1500;&#1497;&#1498; &#1492;&#1492;&#1512;&#1513;&#1502;&#1492; &#1493;&#1500;&#1492;&#1508;&#1506;&#1497;&#1500; &#1488;&#1514; &#1492;&#1499;&#1514;&#1493;&#1489;&#1514; &#1497;&#1513; &#1500;&#1488;&#1502;&#1514; &#1488;&#1514; &#1499;&#1514;&#1493;&#1489;&#1514; &#1492;&#1502;&#1497;&#1497;&#1500; &#1489;&#1500;&#1495;&#1497;&#1510;&#1492; &#1506;&#1500; &#1492;&#1499;&#1508;&#1514;&#1493;&#1512;:</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding: 0 36px 24px 36px;">
+                    <a href="${verificationLink}" style="display: inline-block; background-color: #000000; color: #FFFFFF !important; font-family: 'Assistant', Arial, sans-serif; font-size: 18px; font-weight: 400; text-decoration: none; padding: 12px 32px; border-radius: 12px; mso-padding-alt: 0; text-align: center;">&#1488;&#1497;&#1502;&#1493;&#1514; &#1499;&#1514;&#1493;&#1489;&#1514; &#1502;&#1497;&#1497;&#1500;</a>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 0 36px 24px 36px;">
+                    <p style="margin: 0 0 4px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif; color: #71717A;">&#1488;&#1501; &#1500;&#1488; &#1504;&#1512;&#1513;&#1502;&#1514; &#1500;&#1513;&#1497;&#1512;&#1493;&#1514;, &#1504;&#1497;&#1514;&#1503; &#1500;&#1492;&#1514;&#1506;&#1500;&#1501; &#1502;&#1492;&#1493;&#1491;&#1506;&#1492; &#1494;&#1493; &#1493;&#1492;&#1508;&#1512;&#1496;&#1497;&#1501; &#1513;&#1500;&#1498; &#1497;&#1497;&#1502;&#1495;&#1511;&#1493; &#1502;&#1492;&#1502;&#1506;&#1512;&#1499;&#1514;</p>
+                    <p style="margin: 0 0 16px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif; color: #71717A;">&#1492;&#1511;&#1497;&#1513;&#1493;&#1512; &#1497;&#1492;&#1497;&#1492; &#1514;&#1511;&#1507; &#1500;&#1502;&#1513;&#1498; 24 &#1513;&#1506;&#1493;&#1514; &#1489;&#1500;&#1489;&#1491;</p>
+                    <p style="margin: 0 0 4px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif;">&#1489;&#1489;&#1512;&#1499;&#1492;,</p>
+                    <p style="margin: 0 0 24px 0; font-size: 16px; font-weight: 600; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif;">&#1510;&#1493;&#1493;&#1514; <span dir="ltr" style="unicode-bidi: embed;">Withly</span></p>
+                  </td>
+                </tr>`;
+
+    const htmlBody = this.buildEmailHtml(bodyContent);
+    const textBody = `שלום ${name},\n\nתודה שבחרת להצטרף ל-Withly!\nכדי להשלים את תהליך ההרשמה ולהפעיל את הכתובת יש לאמת את כתובת המייל בלחיצה על הקישור:\n${verificationLink}\n\nאם לא נרשמת לשירות, ניתן להתעלם מהודעה זו והפרטים שלך יימחקו מהמערכת\nהקישור יהיה תקף למשך 24 שעות בלבד\n\nבברכה,\nצוות Withly`;
 
     await this.sendEmail(email, 'ברוכים הבאים ל-Withly! אימות כתובת המייל שלך', htmlBody, textBody);
+  }
+
+  async sendWelcomeEmail(email: string, name: string): Promise<void> {
+    const bodyContent = `
+                <tr>
+                  <td style="padding: 28px 36px 0 36px;">
+                    <p style="margin: 0 0 16px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif;">&#1513;&#1500;&#1493;&#1501; <span style="font-weight: 600;">${name}</span>,</p>
+                    <p style="margin: 0 0 4px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif;">&#1489;&#1512;&#1493;&#1499;&#1497;&#1501; &#1492;&#1489;&#1488;&#1497;&#1501; &#1500;-<span dir="ltr" style="unicode-bidi: embed; font-weight: 600;">Withly</span>!</p>
+                    <p style="margin: 0 0 24px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif;">&#1492;&#1495;&#1513;&#1489;&#1493;&#1503; &#1513;&#1500;&#1498; &#1504;&#1493;&#1510;&#1512; &#1489;&#1492;&#1510;&#1500;&#1495;&#1492; &#1493;&#1488;&#1514;&#1492; &#1502;&#1493;&#1494;&#1502;&#1503; &#1500;&#1492;&#1514;&#1495;&#1497;&#1500; &#1500;&#1490;&#1500;&#1493;&#1514; &#1511;&#1492;&#1497;&#1500;&#1493;&#1514;, &#1500;&#1492;&#1510;&#1496;&#1512;&#1507; &#1493;&#1500;&#1497;&#1510;&#1493;&#1512; &#1514;&#1493;&#1499;&#1503;.</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding: 0 36px 24px 36px;">
+                    <a href="${this.frontendUrl}" style="display: inline-block; background-color: #000000; color: #FFFFFF !important; font-family: 'Assistant', Arial, sans-serif; font-size: 18px; font-weight: 400; text-decoration: none; padding: 12px 32px; border-radius: 12px; mso-padding-alt: 0; text-align: center;">&#1499;&#1504;&#1497;&#1505;&#1492; &#1500;-<span dir="ltr" style="unicode-bidi: embed;">Withly</span></a>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 0 36px 24px 36px;">
+                    <p style="margin: 0 0 4px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif;">&#1489;&#1489;&#1512;&#1499;&#1492;,</p>
+                    <p style="margin: 0 0 0 0; font-size: 16px; font-weight: 600; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif;">&#1510;&#1493;&#1493;&#1514; <span dir="ltr" style="unicode-bidi: embed;">Withly</span></p>
+                  </td>
+                </tr>`;
+
+    const htmlBody = this.buildEmailHtml(bodyContent);
+    const textBody = `שלום ${name},\n\nברוכים הבאים ל-Withly!\nהחשבון שלך נוצר בהצלחה ואתה מוזמן להתחיל לגלות קהילות, להצטרף וליצור תוכן.\n\nבברכה,\nצוות Withly`;
+
+    await this.sendEmail(email, 'ברוכים הבאים ל-Withly!', htmlBody, textBody);
   }
 
   async sendPasswordResetEmail(email: string, name: string, token: string): Promise<void> {
     const resetLink = `${this.frontendUrl}/reset-password?token=${token}`;
 
-    const htmlBody = `
-      <!DOCTYPE html>
-      <html dir="rtl" lang="he">
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          body { font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px; }
-          .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; padding: 40px; }
-          .header { text-align: center; margin-bottom: 30px; }
-          .header h1 { color: #000; margin: 0; }
-          .content { text-align: right; line-height: 1.8; }
-          .button { display: inline-block; background: #000; color: white !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; margin: 20px 0; }
-          .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 12px; text-align: center; }
-          .signature { margin-top: 20px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>🏘️ Withly</h1>
-          </div>
-          <div class="content">
-            <p>שלום ${name},</p>
-            <p>קיבלנו בקשה לאיפוס הסיסמה לחשבונך. כדי להגדיר סיסמה חדשה, יש ללחוץ על הכפתור למטה:</p>
-            <div style="text-align: center;">
-              <a href="${resetLink}" class="button">איפוס סיסמה</a>
-            </div>
-            <p>אם לא ביקשת לבצע פעולה זו, ניתן להתעלם מהודעה זו והסיסמה שלך תישאר ללא שינוי.</p>
-            <p><strong>שים לב:</strong> הקישור יהיה תקף למשך שעה בלבד.</p>
-            <p class="signature">בברכה,<br/>צוות Withly</p>
-          </div>
-          <div class="footer">
-            <p>© 2025 Withly. כל הזכויות שמורות.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    const bodyContent = `
+                <tr>
+                  <td style="padding: 28px 36px 0 36px;">
+                    <p style="margin: 0 0 16px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif;">&#1513;&#1500;&#1493;&#1501; <span style="font-weight: 600;">${name}</span>,</p>
+                    <p style="margin: 0 0 24px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif;">&#1511;&#1497;&#1489;&#1500;&#1504;&#1493; &#1489;&#1511;&#1513;&#1492; &#1500;&#1488;&#1497;&#1508;&#1493;&#1505; &#1492;&#1505;&#1497;&#1505;&#1502;&#1492; &#1500;&#1495;&#1513;&#1489;&#1493;&#1504;&#1498;. &#1499;&#1491;&#1497; &#1500;&#1492;&#1490;&#1491;&#1497;&#1512; &#1505;&#1497;&#1505;&#1502;&#1492; &#1495;&#1491;&#1513;&#1492;, &#1497;&#1513; &#1500;&#1500;&#1495;&#1493;&#1509; &#1506;&#1500; &#1492;&#1499;&#1508;&#1514;&#1493;&#1512; &#1500;&#1502;&#1496;&#1492;:</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding: 0 36px 24px 36px;">
+                    <a href="${resetLink}" style="display: inline-block; background-color: #000000; color: #FFFFFF !important; font-family: 'Assistant', Arial, sans-serif; font-size: 18px; font-weight: 400; text-decoration: none; padding: 12px 32px; border-radius: 12px; mso-padding-alt: 0; text-align: center;">&#1488;&#1497;&#1508;&#1493;&#1505; &#1505;&#1497;&#1505;&#1502;&#1492;</a>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 0 36px 24px 36px;">
+                    <p style="margin: 0 0 4px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif; color: #71717A;">&#1488;&#1501; &#1500;&#1488; &#1489;&#1497;&#1511;&#1513;&#1514; &#1500;&#1489;&#1510;&#1506; &#1508;&#1506;&#1493;&#1500;&#1492; &#1494;&#1493;, &#1504;&#1497;&#1514;&#1503; &#1500;&#1492;&#1514;&#1506;&#1500;&#1501; &#1502;&#1492;&#1493;&#1491;&#1506;&#1492; &#1494;&#1493; &#1493;&#1492;&#1505;&#1497;&#1505;&#1502;&#1492; &#1513;&#1500;&#1498; &#1514;&#1497;&#1513;&#1488;&#1512; &#1500;&#1500;&#1488; &#1513;&#1497;&#1504;&#1493;&#1497;.</p>
+                    <p style="margin: 0 0 16px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif; color: #71717A;">&#1492;&#1511;&#1497;&#1513;&#1493;&#1512; &#1497;&#1492;&#1497;&#1492; &#1514;&#1511;&#1507; &#1500;&#1502;&#1513;&#1498; &#1513;&#1506;&#1492; &#1489;&#1500;&#1489;&#1491;.</p>
+                    <p style="margin: 0 0 4px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif;">&#1489;&#1489;&#1512;&#1499;&#1492;,</p>
+                    <p style="margin: 0 0 0 0; font-size: 16px; font-weight: 600; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif;">&#1510;&#1493;&#1493;&#1514; <span dir="ltr" style="unicode-bidi: embed;">Withly</span></p>
+                  </td>
+                </tr>`;
 
-    const textBody = `שלום ${name},\n\nקיבלנו בקשה לאיפוס הסיסמה לחשבונך. כדי להגדיר סיסמה חדשה, לחץ על הקישור:\n${resetLink}\n\nאם לא ביקשת לבצע פעולה זו, ניתן להתעלם מהודעה זו והסיסמה שלך תישאר ללא שינוי.\nשים לב: הקישור יהיה תקף למשך שעה בלבד.\n\nבברכה,\nצוות Withly`;
+    const htmlBody = this.buildEmailHtml(bodyContent);
+    const textBody = `שלום ${name},\n\nקיבלנו בקשה לאיפוס הסיסמה לחשבונך. כדי להגדיר סיסמה חדשה, לחץ על הקישור:\n${resetLink}\n\nאם לא ביקשת לבצע פעולה זו, ניתן להתעלם מהודעה זו והסיסמה שלך תישאר ללא שינוי.\nהקישור יהיה תקף למשך שעה בלבד.\n\nבברכה,\nצוות Withly`;
 
     await this.sendEmail(email, 'איפוס סיסמה לחשבון Withly שלך', htmlBody, textBody);
   }
@@ -132,7 +188,7 @@ export class EmailService {
       <body>
         <div class="container">
           <div class="header">
-            <h1>📩 פנייה חדשה מטופס יצירת קשר</h1>
+            <h1>פנייה חדשה מטופס יצירת קשר</h1>
           </div>
           <div class="content">
             <div class="field">

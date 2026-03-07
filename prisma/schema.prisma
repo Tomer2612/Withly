@@ -114,9 +114,10 @@ model Community {
   logo           String?
   cardBrand      String?
   cardLastFour   String?
-  trialCancelled Boolean           @default(false)
-  trialStartDate DateTime?
-  slug           String?           @unique
+  trialCancelled    Boolean           @default(false)
+  trialStartDate   DateTime?
+  showOnlineMembers Boolean          @default(true)
+  slug             String?           @unique
   posts          Post[]
   owner          User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   bans           CommunityBan[]

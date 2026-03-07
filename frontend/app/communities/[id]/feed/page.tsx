@@ -2112,9 +2112,7 @@ function CommunityFeedContent() {
                                     handleTogglePin(post.id);
                                     setMenuOpenPostId(null);
                                   }}
-                                  className={`w-full px-3 py-2.5 text-right text-sm rounded-lg hover:bg-[#F4F4F5] flex items-center gap-3 transition ${
-                                    post.isPinned ? 'text-yellow-600' : 'text-[#3F3F46]'
-                                  }`}
+                                  className="w-full px-3 py-2.5 text-right text-sm rounded-lg hover:bg-[#F4F4F5] flex items-center gap-3 transition text-[#3F3F46]"
                                 >
                                   <PinIcon className="w-3.5 h-3.5" />
                                   {post.isPinned ? 'בטל הצמדה' : 'הצמד פוסט'}
@@ -2842,6 +2840,7 @@ function CommunityFeedContent() {
           {/* RIGHT: Sidebar with online members, rules, events, top members */}
           <div className="space-y-4">
             {/* Online Members */}
+            {community?.showOnlineMembers !== false && (
             <div className="bg-gray-100 border border-gray-400 rounded-2xl p-5">
               <div className="flex items-center gap-3">
                 <div className="relative">
@@ -2853,6 +2852,7 @@ function CommunityFeedContent() {
                 </span>
               </div>
             </div>
+            )}
 
             {/* כללי הקהילה */}
             <div className="bg-gray-100 border border-gray-400 rounded-2xl p-5">

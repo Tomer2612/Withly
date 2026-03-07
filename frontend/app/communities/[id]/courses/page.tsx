@@ -332,7 +332,7 @@ export default function CoursesPage() {
               .map(course => (
               <div
                 key={course.id}
-                className="bg-white rounded-2xl overflow-hidden hover:shadow-lg transition group border border-gray-100 relative w-full max-w-[432px]"
+                className="bg-white rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-300 ease-in-out group border border-gray-100 relative w-full max-w-[432px]"
                 style={{ height: '510px' }}
               >
                 {/* Edit/Delete Buttons for Owner/Author */}
@@ -375,8 +375,8 @@ export default function CoursesPage() {
                     
                     {/* Play button overlay */}
                     <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <div className="w-16 h-16 bg-white/90 rounded-full flex items-center justify-center">
-                        <PlayIcon size={24} className="text-gray-800 mr-[-2px]" />
+                      <div className="w-20 h-20 bg-white/90 rounded-full flex items-center justify-center">
+                        <PlayIcon size={36} className="text-gray-800 mr-[-2px]" />
                       </div>
                     </div>
 

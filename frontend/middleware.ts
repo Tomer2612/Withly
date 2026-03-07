@@ -64,6 +64,34 @@ export function middleware(request: NextRequest) {
   // ============================================
 
   const token = request.cookies.get('auth-token')?.value;
+
+  // Validate token expiry by decoding the JWT payload
+  let isTokenValid = false;
+  let needsCookieClear = false;
+  if (token) {
+    try {
+      const payloadBase64 = token.split('.')[1];
+      if (payloadBase64) {
+        const payload = JSON.parse(atob(payloadBase64));
+        isTokenValid = payload.exp && payload.exp * 1000 > Date.now();
+      }
+    } catch {
+      isTokenValid = false;
+    }
+    if (!isTokenValid) {
+      needsCookieClear = true; // Will delete the stale cookie on the response
+    }
+  }
+
+  const effectiveToken = isTokenValid ? token : undefined;
+
+  // Helper: attach cookie-deletion header to any response we return
+  const clearCookie = (res: NextResponse) => {
+    if (needsCookieClear) {
+      res.cookies.set('auth-token', '', { path: '/', maxAge: 0 });
+    }
+    return res;
+  };
   
   // Check if it's a public route
   const isPublicRoute = publicRoutes.some(route => 
@@ -76,13 +104,13 @@ export function middleware(request: NextRequest) {
   );
   
   // Redirect logged-in users away from login/signup
-  if (token && (pathname === '/login' || pathname === '/signup')) {
+  if (effectiveToken && (pathname === '/login' || pathname === '/signup')) {
     return NextResponse.redirect(new URL('/', request.url));
   }
   
   // If public or has exception, allow through
   if (isPublicRoute || hasPublicException) {
-    return NextResponse.next();
+    return clearCookie(NextResponse.next());
   }
   
   // Check if it's a protected route
@@ -91,17 +119,17 @@ export function middleware(request: NextRequest) {
   );
   
   if (!isProtectedRoute) {
-    return NextResponse.next();
+    return clearCookie(NextResponse.next());
   }
   
-  // No token on protected route - redirect to login
-  if (!token) {
+  // No valid token on protected route - redirect to login
+  if (!effectiveToken) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
-    return NextResponse.redirect(loginUrl);
+    return clearCookie(NextResponse.redirect(loginUrl));
   }
   
-  // Token exists - allow through
+  // Valid token exists - allow through
   return NextResponse.next();
 }
 
