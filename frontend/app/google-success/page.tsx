@@ -14,7 +14,7 @@ export default function GoogleSuccessPage() {
       localStorage.setItem('token', token);
       // Set cookie for middleware auth
       const isProduction = process.env.NODE_ENV === 'production';
-      const maxAge = 7 * 24 * 60 * 60;
+      const maxAge = 30 * 24 * 60 * 60; // 30 days to match JWT expiry
       document.cookie = `auth-token=${token}; path=/; max-age=${maxAge}; SameSite=Lax${isProduction ? '; Secure' : ''}`;
       router.push('/');
     }

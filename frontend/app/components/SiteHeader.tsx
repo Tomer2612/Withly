@@ -38,6 +38,11 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
       setUserEmail(null);
       setUserId(null);
       setUserProfile(null);
+      // Redirect to login unless already on login/signup (avoid infinite loop)
+      const path = window.location.pathname;
+      if (path !== '/login' && path !== '/signup') {
+        window.location.href = '/login?expired=true';
+      }
     };
 
     const token = localStorage.getItem('token');
@@ -45,7 +50,7 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
       try {
         const decoded = jwtDecode<JwtPayload>(token);
 
-        // Check if token is expired
+        // Check if token is expired — redirect to login
         if (decoded.exp && decoded.exp * 1000 < Date.now()) {
           clearSession();
           return;

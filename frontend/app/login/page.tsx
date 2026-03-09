@@ -122,8 +122,8 @@ function LoginContent() {
 
       if (res.ok && data.access_token) {
         localStorage.setItem('token', data.access_token);
-        // Set cookie for middleware auth
-        document.cookie = `auth-token=${data.access_token}; path=/; max-age=604800; SameSite=Lax`;
+        // Set cookie for middleware auth (30 days to match JWT expiry)
+        document.cookie = `auth-token=${data.access_token}; path=/; max-age=2592000; SameSite=Lax`;
         
         // Check for pending community join
         const pendingJoinCommunity = localStorage.getItem('pendingJoinCommunity');
