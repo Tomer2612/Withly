@@ -229,60 +229,34 @@ export class EmailService {
   }
 
   async sendContactEmail(name: string, email: string, subject: string, message: string): Promise<void> {
-    const supportEmail = 'support@withly.co.il';
-    
-    const htmlBody = `
-      <!DOCTYPE html>
-      <html dir="rtl" lang="he">
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          body { font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px; }
-          .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; padding: 40px; }
-          .header { text-align: center; margin-bottom: 30px; }
-          .header h1 { color: #000; margin: 0; }
-          .content { text-align: right; line-height: 1.8; }
-          .field { margin-bottom: 15px; }
-          .label { font-weight: bold; color: #333; }
-          .value { color: #666; }
-          .message-box { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-top: 10px; }
-          .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #666; font-size: 12px; text-align: center; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>פנייה חדשה מטופס יצירת קשר</h1>
-          </div>
-          <div class="content">
-            <div class="field">
-              <span class="label">שם:</span>
-              <span class="value">${name}</span>
-            </div>
-            <div class="field">
-              <span class="label">אימייל:</span>
-              <span class="value">${email}</span>
-            </div>
-            <div class="field">
-              <span class="label">נושא:</span>
-              <span class="value">${subject}</span>
-            </div>
-            <div class="field">
-              <span class="label">הודעה:</span>
-              <div class="message-box">${message.replace(/\n/g, '<br>')}</div>
-            </div>
-          </div>
-          <div class="footer">
-            <p>הודעה זו נשלחה מטופס יצירת קשר באתר Withly</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    const supportEmails = ['tomer@withly.co.il', 'sean@withly.co.il'];
 
+    const bodyContent = `
+                <tr>
+                  <td style="padding: 0 48px;">
+                    <p style="margin: 0 0 24px 0; font-size: 20px; font-weight: 600; line-height: 1.5; text-align: center; direction: rtl; font-family: 'Assistant', Arial, sans-serif; color: #000000;">פנייה חדשה מטופס יצירת קשר</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 0 48px;">
+                    <p style="margin: 0 0 12px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; font-family: 'Assistant', Arial, sans-serif; color: #000000;"><span style="font-weight: 600;">שם:</span> ${name}</p>
+                    <p style="margin: 0 0 12px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; font-family: 'Assistant', Arial, sans-serif; color: #000000;"><span style="font-weight: 600;">אימייל:</span> <a href="mailto:${email}" style="color: #000000; text-decoration: underline;">${email}</a></p>
+                    <p style="margin: 0 0 12px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; font-family: 'Assistant', Arial, sans-serif; color: #000000;"><span style="font-weight: 600;">נושא:</span> ${subject}</p>
+                    <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; line-height: 1.7; text-align: right; direction: rtl; font-family: 'Assistant', Arial, sans-serif; color: #000000;">הודעה:</p>
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="background-color: #F4F4F5; border-radius: 8px; padding: 16px;">
+                          <p style="margin: 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; font-family: 'Assistant', Arial, sans-serif; color: #000000;">${message.replace(/\n/g, '<br>')}</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>`;
+
+    const htmlBody = this.buildEmailHtml(bodyContent);
     const textBody = `פנייה חדשה מטופס יצירת קשר\n\nשם: ${name}\nאימייל: ${email}\nנושא: ${subject}\n\nהודעה:\n${message}`;
 
-    await this.sendEmail(supportEmail, `צור קשר: ${subject}`, htmlBody, textBody);
+    await this.sendEmail(supportEmails, `צור קשר: ${subject}`, htmlBody, textBody);
   }
 
   private get inlineAttachments() {
@@ -292,11 +266,11 @@ export class EmailService {
     ];
   }
 
-  private async sendEmail(to: string, subject: string, htmlBody: string, textBody: string): Promise<void> {
+  private async sendEmail(to: string | string[], subject: string, htmlBody: string, textBody: string): Promise<void> {
     try {
       const { error } = await this.resend.emails.send({
         from: this.fromEmail,
-        to: [to],
+        to: Array.isArray(to) ? to : [to],
         subject: subject,
         html: htmlBody,
         text: textBody,
