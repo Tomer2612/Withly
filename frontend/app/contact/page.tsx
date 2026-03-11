@@ -120,7 +120,7 @@ export default function ContactPage() {
           דברו איתנו
         </h1>
         <p className="text-lg max-w-2xl mx-auto" style={{ marginBottom: '2rem', color: '#52525B' }}>
-          יש שאלה או פנייה? אפשר גם לכתוב ישירות ל-<a href="mailto:tomer@withly.co.il" className="text-black font-normal underline hover:opacity-70 transition">tomer@withly.co.il</a> או <a href="mailto:sean@withly.co.il" className="text-black font-normal underline hover:opacity-70 transition">sean@withly.co.il</a>
+          יש שאלה או פנייה? אפשר גם לכתוב ישירות ל-<a href="mailto:support@withly.co.il" className="text-black font-normal underline hover:opacity-70 transition">support@withly.co.il</a>
         </p>
       </section>
 
@@ -162,7 +162,7 @@ export default function ContactPage() {
               </div>
               <div>
                 <label className="block font-medium text-black" style={{ fontSize: '18px', marginBottom: '10px' }}>אימייל</label>
-                <div className={`bg-white focus-within:border-transparent focus-within:ring-2 focus-within:ring-black transition-all`} style={{ borderRadius: '10px', border: emailTouched && emailError ? '1px solid #B3261E' : '1px solid #D0D0D4' }}>
+                <div className="bg-white focus-within:border-transparent focus-within:ring-2 focus-within:ring-black transition-all" style={{ borderRadius: '10px', overflow: 'hidden', border: emailTouched && emailError ? '1px solid #B3261E' : '1px solid #D0D0D4' }}>
                   <input
                     type="email"
                     value={contactEmail}

@@ -63,7 +63,7 @@ export default function AccessibilityPage() {
             <p className="leading-relaxed" style={{ color: '#52525B' }}>
               אם נתקלתם בבעיית נגישות באתר או שיש לכם הצעות לשיפור, נשמח לשמוע מכם. 
               ניתן לפנות אלינו באמצעות <a href="/contact" className="text-black underline hover:opacity-70">דף צור קשר</a> או 
-              בדוא&quot;ל: tomer@withly.co.il או sean@withly.co.il
+              בדוא&quot;ל: <a href="mailto:support@withly.co.il" className="text-black underline hover:opacity-70">support@withly.co.il</a>
             </p>
           </div>
 

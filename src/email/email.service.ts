@@ -229,7 +229,7 @@ export class EmailService {
   }
 
   async sendContactEmail(name: string, email: string, subject: string, message: string): Promise<void> {
-    const supportEmails = ['tomer@withly.co.il', 'sean@withly.co.il'];
+    const supportEmails = ['support@withly.co.il'];
 
     const bodyContent = `
                 <tr>
