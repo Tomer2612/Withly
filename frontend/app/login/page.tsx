@@ -10,6 +10,7 @@ import GoogleIcon from '../components/icons/GoogleIcon';
 import MailIcon from '../components/icons/MailIcon';
 import KeyIcon from '../components/icons/KeyIcon';
 import CloseIcon from '../components/icons/CloseIcon';
+import { clearSessionData } from '../lib/auth';
 
 function LoginContent() {
   const router = useRouter();
@@ -31,12 +32,10 @@ function LoginContent() {
       if (token) {
         const payload = JSON.parse(atob(token.split('.')[1]));
         if (!payload.exp || payload.exp * 1000 < Date.now()) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('userProfileCache');
-          document.cookie = 'auth-token=; path=/; max-age=0';
+          clearSessionData();
         }
       }
-    } catch { localStorage.removeItem('token'); document.cookie = 'auth-token=; path=/; max-age=0'; }
+    } catch { clearSessionData(); }
   }, []);
 
   useEffect(() => {

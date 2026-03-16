@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import UsersIcon from './icons/UsersIcon';
-import WithlyLogo from './icons/WithlyLogo';
+import WithlyIcon from './icons/WithlyIcon';
 import NotificationBell from './NotificationBell';
 import { MessagesBell } from './ChatWidget';
 import UserProfileDropdown from './UserProfileDropdown';
@@ -104,7 +104,7 @@ export default function CommunityNavbar({
       {/* Right side: Withly Logo + Community name - FIXED WIDTH */}
       <div className="flex items-center w-[280px] flex-shrink-0">
         <Link href="/" className="hover:opacity-75 transition flex-shrink-0 px-6">
-          <WithlyLogo size={28} />
+          <WithlyIcon size={28} />
         </Link>
         
         <div className="w-px h-[30px] bg-gray-400 flex-shrink-0" />

@@ -12,9 +12,13 @@ import { EmailModule } from '../email/email.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    JwtModule.register({
-      secret: 'supersecret',
-      signOptions: { expiresIn: '30d' },
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+        signOptions: { expiresIn: '30d' },
+      }),
     }),
     EmailModule,
   ],

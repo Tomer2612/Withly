@@ -17,10 +17,10 @@ const assistant = Assistant({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Withly',
+    default: 'Withly | הפלטפורמה המובילה בישראל לניהול קהילות',
     template: '%s | Withly',
   },
-  description: 'הצטרפו לקהילות מקצועיות, למדו מהמומחים הטובים ביותר, והתחברו עם אנשים בעלי תחומי עניין משותפים. Withly - הבית של הקהילות המובילות בישראל.',
+  description: 'Withly היא פלטפורמה שמרכזת תוכן, קורסים ואירועים במקום אחד. נהלו את הקהילה שלכם בצורה מסודרת, בלי מורכבות מיותרת, וצרו מקור הכנסה יציב מהעשייה שלכם.',
   keywords: ['קהילות', 'קורסים', 'לימודים', 'רשת חברתית', 'ישראל', 'community', 'courses'],
   authors: [{ name: 'Withly' }],
   creator: 'Withly',
@@ -30,22 +30,13 @@ export const metadata: Metadata = {
     locale: 'he_IL',
     url: 'https://withly.co.il',
     siteName: 'Withly',
-    title: 'Withly',
-    description: 'הצטרפו לקהילות מקצועיות, למדו מהמומחים הטובים ביותר, והתחברו עם אנשים בעלי תחומי עניין משותפים.',
-    images: [
-      {
-        url: '/og-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'Withly',
-      },
-    ],
+    title: 'Withly | הפלטפורמה המובילה בישראל לניהול קהילות',
+    description: 'Withly היא פלטפורמה שמרכזת תוכן, קורסים ואירועים במקום אחד. נהלו את הקהילה שלכם בצורה מסודרת, בלי מורכבות מיותרת, וצרו מקור הכנסה יציב מהעשייה שלכם.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Withly',
-    description: 'הצטרפו לקהילות מקצועיות, למדו מהמומחים הטובים ביותר, והתחברו עם אנשים בעלי תחומי עניין משותפים.',
-    images: ['/og-image.png'],
+    title: 'Withly | הפלטפורמה המובילה בישראל לניהול קהילות',
+    description: 'Withly היא פלטפורמה שמרכזת תוכן, קורסים ואירועים במקום אחד. נהלו את הקהילה שלכם בצורה מסודרת, בלי מורכבות מיותרת, וצרו מקור הכנסה יציב מהעשייה שלכם.',
   },
   robots: {
     index: true,

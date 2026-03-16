@@ -13,10 +13,16 @@ export function clearSessionAndRedirect() {
   }
 }
 
+/** Clear token and cookie without redirecting (for use on login/signup pages). */
+export function clearSessionData() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('userProfileCache');
+  document.cookie = 'auth-token=; path=/; max-age=0';
+}
+
 /**
- * Wrapper around fetch that automatically handles 401 responses
- * by clearing the session and redirecting to login.
- * Use this for any authenticated API call.
+ * Wrapper around fetch that automatically injects the auth token.
+ * 401 responses are handled globally by the interceptor in ClientProviders.
  */
 export async function authFetch(url: string, options?: RequestInit): Promise<Response> {
   const token = localStorage.getItem('token');
@@ -28,11 +34,5 @@ export async function authFetch(url: string, options?: RequestInit): Promise<Res
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(url, { ...options, headers });
-
-  if (res.status === 401) {
-    clearSessionAndRedirect();
-  }
-
-  return res;
+  return fetch(url, { ...options, headers });
 }

@@ -7,6 +7,7 @@ import WithlyLogo from './icons/WithlyLogo';
 import NotificationBell from './NotificationBell';
 import { MessagesBell } from './ChatWidget';
 import UserProfileDropdown from './UserProfileDropdown';
+import { clearSessionAndRedirect } from '../lib/auth';
 
 interface JwtPayload {
   email: string;
@@ -32,17 +33,10 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
     setMounted(true);
 
     const clearSession = () => {
-      localStorage.removeItem('token');
-      localStorage.removeItem('userProfileCache');
-      document.cookie = 'auth-token=; path=/; max-age=0';
       setUserEmail(null);
       setUserId(null);
       setUserProfile(null);
-      // Redirect to login unless already on login/signup (avoid infinite loop)
-      const path = window.location.pathname;
-      if (path !== '/login' && path !== '/signup') {
-        window.location.href = '/login?expired=true';
-      }
+      clearSessionAndRedirect();
     };
 
     const token = localStorage.getItem('token');
@@ -69,13 +63,7 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
           headers: { Authorization: `Bearer ${token}` },
         })
-          .then((res) => {
-            if (res.status === 401) {
-              clearSession();
-              return null;
-            }
-            return res.ok ? res.json() : null;
-          })
+          .then((res) => res.ok ? res.json() : null)
           .then((data) => {
             if (data) {
               const profile = { name: data.name, profileImage: data.profileImage };
@@ -96,9 +84,8 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
 
   return (
     <header dir="rtl" className="flex items-center justify-between px-8 py-4 bg-white border-b h-[72px]" style={{ borderColor: '#E1E1E2' }}>
-      <Link href="/" className="flex items-center gap-2 text-xl font-bold text-black hover:opacity-75 transition">
-        Withly
-        <WithlyLogo size={28} />
+      <Link href="/" className="flex items-center hover:opacity-75 transition">
+        <WithlyLogo height={28} />
       </Link>
       
       <div className="flex gap-6 items-center">

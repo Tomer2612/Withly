@@ -12,6 +12,7 @@ import KeyIcon from '../components/icons/KeyIcon';
 import CheckIcon from '../components/icons/CheckIcon';
 import CloseIcon from '../components/icons/CloseIcon';
 import UserIcon from '../components/icons/UserIcon';
+import { clearSessionData } from '../lib/auth';
 
 // Checkmark Icon component
 const CheckmarkIcon = ({ className = "w-3 h-2.5" }: { className?: string }) => (
@@ -70,12 +71,10 @@ function SignupContent() {
       if (token) {
         const payload = JSON.parse(atob(token.split('.')[1]));
         if (!payload.exp || payload.exp * 1000 < Date.now()) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('userProfileCache');
-          document.cookie = 'auth-token=; path=/; max-age=0';
+          clearSessionData();
         }
       }
-    } catch { localStorage.removeItem('token'); document.cookie = 'auth-token=; path=/; max-age=0'; }
+    } catch { clearSessionData(); }
   }, []);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');

@@ -133,8 +133,7 @@ export class EventsController {
       try {
         const token = authHeader.split(' ')[1];
         const jwt = require('jsonwebtoken');
-        // Use the same secret as auth.module.ts
-        const decoded = jwt.verify(token, 'supersecret');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         userId = decoded.sub || decoded.userId;
       } catch (e) {
         // Token invalid or expired, continue without user
