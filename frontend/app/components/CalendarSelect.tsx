@@ -60,7 +60,7 @@ export default function CalendarSelect({
           hover:border-gray-400 cursor-pointer
         `}
       >
-        <span>{selectedOption?.label}</span>
+        <span className="whitespace-nowrap">{selectedOption?.label}</span>
         <svg 
           width="10" height="6" viewBox="0 0 10 6" fill="none" 
           xmlns="http://www.w3.org/2000/svg"
@@ -79,12 +79,11 @@ export default function CalendarSelect({
       {isOpen && (
         <div 
           dir="ltr"
-          className="absolute w-full bg-white border border-[#D0D0D4] rounded-lg z-[9999] overflow-hidden p-1 top-full mt-1"
+          className="absolute w-max min-w-full bg-white border border-[#D0D0D4] rounded-lg z-[9999] overflow-hidden p-1 top-full mt-1"
           style={{ 
             maxHeight: '200px', 
             overflowY: 'auto',
             boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.12)',
-            minWidth: '100%'
           }}
         >
           <div dir="rtl" className="flex flex-col gap-0.5">
@@ -97,7 +96,7 @@ export default function CalendarSelect({
                   setIsOpen(false);
                 }}
                 className={`
-                  w-full px-2 py-1.5 text-right text-sm rounded transition-colors
+                  w-full px-2 py-1.5 text-right text-sm rounded transition-colors whitespace-nowrap
                   ${value === option.value 
                     ? 'bg-[#E4E4E7] font-semibold text-black' 
                     : 'text-gray-700 hover:bg-[#F4F4F5] active:bg-[#3F3F46] active:text-white font-normal'

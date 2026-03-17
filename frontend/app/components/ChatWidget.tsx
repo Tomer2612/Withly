@@ -941,7 +941,7 @@ export function MessagesBell() {
     <button
       onClick={handleClick}
       data-messages-bell
-      className="relative p-2 text-gray-500 hover:text-gray-700 transition flex items-center justify-center"
+      className="relative p-2 -mt-1 text-gray-500 hover:text-gray-700 transition flex items-center justify-center"
       aria-label="הודעות"
     >
       <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

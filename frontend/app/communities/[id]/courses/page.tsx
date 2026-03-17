@@ -365,7 +365,7 @@ export default function CoursesPage() {
                         src={course.image.startsWith('http') ? course.image : `${process.env.NEXT_PUBLIC_API_URL}${course.image}`}
                         alt={course.title}
                         fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-500 ease-in-out"
+                        className="object-cover"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-300 to-gray-400">
@@ -375,8 +375,8 @@ export default function CoursesPage() {
                     
                     {/* Play button overlay */}
                     <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <div className="w-20 h-20 bg-white/90 rounded-full flex items-center justify-center">
-                        <PlayIcon size={36} className="text-gray-800 mr-[-2px]" />
+                      <div className="w-20 h-20 rounded-full flex items-center justify-center">
+                        <PlayIcon size={56} />
                       </div>
                     </div>
 
