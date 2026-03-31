@@ -1,11 +1,11 @@
 import { Controller, Get, Post, Body, UseGuards, Req, Param, Put, Patch, Delete, Query, UseInterceptors, UploadedFile, UploadedFiles, BadRequestException } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { memoryStorage } from 'multer';
 import { Throttle } from '@nestjs/throttler';
 import { CommunitiesService } from './communities.service';
 import { AuthGuard } from '@nestjs/passport';
 import { NotificationsService } from '../notifications/notifications.service';
+import { StorageService } from '../common/storage.service';
 
 // Image file filter - only allow image files
 const imageFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
@@ -15,23 +15,14 @@ const imageFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
   cb(null, true);
 };
 
-// Configure multer storage
-const storage = diskStorage({
-  destination: './uploads/communities',
-  filename: (req, file, cb) => {
-    const randomName = Array(32)
-      .fill(null)
-      .map(() => Math.round(Math.random() * 16).toString(16))
-      .join('');
-    cb(null, `${randomName}${extname(file.originalname)}`);
-  },
-});
+const storage = memoryStorage();
 
 @Controller('communities')
 export class CommunitiesController {
   constructor(
     private readonly communitiesService: CommunitiesService,
     private readonly notificationsService: NotificationsService,
+    private readonly storageService: StorageService,
   ) {}
 
   @UseGuards(AuthGuard('jwt'))
@@ -41,16 +32,16 @@ export class CommunitiesController {
     { name: 'logo', maxCount: 1 },
     { name: 'galleryImages', maxCount: 10 },
   ], { storage, fileFilter: imageFileFilter }))
-  create(
+  async create(
     @Req() req,
     @Body() body: any,
     @UploadedFiles() files?: { image?: any[]; logo?: any[]; galleryImages?: any[] },
   ) {
     const userId = req.user.userId;
     const { name, description, topic, youtubeUrl, whatsappUrl, facebookUrl, instagramUrl } = body;
-    const imagePath = files?.image?.[0] ? `/uploads/communities/${files.image[0].filename}` : null;
-    const logoPath = files?.logo?.[0] ? `/uploads/communities/${files.logo[0].filename}` : null;
-    const galleryPaths = files?.galleryImages?.map(f => `/uploads/communities/${f.filename}`) || [];
+    const imagePath = files?.image?.[0] ? await this.storageService.uploadFile(files.image[0], 'communities') : null;
+    const logoPath = files?.logo?.[0] ? await this.storageService.uploadFile(files.logo[0], 'communities') : null;
+    const galleryPaths = files?.galleryImages ? await this.storageService.uploadFiles(files.galleryImages, 'communities') : [];
     
     console.log('Create community - name:', name, 'description:', description, 'imagePath:', imagePath, 'logoPath:', logoPath);
     
@@ -92,7 +83,7 @@ export class CommunitiesController {
     { name: 'logo', maxCount: 1 },
     { name: 'galleryImages', maxCount: 10 },
   ], { storage, fileFilter: imageFileFilter }))
-  update(
+  async update(
     @Param('id') id: string,
     @Req() req,
     @Body() body: { 
@@ -123,7 +114,7 @@ export class CommunitiesController {
     
     if (files?.image?.[0]) {
       // New image uploaded
-      imagePath = `/uploads/communities/${files.image[0].filename}`;
+      imagePath = await this.storageService.uploadFile(files.image[0], 'communities');
     } else if (body.existingPrimaryImage) {
       // Keep existing primary image (don't change it)
       imagePath = body.existingPrimaryImage;
@@ -134,7 +125,7 @@ export class CommunitiesController {
     
     if (files?.logo?.[0]) {
       // New logo uploaded
-      logoPath = `/uploads/communities/${files.logo[0].filename}`;
+      logoPath = await this.storageService.uploadFile(files.logo[0], 'communities');
     } else if (body.existingLogo) {
       // Keep existing logo
       logoPath = body.existingLogo;
@@ -143,7 +134,7 @@ export class CommunitiesController {
       logoPath = null;
     }
     
-    const newGalleryPaths = files?.galleryImages?.map(f => `/uploads/communities/${f.filename}`) || [];
+    const newGalleryPaths = files?.galleryImages ? await this.storageService.uploadFiles(files.galleryImages, 'communities') : [];
     const existingGallery = body.existingGalleryImages ? JSON.parse(body.existingGalleryImages) : [];
     const galleryImages = [...existingGallery, ...newGalleryPaths];
     

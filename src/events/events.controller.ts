@@ -15,11 +15,11 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { memoryStorage } from 'multer';
 import { EventsService } from './events.service';
 import { RsvpStatus } from '@prisma/client';
 import { PrismaService } from '../users/prisma.service';
+import { StorageService } from '../common/storage.service';
 
 // Image file filter - only allow image files
 const imageFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
@@ -29,11 +29,14 @@ const imageFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
   cb(null, true);
 };
 
+const storage = memoryStorage();
+
 @Controller('events')
 export class EventsController {
   constructor(
     private readonly eventsService: EventsService,
     private readonly prisma: PrismaService,
+    private readonly storageService: StorageService,
   ) {}
 
   // Create event
@@ -41,13 +44,7 @@ export class EventsController {
   @Post('community/:communityId')
   @UseInterceptors(
     FileInterceptor('coverImage', {
-      storage: diskStorage({
-        destination: './uploads/events',
-        filename: (req, file, callback) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          callback(null, `event-${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
+      storage,
       fileFilter: imageFileFilter,
     }),
   )
@@ -79,7 +76,7 @@ export class EventsController {
     return this.eventsService.create(communityId, userId, {
       title: body.title,
       description: body.description,
-      coverImage: coverImage ? `/uploads/events/${coverImage.filename}` : undefined,
+      coverImage: coverImage ? await this.storageService.uploadFile(coverImage, 'events') : undefined,
       date: new Date(body.date),
       endDate: body.endDate ? new Date(body.endDate) : undefined,
       duration: body.duration ? parseInt(body.duration) : undefined,
@@ -170,13 +167,7 @@ export class EventsController {
   @Put(':eventId')
   @UseInterceptors(
     FileInterceptor('coverImage', {
-      storage: diskStorage({
-        destination: './uploads/events',
-        filename: (req, file, callback) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          callback(null, `event-${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
+      storage,
       fileFilter: imageFileFilter,
     }),
   )
@@ -190,7 +181,7 @@ export class EventsController {
     
     const data: any = { ...body };
     if (coverImage) {
-      data.coverImage = `/uploads/events/${coverImage.filename}`;
+      data.coverImage = await this.storageService.uploadFile(coverImage, 'events');
     }
     if (body.date) data.date = new Date(body.date);
     if (body.endDate) data.endDate = new Date(body.endDate);

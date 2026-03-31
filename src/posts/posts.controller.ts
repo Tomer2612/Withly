@@ -1,24 +1,16 @@
 import { Controller, Post, Body, Param, UseGuards, Req, Get, Delete, Patch, Query, UseInterceptors, UploadedFiles, Res, StreamableFile } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname, join } from 'path';
+import { memoryStorage } from 'multer';
+import { join } from 'path';
 import { createReadStream, existsSync } from 'fs';
 import { Response } from 'express';
 import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import { PostsService } from './posts.service';
 import { AuthGuard } from '@nestjs/passport';
 import { NotificationsService } from '../notifications/notifications.service';
+import { StorageService } from '../common/storage.service';
 
-const storage = diskStorage({
-  destination: './uploads/posts',
-  filename: (req, file, cb) => {
-    const randomName = Array(32)
-      .fill(null)
-      .map(() => Math.round(Math.random() * 16).toString(16))
-      .join('');
-    cb(null, `${randomName}${extname(file.originalname)}`);
-  },
-});
+const storage = memoryStorage();
 
 // File filter to determine file type
 const getFileType = (mimetype: string): 'image' | 'file' => {
@@ -31,6 +23,7 @@ export class PostsController {
   constructor(
     private readonly postsService: PostsService,
     private readonly notificationsService: NotificationsService,
+    private readonly storageService: StorageService,
   ) {}
 
   // Get posts by community - must come before :postId routes
@@ -60,15 +53,16 @@ export class PostsController {
     
     if (files && files.length > 0) {
       for (const file of files) {
-        const filePath = `/uploads/posts/${file.filename}`;
         const fileType = getFileType(file.mimetype);
         // Decode Hebrew/non-ASCII filenames properly
         const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
         
         if (fileType === 'image' && images.length < 6) {
-          images.push(filePath);
+          const url = await this.storageService.uploadFile(file, 'posts');
+          images.push(url);
         } else if (fileType === 'file' && uploadedFiles.length < 6) {
-          uploadedFiles.push({ url: filePath, name: originalName });
+          const url = await this.storageService.uploadFile(file, 'posts');
+          uploadedFiles.push({ url, name: originalName });
         }
       }
     }
@@ -129,7 +123,7 @@ export class PostsController {
   @UseGuards(AuthGuard('jwt'))
   @Patch(':postId')
   @UseInterceptors(FilesInterceptor('files', 12, { storage })) // Max 6 images + 6 files = 12
-  updatePost(
+  async updatePost(
     @Param('postId') postId: string,
     @Req() req,
     @Body() body: { 
@@ -153,15 +147,16 @@ export class PostsController {
     
     if (files && files.length > 0) {
       for (const file of files) {
-        const filePath = `/uploads/posts/${file.filename}`;
         const fileType = getFileType(file.mimetype);
         // Decode Hebrew/non-ASCII filenames properly
         const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
         
         if (fileType === 'image' && newImages.length < 6) {
-          newImages.push(filePath);
+          const url = await this.storageService.uploadFile(file, 'posts');
+          newImages.push(url);
         } else if (fileType === 'file' && newFiles.length < 6) {
-          newFiles.push({ url: filePath, name: originalName });
+          const url = await this.storageService.uploadFile(file, 'posts');
+          newFiles.push({ url, name: originalName });
         }
       }
     }

@@ -16,10 +16,10 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { memoryStorage } from 'multer';
 import * as jwt from 'jsonwebtoken';
 import { CoursesService } from './courses.service';
+import { StorageService } from '../common/storage.service';
 
 // Image file filter - only allow image files
 const imageFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
@@ -28,6 +28,8 @@ const imageFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
   }
   cb(null, true);
 };
+
+const storage = memoryStorage();
 
 // Helper to extract userId from optional JWT token
 function getUserIdFromToken(authHeader?: string): string | undefined {
@@ -43,20 +45,17 @@ function getUserIdFromToken(authHeader?: string): string | undefined {
 
 @Controller('courses')
 export class CoursesController {
-  constructor(private coursesService: CoursesService) {}
+  constructor(
+    private coursesService: CoursesService,
+    private storageService: StorageService,
+  ) {}
 
   // Create a new course
   @UseGuards(AuthGuard('jwt'))
   @Post()
   @UseInterceptors(
     FileInterceptor('image', {
-      storage: diskStorage({
-        destination: './uploads/courses',
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `course-${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
+      storage,
       fileFilter: imageFileFilter,
     }),
   )
@@ -67,7 +66,7 @@ export class CoursesController {
   ) {
     return this.coursesService.createCourse({
       ...body,
-      image: file ? `/uploads/courses/${file.filename}` : undefined,
+      image: file ? await this.storageService.uploadFile(file, 'courses') : undefined,
       authorId: req.user.userId,
     });
   }
@@ -118,13 +117,7 @@ export class CoursesController {
   @Patch(':courseId')
   @UseInterceptors(
     FileInterceptor('image', {
-      storage: diskStorage({
-        destination: './uploads/courses',
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `course-${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
+      storage,
       fileFilter: imageFileFilter,
     }),
   )
@@ -141,7 +134,7 @@ export class CoursesController {
     if (body.isPublished !== undefined) {
       updateData.isPublished = body.isPublished === true || body.isPublished === 'true';
     }
-    if (file) updateData.image = `/uploads/courses/${file.filename}`;
+    if (file) updateData.image = await this.storageService.uploadFile(file, 'courses');
     
     return this.coursesService.updateCourse(courseId, updateData, req.user.userId);
   }
@@ -209,13 +202,7 @@ export class CoursesController {
   @Post('lessons/upload-image')
   @UseInterceptors(
     FileInterceptor('image', {
-      storage: diskStorage({
-        destination: './uploads/lessons',
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `lesson-${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
+      storage,
       fileFilter: imageFileFilter,
     }),
   )
@@ -225,7 +212,8 @@ export class CoursesController {
     if (!file) {
       throw new Error('No file uploaded');
     }
-    return { url: `/uploads/lessons/${file.filename}` };
+    const url = await this.storageService.uploadFile(file, 'lessons');
+    return { url };
   }
 
   // Get lesson by ID

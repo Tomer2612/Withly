@@ -1,10 +1,10 @@
 import { Controller, Get, Post, Patch, Delete, UseGuards, Req, UseInterceptors, UploadedFile, UploadedFiles, Body, BadRequestException, Param, NotFoundException, Query } from '@nestjs/common';
 import { FileInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { memoryStorage } from 'multer';
 import { AuthGuard } from '@nestjs/passport';
 import { UsersService } from './users.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { StorageService } from '../common/storage.service';
 
 // Image file filter - only allow image files
 const imageFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
@@ -14,22 +14,14 @@ const imageFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
   cb(null, true);
 };
 
-const storage = diskStorage({
-  destination: './uploads/profiles',
-  filename: (req, file, cb) => {
-    const randomName = Array(32)
-      .fill(null)
-      .map(() => Math.round(Math.random() * 16).toString(16))
-      .join('');
-    cb(null, `${randomName}${extname(file.originalname)}`);
-  },
-});
+const storage = memoryStorage();
 
 @Controller('users')
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly notificationsService: NotificationsService,
+    private readonly storageService: StorageService,
   ) {}
 
   // Search users by name for @mentions - MUST be before :userId routes
@@ -66,8 +58,8 @@ export class UsersController {
     @Body() body: { name?: string; bio?: string; location?: string },
     @UploadedFiles() files?: { profileImage?: any[]; coverImage?: any[] },
   ) {
-    const profileImage = files?.profileImage?.[0] ? `/uploads/profiles/${files.profileImage[0].filename}` : undefined;
-    const coverImage = files?.coverImage?.[0] ? `/uploads/profiles/${files.coverImage[0].filename}` : undefined;
+    const profileImage = files?.profileImage?.[0] ? await this.storageService.uploadFile(files.profileImage[0], 'profiles') : undefined;
+    const coverImage = files?.coverImage?.[0] ? await this.storageService.uploadFile(files.coverImage[0], 'profiles') : undefined;
     const user = await this.usersService.updateProfile(req.user.userId, body.name, profileImage, coverImage, body.bio, body.location);
     return {
       userId: user?.id,

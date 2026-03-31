@@ -12,6 +12,7 @@ import { EventsModule } from './events/events.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MessagesModule } from './messages/messages.module';
 import { CoursesModule } from './courses/courses.module';
+import { StorageModule } from './common/storage.module';
 import { ActivityMiddleware } from './common/activity.middleware';
 
 
@@ -35,6 +36,7 @@ import { ActivityMiddleware } from './common/activity.middleware';
         limit: 500, // 500 requests per minute
       },
     ]),
+    StorageModule,
     UsersModule,
     AuthModule,
     CommunitiesModule,

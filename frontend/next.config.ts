@@ -47,6 +47,11 @@ const nextConfig: NextConfig = {
         protocol: 'http',
         hostname: 'www.withly.co.il',
       },
+      // CloudFront CDN for S3 uploads
+      {
+        protocol: 'https',
+        hostname: '*.cloudfront.net',
+      },
     ],
   },
 };
