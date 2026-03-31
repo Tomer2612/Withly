@@ -4,6 +4,14 @@ import path from "path";
 const nextConfig: NextConfig = {
   reactStrictMode: false, // Disable to prevent double WebSocket connections in dev
   outputFileTracingRoot: path.join(__dirname),
+  async rewrites() {
+    return [
+      {
+        source: '/beta',
+        destination: '/beta/index.html',
+      },
+    ];
+  },
   eslint: {
     // Disable ESLint during builds - we'll run it separately
     ignoreDuringBuilds: true,

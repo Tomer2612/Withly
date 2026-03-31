@@ -11,6 +11,7 @@ const SITE_ACCESS_ENABLED = process.env.NODE_ENV === 'production';
 const accessGateExemptRoutes = [
   '/access-gate',
   '/api/access-gate',
+  '/beta',
 ];
 
 // ============================================

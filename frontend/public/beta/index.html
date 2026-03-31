@@ -1,0 +1,286 @@
+<!DOCTYPE html><!-- Handled by Exflow.site --><html data-wf-page="699235dd6f659bcd5d73ed52" data-wf-site="699235dc6f659bcd5d73ecf2" data-wf-status="1"><head><base href="/beta/"/><meta charset="utf-8"/><title>Withly</title><meta content="width=device-width, initial-scale=1" name="viewport"/><meta content="Webflow" name="generator"/><link href="css/withly-staging.webflow.shared.f3ea090c2.css" rel="stylesheet" type="text/css"  /><script type="text/javascript">!function(o,c){var n=c.documentElement,t=" w-mod-";n.className+=t+"js",("ontouchstart"in o||o.DocumentTouch&&c instanceof DocumentTouch)&&(n.className+=t+"touch")}(window,document);</script><link href="images/favicon.png" rel="shortcut icon" type="image/x-icon"/><link href="images/app-icon.png" rel="apple-touch-icon"/></head><body><div class="page-wrapper"><div class="global-styles w-embed"><style>
+
+/* Make text look crisper and more legible in all browsers */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Focus state style for keyboard navigation for the focusable elements */
+*[tabindex]:focus-visible,
+  input[type="file"]:focus-visible {
+   outline: 0.125rem solid #4d65ff;
+   outline-offset: 0.125rem;
+}
+
+/* Set color style to inherit */
+.inherit-color * {
+    color: inherit;
+}
+
+/* Get rid of top margin on first element in any rich text element */
+.w-richtext > :not(div):first-child, .w-richtext > div:first-child > :first-child {
+  margin-top: 0 !important;
+}
+
+/* Get rid of bottom margin on last element in any rich text element */
+.w-richtext>:last-child, .w-richtext ol li:last-child, .w-richtext ul li:last-child {
+	margin-bottom: 0 !important;
+}
+
+
+/* Make sure containers never lose their center alignment */
+.container-medium,.container-small, .container-large {
+	margin-right: auto !important;
+  margin-left: auto !important;
+}
+
+/* 
+Make the following elements inherit typography styles from the parent and not have hardcoded values. 
+Important: You will not be able to style for example "All Links" in Designer with this CSS applied.
+Uncomment this CSS to use it in the project. Leave this message for future hand-off.
+*/
+/*
+a,
+.w-input,
+.w-select,
+.w-tab-link,
+.w-nav-link,
+.w-dropdown-btn,
+.w-dropdown-toggle,
+.w-dropdown-link {
+  color: inherit;
+  text-decoration: inherit;
+  font-size: inherit;
+}
+*/
+
+/* Apply "..." after 3 lines of text */
+.text-style-3lines {
+	display: -webkit-box;
+	overflow: hidden;
+	-webkit-line-clamp: 3;
+	-webkit-box-orient: vertical;
+}
+
+/* Apply "..." after 2 lines of text */
+.text-style-2lines {
+	display: -webkit-box;
+	overflow: hidden;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+}
+
+/* These classes are never overwritten */
+.hide {
+  display: none !important;
+}
+
+@media screen and (max-width: 991px) {
+    .hide, .hide-tablet {
+        display: none !important;
+    }
+}
+  @media screen and (max-width: 767px) {
+    .hide-mobile-landscape{
+      display: none !important;
+    }
+}
+  @media screen and (max-width: 479px) {
+    .hide-mobile{
+      display: none !important;
+    }
+}
+ 
+.margin-0 {
+  margin: 0rem !important;
+}
+  
+.padding-0 {
+  padding: 0rem !important;
+}
+
+.spacing-clean {
+padding: 0rem !important;
+margin: 0rem !important;
+}
+
+.margin-top {
+  margin-right: 0rem !important;
+  margin-bottom: 0rem !important;
+  margin-left: 0rem !important;
+}
+
+.padding-top {
+  padding-right: 0rem !important;
+  padding-bottom: 0rem !important;
+  padding-left: 0rem !important;
+}
+  
+.margin-right {
+  margin-top: 0rem !important;
+  margin-bottom: 0rem !important;
+  margin-left: 0rem !important;
+}
+
+.padding-right {
+  padding-top: 0rem !important;
+  padding-bottom: 0rem !important;
+  padding-left: 0rem !important;
+}
+
+.margin-bottom {
+  margin-top: 0rem !important;
+  margin-right: 0rem !important;
+  margin-left: 0rem !important;
+}
+
+.padding-bottom {
+  padding-top: 0rem !important;
+  padding-right: 0rem !important;
+  padding-left: 0rem !important;
+}
+
+.margin-left {
+  margin-top: 0rem !important;
+  margin-right: 0rem !important;
+  margin-bottom: 0rem !important;
+}
+  
+.padding-left {
+  padding-top: 0rem !important;
+  padding-right: 0rem !important;
+  padding-bottom: 0rem !important;
+}
+  
+.margin-horizontal {
+  margin-top: 0rem !important;
+  margin-bottom: 0rem !important;
+}
+
+.padding-horizontal {
+  padding-top: 0rem !important;
+  padding-bottom: 0rem !important;
+}
+
+.margin-vertical {
+  margin-right: 0rem !important;
+  margin-left: 0rem !important;
+}
+  
+.padding-vertical {
+  padding-right: 0rem !important;
+  padding-left: 0rem !important;
+}
+
+</style></div><main class="main-wrapper"><div data-collapse="medium" data-animation="default" data-duration="400" fs-scrolldisable-element="smart-nav" data-easing="ease" data-easing2="ease" role="banner" class="navbar_component w-nav"><div class="navbar_container"><img loading="lazy" src="images/withly-logo-black.svg" alt="withly logo" class="navbar_logo"/><nav role="navigation" class="navbar_menu w-nav-menu"><div class="navbar1_menu-links"><a href="#" class="navbar_link w-nav-link">מחירון</a><a href="#" class="navbar_link w-nav-link">שאלות ותשובות</a><a href="#" class="navbar_link w-nav-link">צרו קשר</a><div data-delay="200" data-hover="true" class="navbar1_menu-dropdown w-dropdown"><div class="navbar1_dropdown-toggle w-dropdown-toggle"><div>Link Four</div><div class="dropdown-chevron w-embed"><svg width=" 100%" height=" 100%" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path fill-rule="evenodd" clip-rule="evenodd" d="M2.55806 6.29544C2.46043 6.19781 2.46043 6.03952 2.55806 5.94189L3.44195 5.058C3.53958 4.96037 3.69787 4.96037 3.7955 5.058L8.00001 9.26251L12.2045 5.058C12.3021 4.96037 12.4604 4.96037 12.5581 5.058L13.4419 5.94189C13.5396 6.03952 13.5396 6.19781 13.4419 6.29544L8.17678 11.5606C8.07915 11.6582 7.92086 11.6582 7.82323 11.5606L2.55806 6.29544Z" fill="currentColor"/>
+</svg></div></div><nav class="navbar1_dropdown-list w-dropdown-list"><a href="#" class="navbar1_dropdown-link w-dropdown-link">Link Five</a><a href="#" class="navbar1_dropdown-link w-dropdown-link">Link Six</a><a href="#" class="navbar1_dropdown-link w-dropdown-link">Link Seven</a></nav></div></div><div class="navbar_menu-buttons"><a href="#form" class="button is-nav w-button">הצטרפו לרשימת ההמתנה</a></div></nav><div class="navbar1_menu-button w-nav-button"><div data-w-id="6478fbe4-c041-2b5a-2460-a105c25ecfbf" class="menu-icon"><div class="menu-icon_line-top"></div><div class="menu-icon_line-middle"><div class="menu-icon1_line-middle-inner"></div></div><div class="menu-icon_line-bottom"></div></div></div></div></div><section class="for-creators_section is-hero"><div class="padding-global"><div class="container-large"><div class="padding-section-large"><div class="flex-align-center"><div class="text-align-center"><h1>הבית החדש של הקהילה שלך</h1><div class="spacer-0-75rem"></div><div class="max-width-ch is-80"><div class="text-size-medium text-color-paragraph">Withly היא פלטפורמה שמרכזת תוכן, קורסים ואירועים במקום אחד. נהלו את הקהילה שלכם בצורה מסודרת, בלי מורכבות מיותרת, וצרו מקור הכנסה יציב מהעשייה שלכם.</div></div><div class="spacer-1-5rem"></div><div class="button-group is-center"><a href="#form" class="button w-button">הצטרפו לרשימת ההמתנה</a><div class="hide"><a href="https://withly.co.il" class="button is-secondary w-button">חפשו קהילות קיימות</a></div></div></div></div></div></div></div><div class="for-creators-hero_gradient"></div></section><section><div class="padding-global"><div class="container-large"><div class="padding-section-large is-top-only"><div class="flex-align-center"><div class="max-width-ch is-60"><div class="text-align-center"><h2>כל מה שהעסק שלכם צריך תחת קורת גג אחת</h2></div></div></div><div class="section-heading-spacer"></div><div class="for-creators_cards-component"><div class="for-creators_card is-green"><div class="image-wrapper"><img src="images/card-feature-commnity-image.avif" loading="lazy" width="1200" height="736" alt="community feed feature image" srcset="images/card-feature-commnity-image-p-500.avif 500w, images/card-feature-commnity-image-p-800.avif 800w, images/card-feature-commnity-image.avif 1200w" sizes="(max-width: 1200px) 100vw, 1200px" class="image-general"/><div class="for-creators_card-gradient is-green"></div></div><div class="for-creatos_card-content-wrap"><h3>קהילה חיה ושיחות אמיתיות</h3><div class="text-size-medium text-color-paragraph">פוסטים, תגובות ושיח יומיומי שמניעים מעורבות והשתתפות</div></div></div><div class="for-creators_card is-blue"><div class="image-wrapper"><img src="images/card-feature-courses-image.avif" loading="lazy" width="1200" height="736" alt="community courses feature image" srcset="images/card-feature-courses-image-p-500.avif 500w, images/card-feature-courses-image.avif 1200w" sizes="(max-width: 1200px) 100vw, 1200px" class="image-general"/><div class="for-creators_card-gradient is-blue"></div></div><div class="for-creatos_card-content-wrap"><h3>מערכת קורסים מלאה בקהילה</h3><div class="text-size-medium text-color-paragraph">צרו שיעורים, חלקו תכנים ועקבו אחרי ההתקדמות של המשתתפים</div></div></div><div class="for-creators_card is-gray"><div class="image-wrapper"><img src="images/card-feature-calendar-image.avif" loading="lazy" width="1200" height="736" alt="calendar feature image" srcset="images/card-feature-calendar-image-p-500.avif 500w, images/card-feature-calendar-image-p-800.avif 800w, images/card-feature-calendar-image.avif 1200w" sizes="(max-width: 1200px) 100vw, 1200px" class="image-general"/><div class="for-creators_card-gradient is-gray"></div></div><div class="for-creatos_card-content-wrap"><h3>יומן קהילה מרכזי וחכם</h3><div class="text-size-medium text-color-paragraph">תכנון וניהול של כל אירועי הקהילה והמפגשים במקום אחד, בצורה מסודרת, ברורה ונגישה</div></div></div></div></div></div></div></section><section id="for-creaots-faq-section"><div class="padding-global"><div class="container-small"><div class="padding-section-large"><div class="flex-align-center"><div class="max-width-ch is-80"><div class="text-align-center"><h2>שאלות ותשובות</h2></div></div></div><div class="section-heading-spacer"></div><div class="accordion-wrapper"><div data-w-id="4b875d6a-3236-4e58-fa24-f80e331f4b2d" class="accordion-item"><div class="accordion-trigger"><div class="text-size-medium text-weight-semibold">מה זה אומר להיות &quot;משתמש בטא&quot;</div><div class="accordion-plus-wrapper"><div class="accordion-plus-line"></div><div style="-webkit-transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0);-moz-transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0);-ms-transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0);transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0)" class="accordion-plus-line is-second-line"></div></div></div><div style="height:0px;-webkit-transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);-moz-transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);-ms-transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);opacity:0" class="accordion-content"><div class="spacer-small"></div><div class="max-width-90"><p class="text-color-paragraph">בימים אלו אנחנו בוחרים קבוצה מצומצמת של מנהלי קהילות שיקבלו גישה מוקדמת לפלטפורמה. משתמשי הבטא יקבלו את המערכת בחינם לתקופה משמעותית (ללא דמי מנוי).</p></div></div></div><div data-w-id="3c41bea5-467f-8239-3517-de01dc2df720" class="accordion-item"><div class="accordion-trigger"><div class="text-size-medium text-weight-semibold">האם המערכת תעלה כסף בהמשך?</div><div class="accordion-plus-wrapper"><div class="accordion-plus-line"></div><div style="-webkit-transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0);-moz-transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0);-ms-transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0);transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0)" class="accordion-plus-line is-second-line"></div></div></div><div style="height:0px;-webkit-transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);-moz-transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);-ms-transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);opacity:0" class="accordion-content"><div class="spacer-small"></div><div class="max-width-90"><p class="text-color-paragraph">הגישה למשתמשי הבטא הראשונים תהיה ללא עלות לתקופה שנגדיר מראש. לאחר ההשקה הרשמית של המערכת, המודל העסקי שלנו יהיה מבוסס על דמי מנוי חודשיים הוגנים ועמלת סליקה מינימלית. בכל מקרה, משתמשי הבטא ייהנו מהטבות ותנאים מיוחדים גם בעתיד.</p></div></div></div><div data-w-id="9586c419-37c8-b8fc-f0b5-b1ae8953840b" class="accordion-item"><div class="accordion-trigger"><div class="text-size-medium text-weight-semibold">יש לי כבר קהילה פעילה, למה לי לעבור פלטפורמה?</div><div class="accordion-plus-wrapper"><div class="accordion-plus-line"></div><div style="-webkit-transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0);-moz-transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0);-ms-transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0);transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0)" class="accordion-plus-line is-second-line"></div></div></div><div style="height:0px;-webkit-transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);-moz-transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);-ms-transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);opacity:0" class="accordion-content"><div class="spacer-small"></div><div class="max-width-90"><p class="text-color-paragraph">פלטפורמות אחרות לרוב או מורכבות מדי, או לא מותאמות לקהל המקומי. אנחנו מציעים פתרון שבאמת עובד. עשינו את זה פשוט, נקי מגימיקים, ועם מטרה אחת ברורה: לעזור לכם להפוך את הידע והקהל שלכם לעסק יציב.</p></div></div></div><div data-w-id="0662d2c8-bf13-d60f-2fd6-ffd9747c5050" class="accordion-item"><div class="accordion-trigger"><div class="text-size-medium text-weight-semibold">האם אפשר להקים קהילה בתשלום?</div><div class="accordion-plus-wrapper"><div class="accordion-plus-line"></div><div style="-webkit-transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0);-moz-transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0);-ms-transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0);transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0)" class="accordion-plus-line is-second-line"></div></div></div><div style="height:0px;-webkit-transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);-moz-transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);-ms-transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);opacity:0" class="accordion-content"><div class="spacer-small"></div><div class="max-width-90"><p class="text-color-paragraph">Withly בנויה כדי לעזור לכם לייצר הכנסה מהקהל שלכם. תוכלו להקים קהילות בתשלום חודשי (מנוי) או בחינם, הכל עם סליקה מובנית ופשוטה.</p></div></div></div><div data-w-id="088b5abf-23d6-0973-e39d-348500122242" class="accordion-item"><div class="accordion-trigger"><div class="text-size-medium text-weight-semibold">האם יש מגבלה על מספר החברים בקהילה?</div><div class="accordion-plus-wrapper"><div class="accordion-plus-line"></div><div style="-webkit-transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0);-moz-transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0);-ms-transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0);transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0)" class="accordion-plus-line is-second-line"></div></div></div><div style="height:0px;-webkit-transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);-moz-transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);-ms-transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);opacity:0" class="accordion-content"><div class="spacer-small"></div><div class="max-width-90"><p class="text-color-paragraph">לא. אין הגבלה על כמות המשתתפים. אנחנו כאן כדי לעזור לקהילה שלכם לצמוח כמה שיותר.</p></div></div></div><div data-w-id="1411b28e-dd7a-c470-88a2-caf418ab3c52" class="accordion-item"><div class="accordion-trigger"><div class="text-size-medium text-weight-semibold">יש הגבלה על קורסים, וידאו או תכנים?</div><div class="accordion-plus-wrapper"><div class="accordion-plus-line"></div><div style="-webkit-transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0);-moz-transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0);-ms-transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0);transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0)" class="accordion-plus-line is-second-line"></div></div></div><div style="height:0px;-webkit-transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);-moz-transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);-ms-transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);opacity:0" class="accordion-content"><div class="spacer-small"></div><div class="max-width-90"><p class="text-color-paragraph">לא. אין שום הגבלה. תוכלו להעלות כמה קורסים שתרצו, בלי לדאוג לשטח אחסון.</p></div></div></div><div data-w-id="27471630-e9ca-1a99-b4e1-3b8f709ed195" class="accordion-item"><div class="accordion-trigger"><div class="text-size-medium text-weight-semibold">האם צריך ידע טכני כדי להקים קהילה?</div><div class="accordion-plus-wrapper"><div class="accordion-plus-line"></div><div style="-webkit-transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0);-moz-transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0);-ms-transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0);transform:translate3d(0, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(90deg) skew(0, 0)" class="accordion-plus-line is-second-line"></div></div></div><div style="height:0px;-webkit-transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);-moz-transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);-ms-transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);transform:translate3d(0, 0, 0) scale3d(0.9, 0.9, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0);opacity:0" class="accordion-content"><div class="spacer-small"></div><div class="max-width-90"><p class="text-color-paragraph">לא. פתיחת קהילה והעלאת תוכן מתבצעים דרך ממשק פשוט וברור, ללא צורך בידע טכני. מעבר לכך, מכיוון שמדובר בתוכנית בטא סגורה, אנחנו נעניק לכם ליווי אישי ונעזור לכם בהגדרות הראשוניות כדי לוודא שהמעבר של התוכן והחברים שלכם יהיה חלק ככל האפשר.</p></div></div></div></div></div></div></div></section><section id="form" class="for-creators_section is-cta"><div class="padding-global"><div class="container-small"><div class="padding-section-medium"><div class="flex-align-center"><div class="max-width-ch"><div class="text-align-center"><h2 class="text-color-white">מעוניינים להצטרף?</h2><div class="spacer-0-75rem"></div><div class="text-size-medium text-color-white">המקומות בתוכנית המוקדמת מוגבלים כדי שנוכל לתת ליווי אישי לכל קהילה.</div><div class="spacer-1-5rem"></div><div class="form_component-beta w-form"><form id="email-form" name="email-form" data-name="Email Form" method="get" data-wf-page-id="699235dd6f659bcd5d73ed52" data-wf-element-id="b0fb6448-2323-c5d7-c684-6ac0e3fb8369"><div class="form_input-wrapper"><label for="full-name" class="form_label">שם מלא<span class="text-color-red">*</span></label><input class="form_input w-input" maxlength="256" name="full-name" data-name="full name" placeholder="" type="text" id="full-name" required=""/></div><div class="form_input-wrapper"><label for="email" class="form_label">אימייל<span class="text-color-red">*</span></label><input class="form_input w-input" maxlength="256" name="email" data-name="email" placeholder="" type="email" id="email" required=""/></div><div class="form_input-wrapper"><label for="Current-Community-Link" class="form_label">קישור לקהילה הנוכחית שלכם<span class="text-color-red">*</span></label><input class="form_input w-input" maxlength="256" name="Current-Community-Link" data-name="Current Community Link" placeholder="" type="url" id="Current-Community-Link" required=""/></div><div class="form_input-wrapper"><label for="Biggest-Painpoint" class="form_label">מה האתגר הכי גדול שלכם היום בתפעול הקהילה?</label><textarea placeholder="" maxlength="5000" id="Biggest-Painpoint" name="Biggest-Painpoint" data-name="Biggest Painpoint" class="form_input is-text-area w-input"></textarea></div><input type="submit" data-wait="טוען, רק שנייה..." class="button is-form-submit w-button" value="הצטרפות לבטא"/></form><div class="form_message-success w-form-done"><img src="images/frame.svg" loading="lazy" alt="" class="form_message-success-image"/><div>תודה! קיבלנו את הפרטים, נהיה בקשר ממש בקרוב.</div></div><div class="w-form-fail"><div>Oops! Something went wrong while submitting the form.</div></div></div></div></div></div></div></div></div></section><footer class="footer-component"><div class="footer_logo-link"><img src="images/withly-logo.svg" loading="lazy" alt="withly logo" class="footer_logo"/><div class="div-block"></div></div><div class="footer_links-wrapper"><a href="#" class="footer_link">מחירון</a><a href="#" class="footer_link">שאלות ותשובות</a><a href="#" class="footer_link">צרו קשר</a><div class="footer_divider"></div><a href="#" class="footer_link">תנאי שימוש</a><a href="#" class="footer_link">הצהרת נגישות</a></div><div class="text-color-white">זכויות יוצרים – כל הזכויות שמורות © Withly 2026</div></footer></main></div><script src="js/jquery.js?site=699235dc6f659bcd5d73ecf2" type="text/javascript"  ></script><script src="js/webflow.schunk.36b8fb49256177c8.js" type="text/javascript"  ></script><script src="js/webflow.schunk.572944b7474b15a5.js" type="text/javascript"  ></script><script src="js/webflow.schunk.8bcd8860e07a4086.js" type="text/javascript"  ></script><script src="js/webflow-script.js" type="text/javascript"  ></script><script>
+(function() {
+  var form = document.getElementById('email-form');
+  var successDiv = document.querySelector('.w-form-done');
+  var errorDiv = document.querySelector('.w-form-fail');
+  var submitBtn = form.querySelector('input[type="submit"]');
+
+  var nameField = document.getElementById('full-name');
+  var emailField = document.getElementById('email');
+  var linkField = document.getElementById('Current-Community-Link');
+  var painpointField = document.getElementById('Biggest-Painpoint');
+
+  function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }
+
+  function isValidUrl(url) {
+    try { new URL(url); return true; } catch(e) { return false; }
+  }
+
+  function showFieldError(field, message) {
+    field.style.borderColor = '#e74c3c';
+    var errorEl = field.parentElement.querySelector('.field-error');
+    if (!errorEl) {
+      errorEl = document.createElement('div');
+      errorEl.className = 'field-error';
+      errorEl.style.cssText = 'color: #e74c3c; font-size: 13px; margin-top: 4px; text-align: right; direction: rtl;';
+      field.parentElement.appendChild(errorEl);
+    }
+    errorEl.textContent = message;
+  }
+
+  function clearFieldError(field) {
+    field.style.borderColor = '';
+    var errorEl = field.parentElement.querySelector('.field-error');
+    if (errorEl) errorEl.remove();
+  }
+
+  nameField.addEventListener('blur', function() {
+    if (!this.value.trim()) showFieldError(this, 'שדה חובה');
+    else if (this.value.trim().length > 50) showFieldError(this, 'עד 50 תווים');
+    else clearFieldError(this);
+  });
+
+  emailField.addEventListener('blur', function() {
+    if (!this.value.trim()) showFieldError(this, 'שדה חובה');
+    else if (!isValidEmail(this.value.trim())) showFieldError(this, 'כתובת אימייל לא תקינה');
+    else clearFieldError(this);
+  });
+
+  linkField.addEventListener('blur', function() {
+    if (!this.value.trim()) showFieldError(this, 'שדה חובה');
+    else if (!isValidUrl(this.value.trim())) showFieldError(this, 'קישור לא תקין (יש להזין כתובת מלאה)');
+    else clearFieldError(this);
+  });
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    errorDiv.style.display = 'none';
+
+    var name = nameField.value.trim();
+    var email = emailField.value.trim();
+    var link = linkField.value.trim();
+    var painpoint = painpointField.value.trim();
+
+    var valid = true;
+    if (!name) { showFieldError(nameField, 'שדה חובה'); valid = false; }
+    else if (name.length > 50) { showFieldError(nameField, 'עד 50 תווים'); valid = false; }
+    else clearFieldError(nameField);
+
+    if (!email) { showFieldError(emailField, 'שדה חובה'); valid = false; }
+    else if (!isValidEmail(email)) { showFieldError(emailField, 'כתובת אימייל לא תקינה'); valid = false; }
+    else clearFieldError(emailField);
+
+    if (!link) { showFieldError(linkField, 'שדה חובה'); valid = false; }
+    else if (!isValidUrl(link)) { showFieldError(linkField, 'קישור לא תקין (יש להזין כתובת מלאה)'); valid = false; }
+    else clearFieldError(linkField);
+
+    if (!valid) return;
+
+    var originalText = submitBtn.value;
+    submitBtn.value = submitBtn.getAttribute('data-wait') || 'שולח...';
+    submitBtn.disabled = true;
+
+    fetch('/api/beta-lead', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: name,
+        email: email,
+        communityLink: link,
+        painpoint: painpoint
+      })
+    })
+    .then(function(res) {
+      if (!res.ok) throw new Error('Failed');
+      form.style.display = 'none';
+      successDiv.style.display = 'block';
+    })
+    .catch(function() {
+      errorDiv.style.display = 'block';
+      submitBtn.value = originalText;
+      submitBtn.disabled = false;
+    });
+  });
+})();
+</script></body></html>
