@@ -8,6 +8,7 @@ import { useCommunityContext } from '../CommunityContext';
 import TrophyIcon from '../../../components/icons/TrophyIcon';
 import AwardIcon from '../../../components/icons/AwardIcon';
 import UsersIcon from '../../../components/icons/UsersIcon';
+import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface Community {
   id: string;
@@ -146,7 +147,7 @@ export default function LeaderboardPage() {
                   <Link href={`/profile/${member.userId}`}>
                     {member.profileImage ? (
                       <img
-                        src={member.profileImage.startsWith('http') ? member.profileImage : `${process.env.NEXT_PUBLIC_API_URL}${member.profileImage}`}
+                        src={getImageUrl(member.profileImage)}
                         alt={member.name}
                         className="w-12 h-12 rounded-full object-cover border-2 border-white shadow hover:opacity-80 transition"
                       />

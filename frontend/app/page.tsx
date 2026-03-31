@@ -10,6 +10,7 @@ import FilterDropdown from './components/FilterDropdown';
 import SearchXIcon from './components/icons/SearchXIcon';
 import ChevronLeftIcon from './components/icons/ChevronLeftIcon';
 import ChevronRightIcon from './components/icons/ChevronRightIcon';
+import { getImageUrl } from '@/app/lib/imageUrl';
 
 const COMMUNITY_TOPICS = [
   'אנימציה',
@@ -371,7 +372,7 @@ export default function Home() {
               >
                 {community.image ? (
                   <img
-                    src={`${process.env.NEXT_PUBLIC_API_URL}${community.image}`}
+                    src={getImageUrl(community.image)}
                     alt={community.name}
                     className="w-full object-cover"
                     style={{ aspectRatio: '16/9' }}
@@ -385,7 +386,7 @@ export default function Home() {
                   <div className="flex items-start gap-3 mb-2">
                     {community.logo ? (
                       <img
-                        src={`${process.env.NEXT_PUBLIC_API_URL}${community.logo}`}
+                        src={getImageUrl(community.logo)}
                         alt={community.name}
                         className="w-12 h-12 rounded-full object-cover flex-shrink-0"
                       />

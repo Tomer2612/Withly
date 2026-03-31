@@ -14,6 +14,7 @@ import CreditCardIcon from '../components/icons/CreditCardIcon';
 import TrashIcon from '../components/icons/TrashIcon';
 import LockIcon from '../components/icons/LockIcon';
 import CalendarIcon from '../components/icons/CalendarIcon';
+import { getImageUrl } from '@/app/lib/imageUrl';
 
 // Password requirements (same as signup)
 const passwordRequirements = [
@@ -230,7 +231,7 @@ export default function SettingsPage() {
           setBio(data.bio || '');
           setLocation(data.location || '');
           if (data.profileImage) {
-            setImagePreview(data.profileImage.startsWith('http') ? data.profileImage : `${process.env.NEXT_PUBLIC_API_URL}${data.profileImage}`);
+            setImagePreview(getImageUrl(data.profileImage));
           }
         })
         .catch(console.error)
@@ -332,7 +333,7 @@ export default function SettingsPage() {
       setProfileImage(null);
       
       if (updatedProfile.profileImage) {
-        setImagePreview(updatedProfile.profileImage.startsWith('http') ? updatedProfile.profileImage : `${process.env.NEXT_PUBLIC_API_URL}${updatedProfile.profileImage}`);
+        setImagePreview(getImageUrl(updatedProfile.profileImage));
       }
       
       // Show success message

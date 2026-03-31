@@ -8,6 +8,7 @@ import WithlyIcon from './icons/WithlyIcon';
 import NotificationBell from './NotificationBell';
 import { MessagesBell } from './ChatWidget';
 import UserProfileDropdown from './UserProfileDropdown';
+import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface UserCommunity {
   id: string;
@@ -119,7 +120,7 @@ export default function CommunityNavbar({
           >
             {community?.logo ? (
               <img
-                src={`${process.env.NEXT_PUBLIC_API_URL}${community.logo}`}
+                src={getImageUrl(community.logo)}
                 alt={community.name}
                 className="w-10 h-10 rounded-lg object-cover"
               />
@@ -165,7 +166,7 @@ export default function CommunityNavbar({
                 >
                   {comm.logo ? (
                     <img
-                      src={`${process.env.NEXT_PUBLIC_API_URL}${comm.logo}`}
+                      src={getImageUrl(comm.logo)}
                       alt={comm.name}
                       className="w-8 h-8 rounded-lg object-cover flex-shrink-0"
                     />

@@ -16,6 +16,7 @@ import TrashCircleIcon from '../../../components/icons/TrashCircleIcon';
 import CloseIcon from '../../../components/icons/CloseIcon';
 import ChevronLeftIcon from '../../../components/icons/ChevronLeftIcon';
 import ChevronRightIcon from '../../../components/icons/ChevronRightIcon';
+import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface Course {
   id: string;
@@ -362,7 +363,7 @@ export default function CoursesPage() {
                   <div className="relative h-[250px] bg-gray-200 overflow-hidden">
                     {course.image ? (
                       <Image
-                        src={course.image.startsWith('http') ? course.image : `${process.env.NEXT_PUBLIC_API_URL}${course.image}`}
+                        src={getImageUrl(course.image)}
                         alt={course.title}
                         fill
                         className="object-cover"

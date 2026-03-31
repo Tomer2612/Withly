@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { useSocketContext, SocketMessage } from '../lib/SocketContext';
+import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface Message {
   id: string;
@@ -497,7 +498,7 @@ export default function ChatWidget() {
                     >
                       {other.profileImage ? (
                         <Image
-                          src={other.profileImage.startsWith('http') ? other.profileImage : `${process.env.NEXT_PUBLIC_API_URL}${other.profileImage}`}
+                          src={getImageUrl(other.profileImage)}
                           alt={other.name}
                           width={40}
                           height={40}
@@ -565,7 +566,7 @@ export default function ChatWidget() {
             >
               {chat.recipientImage ? (
                 <Image
-                  src={chat.recipientImage.startsWith('http') ? chat.recipientImage : `${process.env.NEXT_PUBLIC_API_URL}${chat.recipientImage}`}
+                  src={getImageUrl(chat.recipientImage)}
                   alt={chat.recipientName}
                   width={24}
                   height={24}
@@ -681,7 +682,7 @@ function ChatWindow({
           >
             {chat.recipientImage ? (
               <Image
-                src={chat.recipientImage.startsWith('http') ? chat.recipientImage : `${process.env.NEXT_PUBLIC_API_URL}${chat.recipientImage}`}
+                src={getImageUrl(chat.recipientImage)}
                 alt={chat.recipientName}
                 width={32}
                 height={32}

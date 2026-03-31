@@ -11,6 +11,7 @@ import CameraIcon from '../../components/icons/CameraIcon';
 import CalendarIcon from '../../components/icons/CalendarIcon';
 import HistoryIcon from '../../components/icons/HistoryIcon';
 import UsersIcon from '../../components/icons/UsersIcon';
+import { getImageUrl } from '@/app/lib/imageUrl';
 
 const formatMemberCount = (count: number) => {
   if (count >= 10000) {
@@ -277,7 +278,7 @@ export default function MemberProfilePage() {
       <div className="w-full h-64 relative z-0">
         {profile?.coverImage ? (
           <img
-            src={`${process.env.NEXT_PUBLIC_API_URL}${profile.coverImage}`}
+            src={getImageUrl(profile.coverImage)}
             alt="Cover"
             className="w-full h-full object-cover"
           />
@@ -338,7 +339,7 @@ export default function MemberProfilePage() {
             <div className="-mt-20 relative z-10">
               {profile?.profileImage ? (
                 <img
-                  src={profile.profileImage.startsWith('http') ? profile.profileImage : `${process.env.NEXT_PUBLIC_API_URL}${profile.profileImage}`}
+                  src={getImageUrl(profile.profileImage)}
                   alt={profile.name}
                   className="w-36 h-36 rounded-full object-cover"
                   style={{ border: '6px solid white' }}
@@ -531,7 +532,7 @@ export default function MemberProfilePage() {
                         <Link href={`/communities/${community.slug || community.id}/feed`}>
                           {community.image ? (
                             <img
-                              src={`${process.env.NEXT_PUBLIC_API_URL}${community.image}`}
+                              src={getImageUrl(community.image)}
                               alt={community.name}
                               className="w-full h-40 object-cover"
                             />
@@ -545,7 +546,7 @@ export default function MemberProfilePage() {
                           <div className="flex items-start gap-3 mb-2">
                             {community.logo ? (
                               <img
-                                src={`${process.env.NEXT_PUBLIC_API_URL}${community.logo}`}
+                                src={getImageUrl(community.logo)}
                                 alt={community.name}
                                 className="w-12 h-12 rounded-full object-cover flex-shrink-0"
                               />
@@ -666,7 +667,7 @@ export default function MemberProfilePage() {
                         <Link href={`/communities/${community.slug || community.id}/feed`}>
                           {community.image ? (
                             <img
-                              src={`${process.env.NEXT_PUBLIC_API_URL}${community.image}`}
+                              src={getImageUrl(community.image)}
                               alt={community.name}
                               className="w-full h-40 object-cover"
                             />
@@ -681,7 +682,7 @@ export default function MemberProfilePage() {
                           <div className="flex items-start gap-3 mb-2">
                             {community.logo ? (
                               <img
-                                src={`${process.env.NEXT_PUBLIC_API_URL}${community.logo}`}
+                                src={getImageUrl(community.logo)}
                                 alt={community.name}
                                 className="w-12 h-12 rounded-full object-cover flex-shrink-0"
                               />

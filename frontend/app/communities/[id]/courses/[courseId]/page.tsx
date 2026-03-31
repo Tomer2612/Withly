@@ -18,6 +18,7 @@ import FileQuestionIcon from '../../../../components/icons/FileQuestionIcon';
 import LayersIcon from '../../../../components/icons/LayersIcon';
 import ImageIcon from '../../../../components/icons/ImageIcon';
 import PlayIcon from '../../../../components/icons/PlayIcon';
+import { getImageUrl } from '@/app/lib/imageUrl';
 
 // Declare YouTube Player types
 declare global {
@@ -589,7 +590,7 @@ function CourseViewerContent() {
       <main className="min-h-screen bg-gray-100" dir="rtl">
         <div className="max-w-4xl mx-auto px-8 py-16">
           <div className="bg-white rounded-2xl shadow-sm p-8 text-center">
-            {course.image && <img src={course.image.startsWith('http') ? course.image : `${process.env.NEXT_PUBLIC_API_URL}${course.image}`} alt={course.title} className="w-full h-64 object-cover rounded-xl mb-8" />}
+            {course.image && <img src={getImageUrl(course.image)} alt={course.title} className="w-full h-64 object-cover rounded-xl mb-8" />}
             <h1 className="text-3xl font-bold text-gray-900 mb-4">{course.title}</h1>
             <p className="text-gray-600 mb-8 max-w-2xl mx-auto">{course.description}</p>
             <div className="flex items-center justify-center gap-6 mb-8 text-gray-500">
@@ -860,7 +861,7 @@ function CourseViewerContent() {
                               }`}
                             >
                               <img
-                                src={`${process.env.NEXT_PUBLIC_API_URL}${image}`}
+                                src={getImageUrl(image)}
                                 alt={`תמונה ${index + 1}`}
                                 className={`w-full object-cover hover:opacity-90 transition ${
                                   imageCount === 1 ? 'max-h-[500px] rounded-xl' :
@@ -1223,7 +1224,7 @@ function CourseViewerContent() {
 
           {/* Main image */}
           <img
-            src={`${process.env.NEXT_PUBLIC_API_URL}${lightboxImages[lightboxIndex]}`}
+            src={getImageUrl(lightboxImages[lightboxIndex])}
             alt={`תמונה ${lightboxIndex + 1}`}
             className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg shadow-2xl"
             onClick={(e) => e.stopPropagation()}
@@ -1241,7 +1242,7 @@ function CourseViewerContent() {
                   }`}
                 >
                   <img
-                    src={`${process.env.NEXT_PUBLIC_API_URL}${img}`}
+                    src={getImageUrl(img)}
                     alt={`תמונה ${idx + 1}`}
                     className="w-full h-full object-cover"
                   />

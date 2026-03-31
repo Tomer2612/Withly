@@ -13,6 +13,7 @@ import CloseIcon from '../../../components/icons/CloseIcon';
 import ChevronLeftIcon from '../../../components/icons/ChevronLeftIcon';
 import ChevronRightIcon from '../../../components/icons/ChevronRightIcon';
 import CreditCardIcon from '../../../components/icons/CreditCardIcon';
+import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface Community {
   id: string;
@@ -183,7 +184,7 @@ function CommunityGallery({ primaryImage, galleryImages, galleryVideos, communit
           )
         ) : (
           <img
-            src={`${process.env.NEXT_PUBLIC_API_URL}${currentItem.src}`}
+            src={getImageUrl(currentItem.src)}
             alt={`${communityName} - תמונה ${currentIndex + 1}`}
             className="w-full h-full object-cover"
           />
@@ -231,7 +232,7 @@ function CommunityGallery({ primaryImage, galleryImages, galleryVideos, communit
                 </>
               ) : (
                 <img
-                  src={`${process.env.NEXT_PUBLIC_API_URL}${item.src}`}
+                  src={getImageUrl(item.src)}
                   alt={`Thumbnail ${idx + 1}`}
                   className="w-full h-full object-cover"
                 />
@@ -507,7 +508,7 @@ function CommunityPreviewContent() {
               {/* Cover Photo */}
               {ownerData?.coverImage ? (
                 <img
-                  src={`${process.env.NEXT_PUBLIC_API_URL}${ownerData.coverImage}`}
+                  src={getImageUrl(ownerData.coverImage)}
                   alt=""
                   className="w-full h-28 object-cover"
                 />
@@ -520,7 +521,7 @@ function CommunityPreviewContent() {
                 <div className="flex justify-center mb-3">
                   {ownerData?.profileImage ? (
                     <img
-                      src={ownerData.profileImage.startsWith('http') ? ownerData.profileImage : `${process.env.NEXT_PUBLIC_API_URL}${ownerData.profileImage}`}
+                      src={getImageUrl(ownerData.profileImage)}
                       alt={ownerData.name}
                       className="w-24 h-24 rounded-full object-cover border-[5px] border-white"
                     />
@@ -679,7 +680,7 @@ function CommunityPreviewContent() {
                   >
                     {comm.image ? (
                       <img
-                        src={`${process.env.NEXT_PUBLIC_API_URL}${comm.image}`}
+                        src={getImageUrl(comm.image)}
                         alt={comm.name}
                         className="w-full h-44 object-cover"
                       />
@@ -692,7 +693,7 @@ function CommunityPreviewContent() {
                       <div className="flex items-start gap-3 mb-2">
                         {comm.logo ? (
                           <img
-                            src={`${process.env.NEXT_PUBLIC_API_URL}${comm.logo}`}
+                            src={getImageUrl(comm.logo)}
                             alt={comm.name}
                             className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
                           />

@@ -18,6 +18,7 @@ import ImageIcon from '../../../components/icons/ImageIcon';
 import LockIcon from '../../../components/icons/LockIcon';
 import SettingsIcon from '../../../components/icons/SettingsIcon';
 import CreditCardIcon from '../../../components/icons/CreditCardIcon';
+import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface Community {
   id: string;
@@ -213,7 +214,7 @@ export default function ManageCommunityPage() {
         // Load logo
         if (data.logo) {
           setLogo({
-            preview: `${process.env.NEXT_PUBLIC_API_URL}${data.logo}`,
+            preview: getImageUrl(data.logo),
             isExisting: true,
             existingPath: data.logo,
           });
@@ -225,7 +226,7 @@ export default function ManageCommunityPage() {
         // Primary image
         if (data.image) {
           loadedImages.push({
-            preview: `${process.env.NEXT_PUBLIC_API_URL}${data.image}`,
+            preview: getImageUrl(data.image),
             isPrimary: true,
             isExisting: true,
             existingPath: data.image,
@@ -236,7 +237,7 @@ export default function ManageCommunityPage() {
         if (data.galleryImages && Array.isArray(data.galleryImages)) {
           data.galleryImages.forEach((path: string) => {
             loadedImages.push({
-              preview: `${process.env.NEXT_PUBLIC_API_URL}${path}`,
+              preview: getImageUrl(path),
               isPrimary: false,
               isExisting: true,
               existingPath: path,

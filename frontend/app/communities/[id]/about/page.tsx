@@ -10,6 +10,7 @@ import LinkIcon from '../../../components/icons/LinkIcon';
 import ChevronLeftIcon from '../../../components/icons/ChevronLeftIcon';
 import ChevronRightIcon from '../../../components/icons/ChevronRightIcon';
 import LogoutIcon from '../../../components/icons/LogoutIcon';
+import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface Community {
   id: string;
@@ -180,7 +181,7 @@ function CommunityGallery({ primaryImage, galleryImages, galleryVideos, communit
           )
         ) : (
           <img
-            src={`${process.env.NEXT_PUBLIC_API_URL}${currentItem.src}`}
+            src={getImageUrl(currentItem.src)}
             alt={`${communityName} - תמונה ${currentIndex + 1}`}
             className="w-full h-full object-cover"
           />
@@ -230,7 +231,7 @@ function CommunityGallery({ primaryImage, galleryImages, galleryVideos, communit
                 </>
               ) : (
                 <img
-                  src={`${process.env.NEXT_PUBLIC_API_URL}${item.src}`}
+                  src={getImageUrl(item.src)}
                   alt={`Thumbnail ${idx + 1}`}
                   className="w-full h-full object-cover"
                 />
@@ -401,7 +402,7 @@ export default function CommunityAboutPage() {
               {/* Cover Photo */}
               {ownerData?.coverImage ? (
                 <img
-                  src={`${process.env.NEXT_PUBLIC_API_URL}${ownerData.coverImage}`}
+                  src={getImageUrl(ownerData.coverImage)}
                   alt=""
                   className="w-full h-28 object-cover"
                 />
@@ -414,7 +415,7 @@ export default function CommunityAboutPage() {
                 <div className="flex justify-center mb-3">
                   {ownerData?.profileImage ? (
                     <img
-                      src={ownerData.profileImage.startsWith('http') ? ownerData.profileImage : `${process.env.NEXT_PUBLIC_API_URL}${ownerData.profileImage}`}
+                      src={getImageUrl(ownerData.profileImage)}
                       alt={ownerData.name}
                       className="w-24 h-24 rounded-full object-cover border-[5px] border-white"
                     />

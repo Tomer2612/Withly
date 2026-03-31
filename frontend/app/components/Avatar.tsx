@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface AvatarProps {
   src?: string | null;
@@ -59,7 +60,7 @@ export default function Avatar({
   
   const getImageUrl = (url: string) => {
     if (url.startsWith('http')) return url;
-    return `${process.env.NEXT_PUBLIC_API_URL}${url}`;
+    return getImageUrl(url);
   };
 
   const baseClasses = `rounded-full ${sizeClasses[size]} ${onClick ? 'cursor-pointer hover:opacity-80 transition' : ''}`;

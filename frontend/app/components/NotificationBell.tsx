@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { he } from 'date-fns/locale';
+import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface Notification {
   id: string;
@@ -410,7 +411,7 @@ export default function NotificationBell() {
                         >
                           {actor?.profileImage ? (
                             <img
-                              src={actor.profileImage.startsWith('http') ? actor.profileImage : `${process.env.NEXT_PUBLIC_API_URL}${actor.profileImage}`}
+                              src={getImageUrl(actor.profileImage)}
                               alt={actor.name}
                               className="w-9 h-9 rounded-full object-cover"
                             />

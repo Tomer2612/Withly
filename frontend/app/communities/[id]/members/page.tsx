@@ -9,6 +9,7 @@ import SearchXIcon from '../../../components/icons/SearchXIcon';
 import UserRemoveIcon from '../../../components/icons/UserRemoveIcon';
 import CloseIcon from '../../../components/icons/CloseIcon';
 import CrownIcon from '../../../components/icons/CrownIcon';
+import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface Member {
   id: string;
@@ -325,7 +326,7 @@ export default function CommunityMembersPage() {
                 <Link href={`/profile/${member.id}`} className="relative flex-shrink-0">
                   {member.profileImage ? (
                     <img
-                      src={member.profileImage.startsWith('http') ? member.profileImage : `${process.env.NEXT_PUBLIC_API_URL}${member.profileImage}`}
+                      src={getImageUrl(member.profileImage)}
                       alt={member.name}
                       className="w-12 h-12 rounded-full object-cover hover:opacity-80 transition"
                     />
@@ -424,7 +425,7 @@ export default function CommunityMembersPage() {
                     <div className="relative flex-shrink-0">
                       {ban.user.profileImage ? (
                         <img
-                          src={ban.user.profileImage.startsWith('http') ? ban.user.profileImage : `${process.env.NEXT_PUBLIC_API_URL}${ban.user.profileImage}`}
+                          src={getImageUrl(ban.user.profileImage)}
                           alt={ban.user.name}
                           className="w-12 h-12 rounded-full object-cover opacity-50"
                         />

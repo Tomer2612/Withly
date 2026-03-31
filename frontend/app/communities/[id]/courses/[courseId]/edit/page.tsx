@@ -22,6 +22,7 @@ import ArrowDownIcon from '../../../../../components/icons/ArrowDownIcon';
 import CloseIcon from '../../../../../components/icons/CloseIcon';
 import CheckIcon from '../../../../../components/icons/CheckIcon';
 import ClockIcon from '../../../../../components/icons/ClockIcon';
+import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface QuizOptionForm {
   id?: string;
@@ -211,7 +212,7 @@ export default function EditCoursePage() {
           description: data.description || '',
           image: data.image,
           newImage: null,
-          imagePreview: data.image ? `${process.env.NEXT_PUBLIC_API_URL}${data.image}` : null,
+          imagePreview: data.image ? getImageUrl(data.image) : null,
           isPublished: data.isPublished,
           chapters: data.chapters.map((c: any) => ({
             id: c.id,
@@ -1363,7 +1364,7 @@ export default function EditCoursePage() {
                                             {(lesson.images || []).map((imageUrl, imgIndex) => (
                                               <div key={`saved-${imgIndex}`} className="relative group">
                                                 <img
-                                                  src={`${process.env.NEXT_PUBLIC_API_URL}${imageUrl}`}
+                                                  src={getImageUrl(imageUrl)}
                                                   alt={`תמונה ${imgIndex + 1}`}
                                                   className="w-full h-24 object-cover rounded-lg"
                                                 />
