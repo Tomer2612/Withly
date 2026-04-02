@@ -205,14 +205,32 @@ async function main() {
 
   // --- Post ---
   console.log('\n--- Posts ---');
-  const posts = await prisma.post.findMany();
-  const localPosts = posts.filter(
-    (p) => (p.images || []).some(isLocalPath) || (p.videos || []).some(isLocalPath) || ((p.files as any[]) || []).some((f: any) => isLocalPath(f?.url)),
-  );
-  console.log(`Found ${localPosts.length} posts with local files`);
-  await migrateArrayField('Post', 'images', (r) => r.id, (id, val) => prisma.post.update({ where: { id }, data: { images: val } }), localPosts);
-  await migrateArrayField('Post', 'videos', (r) => r.id, (id, val) => prisma.post.update({ where: { id }, data: { videos: val } }), localPosts);
-  await migrateJsonArrayFiles('Post', 'files', (r) => r.id, (id, val) => prisma.post.update({ where: { id }, data: { files: val } }), localPosts);
+  try {
+    const posts = await prisma.post.findMany();
+    const localPosts = posts.filter(
+      (p) => (p.images || []).some(isLocalPath) || ((p as any).videos || []).some(isLocalPath) || ((p.files as any[]) || []).some((f: any) => isLocalPath(f?.url)),
+    );
+    console.log(`Found ${localPosts.length} posts with local files`);
+    await migrateArrayField('Post', 'images', (r) => r.id, (id, val) => prisma.post.update({ where: { id }, data: { images: val } }), localPosts);
+    try {
+      await migrateArrayField('Post', 'videos', (r) => r.id, (id, val) => prisma.post.update({ where: { id }, data: { videos: val } as any }), localPosts);
+    } catch { console.log('  ⚠ Post.videos column not found, skipping'); }
+    await migrateJsonArrayFiles('Post', 'files', (r) => r.id, (id, val) => prisma.post.update({ where: { id }, data: { files: val } }), localPosts);
+  } catch (err: any) {
+    if (err?.meta?.column?.includes('videos')) {
+      // videos column doesn't exist yet — query without it
+      console.log('  ⚠ Post.videos column not in DB, querying without it');
+      const posts = await prisma.$queryRaw<any[]>`SELECT id, images, files FROM "Post"`;
+      const localPosts = posts.filter(
+        (p: any) => ((p.images as string[]) || []).some(isLocalPath) || ((p.files as any[]) || []).some((f: any) => isLocalPath(f?.url)),
+      );
+      console.log(`Found ${localPosts.length} posts with local files`);
+      await migrateArrayField('Post', 'images', (r: any) => r.id, (id, val) => prisma.$executeRaw`UPDATE "Post" SET images = ${val}::text[] WHERE id = ${id}`, localPosts);
+      await migrateJsonArrayFiles('Post', 'files', (r: any) => r.id, (id, val) => prisma.$executeRaw`UPDATE "Post" SET files = ${JSON.stringify(val)}::jsonb[] WHERE id = ${id}`, localPosts);
+    } else {
+      throw err;
+    }
+  }
 
   // --- Event ---
   console.log('\n--- Events ---');
