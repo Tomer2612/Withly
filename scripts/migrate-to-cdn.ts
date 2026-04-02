@@ -226,7 +226,26 @@ async function main() {
       );
       console.log(`Found ${localPosts.length} posts with local files`);
       await migrateArrayField('Post', 'images', (r: any) => r.id, (id, val) => prisma.$executeRaw`UPDATE "Post" SET images = ${val}::text[] WHERE id = ${id}`, localPosts);
-      await migrateJsonArrayFiles('Post', 'files', (r: any) => r.id, (id, val) => prisma.$executeRaw`UPDATE "Post" SET files = ${JSON.stringify(val)}::jsonb[] WHERE id = ${id}`, localPosts);
+      // For jsonb[] we cast each element individually
+      for (const post of localPosts) {
+        const arr: any[] = post.files || [];
+        const hasLocal = arr.some((item: any) => isLocalPath(item?.url));
+        if (!hasLocal) continue;
+        const newArr = [...arr];
+        let changed = false;
+        for (let i = 0; i < newArr.length; i++) {
+          if (isLocalPath(newArr[i]?.url)) {
+            const cdnUrl = await uploadToCdn(newArr[i].url);
+            if (cdnUrl) { newArr[i] = { ...newArr[i], url: cdnUrl }; changed = true; }
+          }
+        }
+        if (changed) {
+          // Build PostgreSQL jsonb array literal: ARRAY['{...}'::jsonb, '{...}'::jsonb]
+          const elements = newArr.map((item: any) => `'${JSON.stringify(item).replace(/'/g, "''")}'::jsonb`).join(', ');
+          await prisma.$executeRawUnsafe(`UPDATE "Post" SET files = ARRAY[${elements}] WHERE id = '${post.id}'`);
+          dbUpdates++;
+        }
+      }
     } else {
       throw err;
     }
