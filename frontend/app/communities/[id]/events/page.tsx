@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, forwardRef, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { compressImage } from '../../../lib/imageCompression';
+import { compressImage, MAX_IMAGE_SIZE_BYTES } from '../../../lib/imageCompression';
 import { useCommunityContext } from '../CommunityContext';
 import FormSelect from '../../../components/FormSelect';
 import CalendarSelect from '../../../components/CalendarSelect';
@@ -1439,6 +1439,16 @@ function AddEventModal({
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (!file.type.startsWith('image/')) {
+        setError('ניתן להעלות רק קבצי תמונה');
+        e.target.value = '';
+        return;
+      }
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        setError('גודל התמונה חורג מ-20MB');
+        e.target.value = '';
+        return;
+      }
       // Compress image before setting
       const compressedFile = await compressImage(file);
       setCoverImage(compressedFile);
@@ -1913,6 +1923,16 @@ function EditEventModal({
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (!file.type.startsWith('image/')) {
+        setError('ניתן להעלות רק קבצי תמונה');
+        e.target.value = '';
+        return;
+      }
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        setError('גודל התמונה חורג מ-20MB');
+        e.target.value = '';
+        return;
+      }
       // Compress image before setting
       const compressedFile = await compressImage(file);
       setCoverImage(compressedFile);

@@ -57,11 +57,6 @@ export default function Avatar({
   }, [src]);
   
   const initials = name?.charAt(0) || email?.charAt(0)?.toUpperCase() || '?';
-  
-  const getImageUrl = (url: string) => {
-    if (url.startsWith('http')) return url;
-    return getImageUrl(url);
-  };
 
   const baseClasses = `rounded-full ${sizeClasses[size]} ${onClick ? 'cursor-pointer hover:opacity-80 transition' : ''}`;
 

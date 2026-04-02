@@ -18,23 +18,9 @@ import FileQuestionIcon from '../../../../components/icons/FileQuestionIcon';
 import LayersIcon from '../../../../components/icons/LayersIcon';
 import ImageIcon from '../../../../components/icons/ImageIcon';
 import PlayIcon from '../../../../components/icons/PlayIcon';
+import VideoPlayer from '../../../../components/VideoPlayer';
+import { isValidVideoUrl } from '@/app/lib/videoUtils';
 import { getImageUrl } from '@/app/lib/imageUrl';
-
-// Declare YouTube Player types
-declare global {
-  interface Window {
-    YT: {
-      Player: new (elementId: string, options: {
-        events?: {
-          onStateChange?: (event: { data: number }) => void;
-          onReady?: () => void;
-        };
-      }) => { destroy: () => void };
-      PlayerState: { ENDED: number };
-    };
-    onYouTubeIframeAPIReady: () => void;
-  }
-}
 
 interface QuizOption {
   id: string;
@@ -131,11 +117,7 @@ function CourseViewerContent() {
   // Quiz state
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string[]>>({});
   const [quizSubmitted, setQuizSubmitted] = useState<Record<string, boolean>>({});
-  // Video facade - load iframe only when clicked
-  const [videoActivated, setVideoActivated] = useState(false);
-  const videoRef = useRef<HTMLIFrameElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const playerRef = useRef<{ destroy: () => void } | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -194,15 +176,7 @@ function CourseViewerContent() {
     }
   }, [course, lessonIdFromUrl, userId]);
 
-  // Load YouTube API
-  useEffect(() => {
-    if (!window.YT) {
-      const tag = document.createElement('script');
-      tag.src = 'https://www.youtube.com/iframe_api';
-      const firstScriptTag = document.getElementsByTagName('script')[0];
-      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
-    }
-  }, []);
+
 
   // Check if all conditions are met to auto-complete
   const checkAutoComplete = useCallback(() => {
@@ -237,44 +211,7 @@ function CourseViewerContent() {
     setHasVideoEnded(true);
   }, []);
 
-  // Initialize YouTube player when lesson changes
-  useEffect(() => {
-    if (!currentLesson?.videoUrl || !course?.enrollment) return;
-    
-    // Cleanup previous player
-    if (playerRef.current) {
-      playerRef.current.destroy();
-      playerRef.current = null;
-    }
 
-    const initPlayer = () => {
-      if (window.YT && window.YT.Player) {
-        playerRef.current = new window.YT.Player('youtube-player', {
-          events: {
-            onStateChange: (event: { data: number }) => {
-              if (event.data === window.YT.PlayerState.ENDED) {
-                handleVideoEnd();
-              }
-            },
-          },
-        });
-      }
-    };
-
-    // Wait for API to load
-    if (window.YT && window.YT.Player) {
-      setTimeout(initPlayer, 500);
-    } else {
-      window.onYouTubeIframeAPIReady = initPlayer;
-    }
-
-    return () => {
-      if (playerRef.current) {
-        playerRef.current.destroy();
-        playerRef.current = null;
-      }
-    };
-  }, [currentLesson?.id, course?.enrollment, handleVideoEnd]);
 
   // Reset state when lesson changes
   useEffect(() => {
@@ -520,25 +457,7 @@ function CourseViewerContent() {
     const canAccess = course?.enrollment || (course && userId && (course.authorId === userId || course.community.ownerId === userId));
     if (!canAccess) return;
     setCurrentLesson(lesson);
-    setVideoActivated(false); // Reset video facade when changing lessons
     router.push(`/communities/${communityId}/courses/${courseId}?lesson=${lesson.id}`, { scroll: false });
-  };
-
-  const getYouTubeVideoId = (url: string): string | null => {
-    const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
-    return match ? match[1] : null;
-  };
-
-  const getYouTubeEmbedUrl = (url: string) => {
-    const videoId = getYouTubeVideoId(url);
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    if (videoId) return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&rel=0&modestbranding=1&autoplay=1&origin=${origin}`;
-    return url;
-  };
-
-  const getYouTubeThumbnail = (url: string): string | null => {
-    const videoId = getYouTubeVideoId(url);
-    return videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : null;
   };
 
   const getChapterCompletion = (chapter: Chapter) => {
@@ -759,40 +678,10 @@ function CourseViewerContent() {
                 const contentItems: { type: string; render: () => React.ReactNode }[] = [];
                 
                 if (currentLesson.videoUrl) {
-                  const thumbnail = getYouTubeThumbnail(currentLesson.videoUrl);
                   contentItems.push({
                     type: 'video',
                     render: () => (
-                      <div className="aspect-video relative bg-black overflow-hidden" style={{ borderRadius: '12px' }}>
-                        {videoActivated ? (
-                          <iframe 
-                            id="youtube-player" 
-                            ref={videoRef} 
-                            src={getYouTubeEmbedUrl(currentLesson.videoUrl!)} 
-                            className="w-full h-full" 
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                            allowFullScreen 
-                          />
-                        ) : (
-                          <button
-                            onClick={() => setVideoActivated(true)}
-                            className="absolute inset-0 group cursor-pointer"
-                          >
-                            {thumbnail && (
-                              <img 
-                                src={thumbnail} 
-                                alt="Video thumbnail"
-                                className="block w-full h-full object-cover"
-                              />
-                            )}
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <div className="group-hover:scale-110 transition-transform">
-                                <PlayIcon className="w-16 h-16 md:w-20 md:h-20" />
-                              </div>
-                            </div>
-                          </button>
-                        )}
-                      </div>
+                      <VideoPlayer url={getImageUrl(currentLesson.videoUrl!)} onEnded={handleVideoEnd} />
                     )
                   });
                 }
@@ -807,32 +696,49 @@ function CourseViewerContent() {
                 }
                 
                 if (currentLesson.links && currentLesson.links.length > 0) {
-                  contentItems.push({
-                    type: 'links',
-                    render: () => (
-                      <div>
-                        <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-                          <LinkIcon size={16} color="#3B82F6" />
-                          קישורים נוספים
-                        </h3>
-                        <div className="space-y-2">
-                          {currentLesson.links!.map((link, index) => (
-                            <a
-                              key={index}
-                              href={link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={() => setClickedLinks(prev => new Set([...prev, index]))}
-                              className={`block hover:underline ${clickedLinks.has(index) ? 'text-gray-500' : 'text-blue-500 hover:text-blue-600'}`}
-                              style={{ fontSize: '18px' }}
-                            >
-                              {link}
-                            </a>
-                          ))}
-                        </div>
-                      </div>
-                    )
+                  // Separate video links from regular links
+                  const videoLinks = currentLesson.links.filter(link => isValidVideoUrl(link));
+                  const regularLinks = currentLesson.links.filter(link => !isValidVideoUrl(link));
+                  
+                  // Render video links as VideoPlayer
+                  videoLinks.forEach((link, i) => {
+                    contentItems.push({
+                      type: `video-link-${i}`,
+                      render: () => (
+                        <VideoPlayer url={link} onEnded={handleVideoEnd} />
+                      )
+                    });
                   });
+                  
+                  // Render regular links normally
+                  if (regularLinks.length > 0) {
+                    contentItems.push({
+                      type: 'links',
+                      render: () => (
+                        <div>
+                          <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <LinkIcon size={16} color="#3B82F6" />
+                            קישורים נוספים
+                          </h3>
+                          <div className="space-y-2">
+                            {regularLinks.map((link, index) => (
+                              <a
+                                key={index}
+                                href={link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={() => setClickedLinks(prev => new Set([...prev, currentLesson.links!.indexOf(link)]))}
+                                className={`block hover:underline ${clickedLinks.has(currentLesson.links!.indexOf(link)) ? 'text-gray-500' : 'text-blue-500 hover:text-blue-600'}`}
+                                style={{ fontSize: '18px' }}
+                              >
+                                {link}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    });
+                  }
                 }
                 
                 if (currentLesson.images && currentLesson.images.length > 0) {
@@ -882,8 +788,9 @@ function CourseViewerContent() {
                 
                 // Sort by contentOrder
                 const sortedItems = contentItems.sort((a, b) => {
-                  const aIndex = contentOrder.indexOf(a.type);
-                  const bIndex = contentOrder.indexOf(b.type);
+                  const baseType = (t: string) => t.startsWith('video-link-') ? 'video' : t;
+                  const aIndex = contentOrder.indexOf(baseType(a.type));
+                  const bIndex = contentOrder.indexOf(baseType(b.type));
                   return aIndex - bIndex;
                 });
                 

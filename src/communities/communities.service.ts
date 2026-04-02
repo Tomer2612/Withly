@@ -767,7 +767,7 @@ export class CommunitiesService {
     }));
   }
 
-  async liftBan(communityIdOrSlug: string, oderId: string, requesterId: string) {
+  async liftBan(communityIdOrSlug: string, bannedUserId: string, requesterId: string) {
     const communityId = await this.resolveId(communityIdOrSlug);
     
     // Check if requester is owner or manager
@@ -781,7 +781,7 @@ export class CommunitiesService {
 
     // Find the ban
     const ban = await this.prisma.communityBan.findFirst({
-      where: { id: oderId, communityId },
+      where: { id: bannedUserId, communityId },
     });
 
     if (!ban) {
@@ -790,7 +790,7 @@ export class CommunitiesService {
 
     // Delete the ban
     await this.prisma.communityBan.delete({
-      where: { id: oderId },
+      where: { id: bannedUserId },
     });
 
     return { message: 'Ban lifted successfully' };

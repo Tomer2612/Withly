@@ -52,6 +52,11 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: '*.cloudfront.net',
       },
+      // Cloudflare R2 CDN
+      {
+        protocol: 'https',
+        hostname: 'cdn.withly.co.il',
+      },
     ],
   },
 };

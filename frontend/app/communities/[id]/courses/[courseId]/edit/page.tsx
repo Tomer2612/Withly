@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, Fragment } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { FaSave } from 'react-icons/fa';
-import { compressImage, compressImages } from '../../../../../lib/imageCompression';
+import { compressImage, compressImages, MAX_IMAGE_SIZE_BYTES } from '../../../../../lib/imageCompression';
 import CommunityNavbar from '../../../../../components/CommunityNavbar';
 import LinkIcon from '../../../../../components/icons/LinkIcon';
 import VideoOffIcon from '../../../../../components/icons/VideoOffIcon';
@@ -23,6 +23,7 @@ import CloseIcon from '../../../../../components/icons/CloseIcon';
 import CheckIcon from '../../../../../components/icons/CheckIcon';
 import ClockIcon from '../../../../../components/icons/ClockIcon';
 import { getImageUrl } from '@/app/lib/imageUrl';
+import { isValidVideoUrl, getVideoProvider, MAX_VIDEO_SIZE_BYTES } from '@/app/lib/videoUtils';
 
 interface QuizOptionForm {
   id?: string;
@@ -365,7 +366,7 @@ export default function EditCoursePage() {
                     files: [],
                     links: [],
                     quiz: null,
-                    contentOrder: ['video', 'text', 'images', 'links'],
+                    contentOrder: ['video', 'links', 'images', 'text'],
                     isNew: true,
                     expanded: true,
                   },
@@ -456,6 +457,17 @@ export default function EditCoursePage() {
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (!file.type.startsWith('image/')) {
+        setErrors(prev => ({ ...prev, image: 'ניתן להעלות רק קבצי תמונה' }));
+        e.target.value = '';
+        return;
+      }
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        setErrors(prev => ({ ...prev, image: 'גודל התמונה חורג מ-20MB' }));
+        e.target.value = '';
+        return;
+      }
+      setErrors(prev => { const n = { ...prev }; delete n.image; return n; });
       // Compress image before setting
       const compressedFile = await compressImage(file);
       setCourse(prev => {
@@ -469,8 +481,8 @@ export default function EditCoursePage() {
     }
   };
 
-  const validateForm = (): boolean => {
-    if (!course) return false;
+  const validateForm = (): Record<string, string> => {
+    if (!course) return {};
     const newErrors: Record<string, string> = {};
 
     // Course title validation
@@ -520,11 +532,10 @@ export default function EditCoursePage() {
           newErrors[`lesson_${chapterIndex}_${lessonIndex}_duration`] = `משך השיעור לא יכול לעלות על ${MAX_LESSON_DURATION} דקות`;
         }
 
-        // YouTube URL validation
+        // Video URL validation
         if (lesson.videoUrl && lesson.videoUrl.trim()) {
-          const ytMatch = lesson.videoUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
-          if (!ytMatch) {
-            newErrors[`lesson_${chapterIndex}_${lessonIndex}_videoUrl`] = 'קישור לא תקין. יש להזין קישור YouTube תקין';
+          if (!isValidVideoUrl(lesson.videoUrl.trim())) {
+            newErrors[`lesson_${chapterIndex}_${lessonIndex}_videoUrl`] = 'קישור לא תקין. יש להזין קישור YouTube, Vimeo, Dailymotion או קובץ MP4';
           }
         }
 
@@ -588,7 +599,7 @@ export default function EditCoursePage() {
     });
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return newErrors;
   };
 
   const scrollToFirstError = (errorObj: Record<string, string>) => {
@@ -624,11 +635,10 @@ export default function EditCoursePage() {
   const handleSave = async () => {
     if (!course) return;
     
-    const newErrors: Record<string, string> = {};
+    const validationErrors = validateForm();
     
-    if (!validateForm()) {
-      // Need to wait for state update
-      setTimeout(() => scrollToFirstError(errors), 100);
+    if (Object.keys(validationErrors).length > 0) {
+      scrollToFirstError(validationErrors);
       return;
     }
 
@@ -926,34 +936,6 @@ export default function EditCoursePage() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block font-semibold text-gray-700 mb-1" style={{ fontSize: '18px' }}>
-                    תיאור הקורס <span className="text-gray-400 text-xs font-normal">(אופציונלי)</span>
-                  </label>
-                  <textarea
-                    id="course-description"
-                    value={course.description}
-                    onChange={(e) => {
-                      if (e.target.value.length <= MAX_DESCRIPTION_LENGTH) {
-                        setCourse({ ...course, description: e.target.value });
-                        if (errors.description) setErrors(prev => ({ ...prev, description: '' }));
-                      }
-                    }}
-                    maxLength={MAX_DESCRIPTION_LENGTH}
-                    rows={4}
-                    className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black text-right resize-none ${
-                      errors.description ? 'border-[#B3261E]' : 'border-gray-300'
-                    }`}
-                    placeholder="תאר את הקורס בכמה משפטים..."
-                  />
-                  <div className="flex justify-between mt-1">
-                    {errors.description && <span className="text-xs" style={{ color: '#B3261E' }}>{errors.description}</span>}
-                    <span className={`text-xs mr-auto ${course.description.length > MAX_DESCRIPTION_LENGTH * 0.9 ? 'text-orange-500' : 'text-gray-400'}`}>
-                      {course.description.length}/{MAX_DESCRIPTION_LENGTH}
-                    </span>
-                  </div>
-                </div>
-
                 {/* Course Image */}
                 <div id="course-image-section">
                   <label className="block font-semibold text-gray-700 mb-1" style={{ fontSize: '18px' }}>
@@ -1002,6 +984,37 @@ export default function EditCoursePage() {
                         </button>
                       )}
                     </div>
+                  </div>
+                  {errors.image && (
+                    <p className="mt-2 text-sm" style={{ color: '#B3261E' }}>{errors.image}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-gray-700 mb-1" style={{ fontSize: '18px' }}>
+                    תיאור הקורס <span className="text-gray-400 text-xs font-normal">(אופציונלי)</span>
+                  </label>
+                  <textarea
+                    id="course-description"
+                    value={course.description}
+                    onChange={(e) => {
+                      if (e.target.value.length <= MAX_DESCRIPTION_LENGTH) {
+                        setCourse({ ...course, description: e.target.value });
+                        if (errors.description) setErrors(prev => ({ ...prev, description: '' }));
+                      }
+                    }}
+                    maxLength={MAX_DESCRIPTION_LENGTH}
+                    rows={4}
+                    className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black text-right resize-none ${
+                      errors.description ? 'border-[#B3261E]' : 'border-gray-300'
+                    }`}
+                    placeholder="תאר את הקורס בכמה משפטים..."
+                  />
+                  <div className="flex justify-between mt-1">
+                    {errors.description && <span className="text-xs" style={{ color: '#B3261E' }}>{errors.description}</span>}
+                    <span className={`text-xs mr-auto ${course.description.length > MAX_DESCRIPTION_LENGTH * 0.9 ? 'text-orange-500' : 'text-gray-400'}`}>
+                      {course.description.length}/{MAX_DESCRIPTION_LENGTH}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1269,7 +1282,7 @@ export default function EditCoursePage() {
                                             סדר תצוגת התוכן
                                           </label>
                                           <div className="space-y-1">
-                                            {(lesson.contentOrder || ['video', 'text', 'images', 'links']).map((item, orderIndex) => {
+                                            {(lesson.contentOrder || ['video', 'links', 'images', 'text']).map((item, orderIndex) => {
                                               const labels: Record<string, string> = { video: 'סרטון', text: 'טקסט', images: 'תמונות', links: 'קישורים' };
                                               const icons: Record<string, React.ReactNode> = { 
                                                 video: <VideoIcon size={16} />, 
@@ -1295,22 +1308,22 @@ export default function EditCoursePage() {
                                                   <div className="mr-auto flex gap-1 px-2">
                                                     <button
                                                       type="button"
-                                                      disabled={orderIndex === (lesson.contentOrder || ['video', 'text', 'images', 'links']).length - 1}
+                                                      disabled={orderIndex === (lesson.contentOrder || ['video', 'links', 'images', 'text']).length - 1}
                                                       onClick={() => {
-                                                        const currentOrder = lesson.contentOrder || ['video', 'text', 'images', 'links'];
+                                                        const currentOrder = lesson.contentOrder || ['video', 'links', 'images', 'text'];
                                                         const newOrder = [...currentOrder];
                                                         [newOrder[orderIndex], newOrder[orderIndex + 1]] = [newOrder[orderIndex + 1], newOrder[orderIndex]];
                                                         updateLesson(chapterIndex, lessonIndex, { contentOrder: newOrder });
                                                       }}
                                                       className="p-1"
                                                     >
-                                                      <ArrowDownIcon size={12} color={orderIndex === (lesson.contentOrder || ['video', 'text', 'images', 'links']).length - 1 ? '#D0D0D4' : 'black'} />
+                                                      <ArrowDownIcon size={12} color={orderIndex === (lesson.contentOrder || ['video', 'links', 'images', 'text']).length - 1 ? '#D0D0D4' : 'black'} />
                                                     </button>
                                                     <button
                                                       type="button"
                                                       disabled={orderIndex === 0}
                                                       onClick={() => {
-                                                        const currentOrder = lesson.contentOrder || ['video', 'text', 'images', 'links'];
+                                                        const currentOrder = lesson.contentOrder || ['video', 'links', 'images', 'text'];
                                                         const newOrder = [...currentOrder];
                                                         [newOrder[orderIndex - 1], newOrder[orderIndex]] = [newOrder[orderIndex], newOrder[orderIndex - 1]];
                                                         updateLesson(chapterIndex, lessonIndex, { contentOrder: newOrder });
@@ -1326,35 +1339,237 @@ export default function EditCoursePage() {
                                           </div>
                                         </div>
 
+                                        {/* Video */}
                                         <div>
                                           <label className="block text-black font-normal mb-1" style={{ fontSize: '14px' }}>
-                                            קישור לסרטון YouTube <span className="text-gray-400">(אופציונלי)</span>
+                                            סרטון <span className="text-gray-400">(אופציונלי)</span>
                                           </label>
-                                          <input
-                                            type="text"
-                                            value={lesson.videoUrl}
-                                            onChange={(e) => updateLesson(chapterIndex, lessonIndex, { videoUrl: e.target.value })}
-                                            className={`w-full p-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-black focus:border-black ${errors[`lesson_${chapterIndex}_${lessonIndex}_videoUrl`] ? 'border-red-500' : 'border-gray-300'}`}
-                                            placeholder="https://www.youtube.com/watch?v=..."
-                                          />
-                                          {errors[`lesson_${chapterIndex}_${lessonIndex}_videoUrl`] && (
-                                            <p className="text-red-500 text-sm mt-1">{errors[`lesson_${chapterIndex}_${lessonIndex}_videoUrl`]}</p>
+                                          {/* Current video display */}
+                                          {lesson.videoUrl && (
+                                            <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 border border-gray-200 mb-2">
+                                              <VideoIcon size={12} color="#6B7280" />
+                                              <span className="text-sm text-gray-700 truncate flex-1" dir="ltr">{lesson.videoUrl}</span>
+                                              <span className="text-xs text-gray-400">(1/1)</span>
+                                              <button
+                                                type="button"
+                                                onClick={() => updateLesson(chapterIndex, lessonIndex, { videoUrl: '' })}
+                                                className="text-gray-400 hover:text-gray-600"
+                                              >
+                                                <CloseIcon size={14} color="currentColor" />
+                                              </button>
+                                            </div>
                                           )}
+                                          {/* Video file upload */}
+                                          <div>
+                                            <input
+                                              type="file"
+                                              accept="video/mp4,video/webm,video/quicktime"
+                                              className="hidden"
+                                              id={`video-upload-edit-${chapterIndex}-${lessonIndex}`}
+                                              onChange={async (e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                  const videoErrKey = `lesson_${chapterIndex}_${lessonIndex}_videoUrl`;
+                                                  if (lesson.videoUrl) {
+                                                    setErrors(prev => ({ ...prev, [videoErrKey]: 'ניתן להוסיף סרטון אחד בלבד לשיעור' }));
+                                                    setTimeout(() => setErrors(prev => { const n = { ...prev }; delete n[videoErrKey]; return n; }), 5000);
+                                                    e.target.value = '';
+                                                    return;
+                                                  }
+                                                  if (!file.type.startsWith('video/')) {
+                                                    setErrors(prev => ({ ...prev, [videoErrKey]: 'ניתן להעלות רק קבצי וידאו' }));
+                                                    setTimeout(() => setErrors(prev => { const n = { ...prev }; delete n[videoErrKey]; return n; }), 5000);
+                                                    e.target.value = '';
+                                                    return;
+                                                  }
+                                                  if (file.size > MAX_VIDEO_SIZE_BYTES) {
+                                                    setErrors(prev => ({ ...prev, [videoErrKey]: 'גודל הקובץ חורג מ-100MB' }));
+                                                    setTimeout(() => setErrors(prev => { const n = { ...prev }; delete n[videoErrKey]; return n; }), 5000);
+                                                    e.target.value = '';
+                                                    return;
+                                                  }
+                                                  setErrors(prev => { const n = { ...prev }; delete n[`lesson_${chapterIndex}_${lessonIndex}_videoUrl`]; return n; });
+                                                  try {
+                                                    const token = localStorage.getItem('token');
+                                                    const formData = new FormData();
+                                                    formData.append('video', file);
+                                                    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/lessons/upload-video`, {
+                                                      method: 'POST',
+                                                      headers: { Authorization: `Bearer ${token}` },
+                                                      body: formData,
+                                                    });
+                                                    if (res.ok) {
+                                                      const data = await res.json();
+                                                      updateLesson(chapterIndex, lessonIndex, { videoUrl: data.url });
+                                                    }
+                                                  } catch {}
+                                                }
+                                                e.target.value = '';
+                                              }}
+                                            />
+                                            <label
+                                              htmlFor={`video-upload-edit-${chapterIndex}-${lessonIndex}`}
+                                              className="inline-flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition text-sm text-gray-600"
+                                            >
+                                              <VideoIcon size={16} color="#6B7280" />
+                                              העלאת סרטון (עד 100MB)
+                                            </label>
+                                            {errors[`lesson_${chapterIndex}_${lessonIndex}_videoUrl`] && (
+                                              <p className="text-sm mt-1" style={{ color: '#B3261E' }}>{errors[`lesson_${chapterIndex}_${lessonIndex}_videoUrl`]}</p>
+                                            )}
+                                          </div>
                                         </div>
+                                        {/* Links */}
                                         <div>
                                           <label className="block text-black font-normal mb-1" style={{ fontSize: '14px' }}>
-                                            תוכן השיעור <span className="text-gray-400">(אופציונלי)</span>
+                                            קישורים <span className="text-gray-400">(אופציונלי)</span>
                                           </label>
-                                          <textarea
-                                            value={lesson.content}
-                                            onChange={(e) => updateLesson(chapterIndex, lessonIndex, { content: e.target.value })}
-                                            rows={3}
-                                            className="w-full p-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-black focus:border-black text-right"
-                                            style={{ resize: 'none' }}
-                                            placeholder="תוכן טקסט לשיעור..."
-                                          />
+                                          {/* Current links display */}
+                                          {(lesson.links || []).length > 0 && (
+                                            <div className="flex flex-wrap gap-2 mb-2">
+                                              {(lesson.links || []).map((link, linkIndex) => (
+                                                <div key={linkIndex} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-1 border border-gray-200">
+                                                  <LinkIcon size={12} color="#6B7280" />
+                                                  <span className="text-sm text-gray-700 max-w-[200px] truncate" dir="ltr">{link}</span>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      const newLinks = (lesson.links || []).filter((_, i) => i !== linkIndex);
+                                                      updateLesson(chapterIndex, lessonIndex, { links: newLinks });
+                                                    }}
+                                                    className="text-gray-400 hover:text-gray-600"
+                                                  >
+                                                    <CloseIcon size={14} color="currentColor" />
+                                                  </button>
+                                                </div>
+                                              ))}
+                                              <span className="text-xs text-gray-400 self-center">({(lesson.links || []).length}/3)</span>
+                                            </div>
+                                          )}
+                                          {/* Link input */}
+                                          <div className="flex items-center gap-2" style={{ position: 'relative' }}>
+                                            <input
+                                              type="text"
+                                              id={`link-input-${chapterIndex}-${lessonIndex}`}
+                                              className="flex-1 p-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
+                                              placeholder="הדבק קישור (YouTube, Vimeo, או כל קישור אחר)"
+                                              onChange={(e) => {
+                                                const btn = document.getElementById(`link-add-btn-${chapterIndex}-${lessonIndex}`);
+                                                const errorSpan = document.getElementById(`link-error-${chapterIndex}-${lessonIndex}`);
+                                                if (errorSpan) errorSpan.style.display = 'none';
+                                                if (btn) {
+                                                  const hasValue = e.target.value.trim().length > 0;
+                                                  btn.style.backgroundColor = hasValue ? '#91DCED' : '#c4ebf5';
+                                                  btn.style.color = hasValue ? 'black' : '#A1A1AA';
+                                                  btn.style.cursor = hasValue ? 'pointer' : 'not-allowed';
+                                                }
+                                              }}
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                  e.preventDefault();
+                                                  const input = e.target as HTMLInputElement;
+                                                  const errorSpan = document.getElementById(`link-error-${chapterIndex}-${lessonIndex}`);
+                                                  const value = input.value.trim();
+                                                  if (value) {
+                                                    const urlPattern = /^(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/;
+                                                    if (!urlPattern.test(value)) {
+                                                      if (errorSpan) { errorSpan.textContent = 'קישור לא תקין'; errorSpan.style.display = 'block'; }
+                                                      return;
+                                                    }
+                                                    // Route video URLs to videoUrl field
+                                                    if (isValidVideoUrl(value)) {
+                                                      if (lesson.videoUrl) {
+                                                        if (errorSpan) { errorSpan.textContent = 'ניתן להוסיף סרטון אחד בלבד לשיעור'; errorSpan.style.display = 'block'; setTimeout(() => { errorSpan.style.display = 'none'; }, 5000); }
+                                                        return;
+                                                      }
+                                                      updateLesson(chapterIndex, lessonIndex, { videoUrl: value });
+                                                      input.value = '';
+                                                      if (errorSpan) errorSpan.style.display = 'none';
+                                                      const btn = document.getElementById(`link-add-btn-${chapterIndex}-${lessonIndex}`);
+                                                      if (btn) { btn.style.backgroundColor = '#c4ebf5'; btn.style.color = '#A1A1AA'; btn.style.cursor = 'not-allowed'; }
+                                                      return;
+                                                    }
+                                                    // Check duplicate
+                                                    if ((lesson.links || []).includes(value)) {
+                                                      if (errorSpan) { errorSpan.textContent = 'קישור זה כבר קיים'; errorSpan.style.display = 'block'; }
+                                                      return;
+                                                    }
+                                                    if ((lesson.links || []).length >= 3) {
+                                                      if (errorSpan) { errorSpan.textContent = 'ניתן להוסיף עד 3 קישורים'; errorSpan.style.display = 'block'; }
+                                                      return;
+                                                    }
+                                                    updateLesson(chapterIndex, lessonIndex, { links: [...(lesson.links || []), value] });
+                                                    input.value = '';
+                                                    if (errorSpan) errorSpan.style.display = 'none';
+                                                    const btn = document.getElementById(`link-add-btn-${chapterIndex}-${lessonIndex}`);
+                                                    if (btn) { btn.style.backgroundColor = '#c4ebf5'; btn.style.color = '#A1A1AA'; btn.style.cursor = 'not-allowed'; }
+                                                  }
+                                                }
+                                              }}
+                                            />
+                                            <button
+                                              type="button"
+                                              id={`link-add-btn-${chapterIndex}-${lessonIndex}`}
+                                              onClick={() => {
+                                                const input = document.getElementById(`link-input-${chapterIndex}-${lessonIndex}`) as HTMLInputElement;
+                                                const errorSpan = document.getElementById(`link-error-${chapterIndex}-${lessonIndex}`);
+                                                if (input && input.value.trim()) {
+                                                  const value = input.value.trim();
+                                                  const urlPattern = /^(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/;
+                                                  if (!urlPattern.test(value)) {
+                                                    if (errorSpan) { errorSpan.textContent = 'קישור לא תקין'; errorSpan.style.display = 'block'; }
+                                                    return;
+                                                  }
+                                                  // Route video URLs to videoUrl field
+                                                  if (isValidVideoUrl(value)) {
+                                                    if (lesson.videoUrl) {
+                                                      if (errorSpan) { errorSpan.textContent = 'ניתן להוסיף סרטון אחד בלבד לשיעור'; errorSpan.style.display = 'block'; setTimeout(() => { errorSpan.style.display = 'none'; }, 5000); }
+                                                      return;
+                                                    }
+                                                    updateLesson(chapterIndex, lessonIndex, { videoUrl: value });
+                                                    input.value = '';
+                                                    if (errorSpan) errorSpan.style.display = 'none';
+                                                    const btn = document.getElementById(`link-add-btn-${chapterIndex}-${lessonIndex}`);
+                                                    if (btn) { btn.style.backgroundColor = '#c4ebf5'; btn.style.color = '#A1A1AA'; btn.style.cursor = 'not-allowed'; }
+                                                    return;
+                                                  }
+                                                  if ((lesson.links || []).includes(value)) {
+                                                    if (errorSpan) { errorSpan.textContent = 'קישור זה כבר קיים'; errorSpan.style.display = 'block'; }
+                                                    return;
+                                                  }
+                                                  if ((lesson.links || []).length >= 3) {
+                                                    if (errorSpan) { errorSpan.textContent = 'ניתן להוסיף עד 3 קישורים'; errorSpan.style.display = 'block'; }
+                                                    return;
+                                                  }
+                                                  updateLesson(chapterIndex, lessonIndex, { links: [...(lesson.links || []), value] });
+                                                  input.value = '';
+                                                  if (errorSpan) errorSpan.style.display = 'none';
+                                                  const btn = document.getElementById(`link-add-btn-${chapterIndex}-${lessonIndex}`);
+                                                  if (btn) { btn.style.backgroundColor = '#c4ebf5'; btn.style.color = '#A1A1AA'; btn.style.cursor = 'not-allowed'; }
+                                                }
+                                              }}
+                                              className="px-3 py-2 rounded-full text-sm transition"
+                                              style={{ backgroundColor: '#c4ebf5', color: '#A1A1AA', fontSize: '14px', cursor: 'not-allowed' }}
+                                            >
+                                              הוסף
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const input = document.getElementById(`link-input-${chapterIndex}-${lessonIndex}`) as HTMLInputElement;
+                                                if (input) {
+                                                  input.value = '';
+                                                  const btn = document.getElementById(`link-add-btn-${chapterIndex}-${lessonIndex}`);
+                                                  if (btn) { btn.style.backgroundColor = '#c4ebf5'; btn.style.color = '#A1A1AA'; btn.style.cursor = 'not-allowed'; }
+                                                }
+                                              }}
+                                              className="p-2 text-gray-400 hover:text-gray-600"
+                                            >
+                                              <CloseIcon size={16} color="currentColor" />
+                                            </button>
+                                          </div>
+                                          <span id={`link-error-${chapterIndex}-${lessonIndex}`} className="text-sm" style={{ color: '#B3261E', display: 'none', marginTop: '4px' }}>קישור לא תקין</span>
                                         </div>
-                                        
                                         {/* Images Section */}
                                         <div>
                                           <label className="block text-black font-normal mb-1" style={{ fontSize: '14px' }}>
@@ -1422,7 +1637,7 @@ export default function EditCoursePage() {
                                             {((lesson.images || []).length + (lesson.imageFiles || []).length) < 6 && (
                                               <label className="flex flex-col items-center justify-center h-24 rounded-lg cursor-pointer hover:bg-gray-50 transition" style={{ border: '1px dashed #D0D0D4' }}>
                                                 <ImageIcon size={20} color="#9CA3AF" className="mb-1" />
-                                                <span className="text-xs text-gray-500">לחץ להעלאת תמונות (עד 6)</span>
+                                                <span className="text-xs text-gray-500">לחץ להעלאת תמונות (עד 20MB)</span>
                                                 <input
                                                   type="file"
                                                   accept="image/*"
@@ -1432,14 +1647,30 @@ export default function EditCoursePage() {
                                                     const files = e.target.files;
                                                     if (!files || files.length === 0) return;
                                                     
-                                                    const currentCount = (lesson.imageFiles || []).length + (lesson.images || []).length;
-                                                    const maxAllowed = 6 - currentCount;
-                                                    if (maxAllowed <= 0) {
+                                                    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+                                                    if (imageFiles.length < files.length) {
+                                                      setErrors(prev => ({ ...prev, [`lesson_${chapterIndex}_${lessonIndex}_images`]: 'ניתן להעלות רק קבצי תמונה' }));
+                                                    }
+                                                    // Filter out oversized images
+                                                    const validImages = imageFiles.filter(f => f.size <= MAX_IMAGE_SIZE_BYTES);
+                                                    if (validImages.length < imageFiles.length) {
+                                                      setErrors(prev => ({ ...prev, [`lesson_${chapterIndex}_${lessonIndex}_images`]: 'חלק מהתמונות חורגות מ-20MB' }));
+                                                    }
+                                                    if (validImages.length === 0) {
                                                       e.target.value = '';
                                                       return;
                                                     }
                                                     
-                                                    const filesToProcess = Array.from(files).slice(0, maxAllowed);
+                                                    const currentCount = (lesson.imageFiles || []).length + (lesson.images || []).length;
+                                                    const maxAllowed = 6 - currentCount;
+                                                    if (maxAllowed <= 0) {
+                                                      setErrors(prev => ({ ...prev, [`lesson_${chapterIndex}_${lessonIndex}_images`]: 'ניתן להעלות עד 6 תמונות' }));
+                                                      e.target.value = '';
+                                                      return;
+                                                    }
+                                                    
+                                                    setErrors(prev => { const n = { ...prev }; delete n[`lesson_${chapterIndex}_${lessonIndex}_images`]; return n; });
+                                                    const filesToProcess = validImages.slice(0, maxAllowed);
                                                     const compressedFiles = await compressImages(filesToProcess);
                                                     
                                                     updateLesson(chapterIndex, lessonIndex, { 
@@ -1451,162 +1682,22 @@ export default function EditCoursePage() {
                                               </label>
                                             )}
                                           </div>
+                                          {errors[`lesson_${chapterIndex}_${lessonIndex}_images`] && (
+                                            <p className="text-sm mt-1" style={{ color: '#B3261E' }}>{errors[`lesson_${chapterIndex}_${lessonIndex}_images`]}</p>
+                                          )}
                                         </div>
-                                        
-                                        {/* Links Section */}
                                         <div>
                                           <label className="block text-black font-normal mb-1" style={{ fontSize: '14px' }}>
-                                            קישורים <span className="text-gray-400">(אופציונלי)</span>
+                                            תוכן השיעור <span className="text-gray-400">(אופציונלי)</span>
                                           </label>
-                                          {(lesson.links || []).length > 0 && (
-                                            <div className="space-y-2 mb-2">
-                                              {(lesson.links || []).map((link, linkIndex) => (
-                                                <div key={linkIndex} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-1 border border-gray-200">
-                                                  <LinkIcon size={12} color="#6B7280" />
-                                                  <span className="text-sm text-gray-700 flex-1 truncate" dir="ltr">{link}</span>
-                                                  <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                      const newLinks = (lesson.links || []).filter((_, i) => i !== linkIndex);
-                                                      updateLesson(chapterIndex, lessonIndex, { links: newLinks });
-                                                    }}
-                                                    className="text-gray-400 hover:text-gray-600"
-                                                  >
-                                                    <CloseIcon size={14} color="currentColor" />
-                                                  </button>
-                                                </div>
-                                              ))}
-                                            </div>
-                                          )}
-                                          <div className="flex items-center gap-2" style={{ position: 'relative' }}>
-                                            <input
-                                              type="text"
-                                              id={`link-input-${chapterIndex}-${lessonIndex}`}
-                                              className="flex-1 p-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
-                                              placeholder="https://example.com"
-                                              onChange={(e) => {
-                                                const btn = document.getElementById(`link-add-btn-${chapterIndex}-${lessonIndex}`);
-                                                if (btn) {
-                                                  const hasValue = e.target.value.trim().length > 0;
-                                                  btn.style.backgroundColor = hasValue ? '#91DCED' : '#c4ebf5';
-                                                  btn.style.color = hasValue ? 'black' : '#A1A1AA';
-                                                  btn.style.cursor = hasValue ? 'pointer' : 'not-allowed';
-                                                }
-                                                // Hide error message on input change
-                                                const errorSpan = document.getElementById(`link-error-${chapterIndex}-${lessonIndex}`);
-                                                if (errorSpan) {
-                                                  errorSpan.style.display = 'none';
-                                                }
-                                              }}
-                                              onKeyDown={(e) => {
-                                                if (e.key === 'Enter') {
-                                                  e.preventDefault();
-                                                  const input = e.target as HTMLInputElement;
-                                                  const value = input.value.trim();
-                                                  if (value) {
-                                                    const errorSpan = document.getElementById(`link-error-${chapterIndex}-${lessonIndex}`);
-                                                    // Check for duplicate link
-                                                    if ((lesson.links || []).includes(value)) {
-                                                      if (errorSpan) {
-                                                        errorSpan.textContent = 'קישור זה כבר קיים';
-                                                        errorSpan.style.display = 'block';
-                                                      }
-                                                      return;
-                                                    }
-                                                    const urlPattern = /^(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/;
-                                                    if (urlPattern.test(value)) {
-                                                      const newLinks = [...(lesson.links || []), value];
-                                                      updateLesson(chapterIndex, lessonIndex, { links: newLinks });
-                                                      input.value = '';
-                                                      const btn = document.getElementById(`link-add-btn-${chapterIndex}-${lessonIndex}`);
-                                                      if (btn) {
-                                                        btn.style.backgroundColor = '#c4ebf5';
-                                                        btn.style.color = '#A1A1AA';
-                                                        btn.style.cursor = 'not-allowed';
-                                                      }
-                                                      if (errorSpan) {
-                                                        errorSpan.style.display = 'none';
-                                                      }
-                                                    } else {
-                                                      // Show error message
-                                                      if (errorSpan) {
-                                                        errorSpan.textContent = 'קישור לא תקין';
-                                                        errorSpan.style.display = 'block';
-                                                      }
-                                                    }
-                                                  }
-                                                }
-                                              }}
-                                            />
-                                            <span
-                                              id={`link-error-${chapterIndex}-${lessonIndex}`}
-                                              style={{ display: 'none', position: 'absolute', bottom: '-18px', right: '0', color: '#B3261E', fontSize: '12px' }}
-                                            >
-                                              קישור לא תקין
-                                            </span>
-                                            <button
-                                              type="button"
-                                              id={`link-add-btn-${chapterIndex}-${lessonIndex}`}
-                                              onClick={() => {
-                                                const input = document.getElementById(`link-input-${chapterIndex}-${lessonIndex}`) as HTMLInputElement;
-                                                if (input && input.value.trim()) {
-                                                  const value = input.value.trim();
-                                                  const errorSpan = document.getElementById(`link-error-${chapterIndex}-${lessonIndex}`);
-                                                  // Check for duplicate link
-                                                  if ((lesson.links || []).includes(value)) {
-                                                    if (errorSpan) {
-                                                      errorSpan.textContent = 'קישור זה כבר קיים';
-                                                      errorSpan.style.display = 'block';
-                                                    }
-                                                    return;
-                                                  }
-                                                  const urlPattern = /^(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/;
-                                                  if (urlPattern.test(value)) {
-                                                    const newLinks = [...(lesson.links || []), value];
-                                                    updateLesson(chapterIndex, lessonIndex, { links: newLinks });
-                                                    input.value = '';
-                                                    const btn = document.getElementById(`link-add-btn-${chapterIndex}-${lessonIndex}`);
-                                                    if (btn) {
-                                                      btn.style.backgroundColor = '#c4ebf5';
-                                                      btn.style.color = '#A1A1AA';
-                                                      btn.style.cursor = 'not-allowed';
-                                                    }
-                                                    if (errorSpan) {
-                                                      errorSpan.style.display = 'none';
-                                                    }
-                                                  } else {
-                                                    // Show error message
-                                                    if (errorSpan) {
-                                                      errorSpan.textContent = 'קישור לא תקין';
-                                                      errorSpan.style.display = 'block';
-                                                    }
-                                                  }
-                                                }
-                                              }}
-                                              className="px-3 py-2 rounded-full text-sm transition"
-                                              style={{ backgroundColor: '#c4ebf5', color: '#A1A1AA', fontSize: '14px', cursor: 'not-allowed' }}
-                                            >
-                                              הוסף
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                const input = document.getElementById(`link-input-${chapterIndex}-${lessonIndex}`) as HTMLInputElement;
-                                                if (input) {
-                                                  input.value = '';
-                                                  const btn = document.getElementById(`link-add-btn-${chapterIndex}-${lessonIndex}`);
-                                                  if (btn) {
-                                                    btn.style.backgroundColor = '#c4ebf5';
-                                                    btn.style.color = '#A1A1AA';
-                                                    btn.style.cursor = 'not-allowed';
-                                                  }
-                                                }
-                                              }}
-                                              className="p-2 text-gray-400 hover:text-gray-600"
-                                            >
-                                              <CloseIcon size={16} color="currentColor" />
-                                            </button>
-                                          </div>
+                                          <textarea
+                                            value={lesson.content}
+                                            onChange={(e) => updateLesson(chapterIndex, lessonIndex, { content: e.target.value })}
+                                            rows={3}
+                                            className="w-full p-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-black focus:border-black text-right"
+                                            style={{ resize: 'none' }}
+                                            placeholder="תוכן טקסט לשיעור..."
+                                          />
                                         </div>
                                       </div>
                                     )}

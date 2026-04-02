@@ -31,7 +31,7 @@ export default function SiteFooter() {
 
         {/* Copyright */}
         <p className="text-[18px] text-[#7A7A83]">
-          זכויות יוצרים - כל הזכויות שמורות לקיבוץ © 2025
+          זכויות יוצרים - כל הזכויות שמורות לוויפלי © {new Date().getFullYear()}
         </p>
       </div>
     </footer>

@@ -17,7 +17,8 @@ export class PostsService {
     images?: string[],
     files?: { url: string; name: string }[],
     links?: string[],
-    category?: string
+    category?: string,
+    videos?: string[]
   ) {
     try {
       // Resolve slug to actual community ID
@@ -28,6 +29,7 @@ export class PostsService {
           title, 
           content, 
           images: images || [],
+          videos: videos || [],
           files: files || [],
           links: links || [],
           category,
@@ -149,7 +151,9 @@ export class PostsService {
     pollQuestion?: string,
     pollOptions?: { id: string; text: string }[],
     newPollQuestion?: string,
-    newPollOptions?: string[]
+    newPollOptions?: string[],
+    videos?: string[],
+    videosToRemove?: string[]
   ) {
     const post = await this.prisma.post.findUnique({
       where: { id: postId },
@@ -209,6 +213,22 @@ export class PostsService {
       // If only removing links (no new links array), filter the existing ones
       const currentLinks = (post.links as string[]) || [];
       updateData.links = currentLinks.filter(link => !linksToRemove.includes(link));
+    }
+
+    // Handle videos - add new ones and remove specified
+    if (videos || videosToRemove) {
+      const currentVideos = (post.videos as string[]) || [];
+      let newVideos = [...currentVideos];
+      
+      if (videosToRemove && videosToRemove.length > 0) {
+        newVideos = newVideos.filter(v => !videosToRemove.includes(v));
+      }
+      
+      if (videos && videos.length > 0) {
+        newVideos = [...newVideos, ...videos].slice(0, 3);
+      }
+      
+      updateData.videos = newVideos;
     }
 
     // Handle poll updates

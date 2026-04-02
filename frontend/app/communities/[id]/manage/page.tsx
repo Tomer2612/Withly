@@ -4,8 +4,10 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { FaYoutube, FaWhatsapp, FaFacebook, FaInstagram } from 'react-icons/fa';
-import { compressImage, compressImages } from '../../../lib/imageCompression';
+import { compressImage, compressImages, MAX_IMAGE_SIZE_BYTES } from '../../../lib/imageCompression';
+import { isValidVideoUrl, getVideoProvider, getProviderLabel, MAX_VIDEO_SIZE_BYTES } from '../../../lib/videoUtils';
 import { useCommunityContext } from '../CommunityContext';
+import { VideoThumbnail } from '../../../components/VideoPlayer';
 import FormSelect from '../../../components/FormSelect';
 import PlusIcon from '../../../components/icons/PlusIcon';
 import TrashIcon from '../../../components/icons/TrashIcon';
@@ -15,6 +17,7 @@ import NoFeeIcon from '../../../components/icons/NoFeeIcon';
 import DollarIcon from '../../../components/icons/DollarIcon';
 import CalendarIcon from '../../../components/icons/CalendarIcon';
 import ImageIcon from '../../../components/icons/ImageIcon';
+import VideoIcon from '../../../components/icons/VideoIcon';
 import LockIcon from '../../../components/icons/LockIcon';
 import SettingsIcon from '../../../components/icons/SettingsIcon';
 import CreditCardIcon from '../../../components/icons/CreditCardIcon';
@@ -89,6 +92,7 @@ export default function ManageCommunityPage() {
   // Logo
   const [logo, setLogo] = useState<{ file?: File; preview: string; isExisting: boolean; existingPath?: string } | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const messageRef = useRef<HTMLDivElement>(null);
   
   // Images
   const [images, setImages] = useState<ImageFile[]>([]);
@@ -98,8 +102,9 @@ export default function ManageCommunityPage() {
   const [rules, setRules] = useState<string[]>([]);
   const [newRule, setNewRule] = useState('');
   
-  // Gallery Videos (YouTube URLs)
+  // Gallery Videos (YouTube/Vimeo/Dailymotion URLs + uploaded MP4s)
   const [galleryVideos, setGalleryVideos] = useState<string[]>([]);
+  const [galleryVideoFiles, setGalleryVideoFiles] = useState<File[]>([]);
   const [newVideoUrl, setNewVideoUrl] = useState('');
   
   // Online members indicator
@@ -146,6 +151,17 @@ export default function ManageCommunityPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Auto-dismiss messages after 5 seconds and scroll to message
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => setMessage(''), 5000);
+      if (messageRef.current) {
+        messageRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
 
   // Fetch community details and check permissions
   useEffect(() => {
@@ -266,6 +282,20 @@ export default function ManageCommunityPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     
+    if (!file.type.startsWith('image/')) {
+      setMessage('ניתן להעלות רק קבצי תמונה');
+      setMessageType('error');
+      if (logoInputRef.current) logoInputRef.current.value = '';
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      setMessage('גודל התמונה חורג מ-20MB');
+      setMessageType('error');
+      if (logoInputRef.current) logoInputRef.current.value = '';
+      return;
+    }
+    
     // Compress logo before setting
     const compressedFile = await compressImage(file);
     
@@ -284,16 +314,37 @@ export default function ManageCommunityPage() {
     const files = e.target.files;
     if (!files) return;
     
-    // Limit total images to 9
-    const currentCount = images.length;
-    const maxAllowed = 9 - currentCount;
+    // Filter to only image files
+    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (imageFiles.length < files.length) {
+      setMessage('חלק מהקבצים לא נתמכים. ניתן להעלות רק תמונות');
+      setMessageType('error');
+    }
+
+    // Filter out oversized files
+    const oversized = imageFiles.filter(f => f.size > MAX_IMAGE_SIZE_BYTES);
+    const validFiles = imageFiles.filter(f => f.size <= MAX_IMAGE_SIZE_BYTES);
+    if (oversized.length > 0) {
+      setMessage('חלק מהתמונות חורגות מ-20MB');
+      setMessageType('error');
+    }
+    if (validFiles.length === 0) {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+    
+    // Limit total media (images + videos) to 10
+    const totalMedia = images.length + galleryVideos.length + galleryVideoFiles.length;
+    const maxAllowed = 10 - totalMedia;
     if (maxAllowed <= 0) {
-      alert('ניתן להעלות עד 9 תמונות לגלריה');
+      setMessage('אפשר להעלות עד 10 תמונות/סרטונים');
+      setMessageType('error');
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
     
     // Take only as many as allowed
-    const filesToProcess = Array.from(files).slice(0, maxAllowed);
+    const filesToProcess = validFiles.slice(0, maxAllowed);
     
     // Compress all images
     const compressedFiles = await compressImages(filesToProcess);
@@ -406,8 +457,13 @@ export default function ManageCommunityPage() {
         formData.append('galleryImages', img.file!);
       });
       
-      // Gallery videos (YouTube URLs)
+      // Gallery videos (external URLs)
       formData.append('existingGalleryVideos', JSON.stringify(galleryVideos));
+      
+      // Gallery video files (uploaded MP4s)
+      galleryVideoFiles.forEach(file => {
+        formData.append('galleryVideoFiles', file);
+      });
       
       // Online members indicator
       formData.append('showOnlineMembers', showOnlineMembers.toString());
@@ -877,46 +933,41 @@ export default function ManageCommunityPage() {
                     onChange={handleImageUpload}
                     className="hidden"
                     id="image-upload"
-                    disabled={images.length >= 9}
                   />
                   <label
                     htmlFor="image-upload"
-                    className={`flex items-center justify-center gap-2 w-full p-4 border-2 border-dashed rounded-lg transition ${
-                      images.length >= 9
-                        ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-50'
-                        : 'border-gray-300 cursor-pointer hover:border-gray-400 hover:bg-gray-50'
-                    }`}
+                    className="flex items-center justify-center gap-2 w-full p-4 border-2 border-dashed rounded-lg transition border-gray-300 cursor-pointer hover:border-gray-400 hover:bg-gray-50"
                   >
                     <ImageIcon size={20} color="#9CA3AF" />
-                    <span className="text-gray-600">{images.length >= 9 ? 'הגעת למקסימום 9 תמונות' : 'לחץ להעלאת תמונות'}</span>
+                    <span className="text-gray-600">לחץ להעלאת תמונות (עד 20MB)</span>
                   </label>
                 </div>
                 </div>
 
-                {/* YouTube Videos */}
+                {/* Gallery Videos */}
                 <div className="flex gap-8">
                   <div className="w-48 flex-shrink-0 text-right">
-                    <h3 className="font-medium text-gray-900 text-base">סרטוני יוטיוב</h3>
-                    <p className="text-sm text-gray-500 mt-1">סרטוני יוטיוב שיוצגו בעמוד הקהילה</p>
+                    <h3 className="font-medium text-gray-900 text-base">סרטונים</h3>
+                    <p className="text-sm text-gray-500 mt-1">סרטונים שיוצגו בעמוד הקהילה</p>
+                    <p className="text-xs text-gray-500 mt-1">תומך בסרטונים של YouTube, Vimeo, Dailymotion או העלאת סרטון אישי</p>
                   </div>
                   <div className="flex-1 space-y-3">
                     {galleryVideos.length > 0 && (
                       <div className="space-y-2">
                         {galleryVideos.map((videoUrl, index) => {
-                          const videoId = videoUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)?.[1];
+                          const provider = getVideoProvider(videoUrl);
                           return (
                             <div 
                               key={index} 
                               className="flex items-center gap-3 bg-gray-50 rounded-lg p-3 border border-gray-300"
                             >
-                              {videoId && (
-                                <img 
-                                  src={`https://img.youtube.com/vi/${videoId}/default.jpg`}
-                                  alt="Video thumbnail"
-                                  className="w-16 h-12 object-cover rounded"
-                                />
-                              )}
-                              <span className="flex-1 text-sm text-gray-700 truncate" dir="ltr">{videoUrl}</span>
+                              <div className="w-16 h-12 rounded overflow-hidden flex-shrink-0">
+                                <VideoThumbnail url={videoUrl} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <span className="text-xs text-gray-500">{getProviderLabel(provider)}</span>
+                                <span className="block text-sm text-gray-700 truncate" dir="ltr">{videoUrl}</span>
+                              </div>
                               <button
                                 type="button"
                                 onClick={() => setGalleryVideos(prev => prev.filter((_, i) => i !== index))}
@@ -929,10 +980,11 @@ export default function ManageCommunityPage() {
                         })}
                       </div>
                     )}
+                    {/* Video URL input */}
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        placeholder="...הדביקו קישור יוטיוב"
+                        placeholder="קישור לסרטון"
                         className="w-full p-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black text-right resize-none text-base placeholder:text-right"
                         value={newVideoUrl}
                         onChange={(e) => setNewVideoUrl(e.target.value)}
@@ -941,20 +993,84 @@ export default function ManageCommunityPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          const videoId = newVideoUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)?.[1];
-                          if (newVideoUrl.trim() && videoId) {
+                          if (images.length + galleryVideos.length + galleryVideoFiles.length >= 10) {
+                            setMessage('אפשר להעלות עד 10 תמונות/סרטונים');
+                            setMessageType('error');
+                            return;
+                          }
+                          if (newVideoUrl.trim() && isValidVideoUrl(newVideoUrl.trim())) {
                             setGalleryVideos(prev => [...prev, newVideoUrl.trim()]);
                             setNewVideoUrl('');
                           }
                         }}
-                        disabled={!newVideoUrl.trim() || !newVideoUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)}
+                        disabled={!newVideoUrl.trim() || !isValidVideoUrl(newVideoUrl.trim())}
                         className="px-4 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                       >
                         <span>הוסף</span>
-                        <FaYoutube className="w-4 h-4" />
+                        <VideoIcon size={16} color="#FFFFFF" />
                       </button>
                     </div>
-                    <p className="text-xs text-gray-500">תומך בקישורים מסוג youtube.com/watch</p>
+                    {/* MP4 Upload */}
+                    <div>
+                      <input
+                        type="file"
+                        accept="video/mp4,video/webm,video/quicktime"
+                        className="hidden"
+                        id="gallery-video-upload"
+                        onChange={(e) => {
+                          if (images.length + galleryVideos.length + galleryVideoFiles.length >= 10) {
+                            setMessage('אפשר להעלות עד 10 תמונות/סרטונים');
+                            setMessageType('error');
+                            e.target.value = '';
+                            return;
+                          }
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            if (!file.type.startsWith('video/')) {
+                              setMessage('ניתן להעלות רק קבצי וידאו');
+                              setMessageType('error');
+                              e.target.value = '';
+                              return;
+                            }
+                            if (file.size > MAX_VIDEO_SIZE_BYTES) {
+                              setMessage('גודל הקובץ חורג מ-100MB');
+                              setMessageType('error');
+                              e.target.value = '';
+                              return;
+                            }
+                            setGalleryVideoFiles(prev => [...prev, file]);
+                          }
+                          e.target.value = '';
+                        }}
+                      />
+                      <label
+                        htmlFor="gallery-video-upload"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition text-sm text-gray-600"
+                      >
+                        <VideoIcon size={16} color="#6B7280" />
+                        העלאת סרטון (עד 100MB)
+                      </label>
+                    </div>
+                    {/* Pending video file uploads */}
+                    {galleryVideoFiles.length > 0 && (
+                      <div className="space-y-2">
+                        {galleryVideoFiles.map((file, index) => (
+                          <div key={index} className="flex items-center gap-3 bg-blue-50 rounded-lg p-3 border border-blue-200">
+                            <div className="w-16 h-12 bg-gray-800 rounded flex items-center justify-center">
+                              <VideoIcon size={20} color="#9CA3AF" />
+                            </div>
+                            <span className="flex-1 text-sm text-gray-700 truncate">{file.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => setGalleryVideoFiles(prev => prev.filter((_, i) => i !== index))}
+                              className="p-1 text-gray-400 hover:text-[#B3261E] transition"
+                            >
+                              <CloseIcon className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1272,16 +1388,26 @@ export default function ManageCommunityPage() {
               </div>
             )}
 
-            {/* Message Display */}
+            {/* Inline Message Banner */}
             {message && (
               <div
-                className="mt-6 p-4 rounded-lg"
+                ref={messageRef}
+                className="mt-4 px-6 py-3 rounded-lg"
                 style={messageType === 'error' 
-                  ? { backgroundColor: '#FEE2E2', color: '#B91C1C' }
+                  ? { backgroundColor: '#FEE2E2', color: '#B3261E' }
                   : { backgroundColor: '#A7EA7B', color: 'black', fontSize: '16px', fontWeight: 400 }
                 }
               >
-                {message}
+                <div className="flex items-center justify-between gap-3">
+                  <span>{message}</span>
+                  <button
+                    type="button"
+                    onClick={() => setMessage('')}
+                    className="text-current opacity-60 hover:opacity-100 transition"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
             )}
 

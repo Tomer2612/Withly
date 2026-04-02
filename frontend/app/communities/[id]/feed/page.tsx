@@ -4,7 +4,8 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { FaExternalLinkAlt } from 'react-icons/fa';
-import { compressImages } from '../../../lib/imageCompression';
+import { compressImages, MAX_IMAGE_SIZE_BYTES } from '../../../lib/imageCompression';
+import { isValidVideoUrl, getVideoProvider, MAX_VIDEO_SIZE_BYTES } from '../../../lib/videoUtils';
 import ImageIcon from '../../../components/icons/ImageIcon';
 import LinkIcon from '../../../components/icons/LinkIcon';
 import { useCommunityContext } from '../CommunityContext';
@@ -29,6 +30,7 @@ import PinIcon from '../../../components/icons/PinIcon';
 import EditIcon from '../../../components/icons/EditIcon';
 import FileTextIcon from '../../../components/icons/FileTextIcon';
 import TrophyIcon from '../../../components/icons/TrophyIcon';
+import VideoPlayer from '../../../components/VideoPlayer';
 import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface Community {
@@ -63,6 +65,7 @@ interface Post {
   title?: string | null;
   content: string;
   images?: string[];
+  videos?: string[];
   files?: { url: string; name: string }[];
   links?: string[];
   category?: string | null;
@@ -139,12 +142,15 @@ function CommunityFeedContent() {
   const [newPostCategory, setNewPostCategory] = useState<string>('הודעות');
   const [newPostImages, setNewPostImages] = useState<File[]>([]);
   const [newPostFiles, setNewPostFiles] = useState<File[]>([]);
+  const [newPostVideoFiles, setNewPostVideoFiles] = useState<File[]>([]);
+  const [newPostVideoUrls, setNewPostVideoUrls] = useState<string[]>([]);
   const [newPostLinks, setNewPostLinks] = useState<string[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [filePreviews, setFilePreviews] = useState<{ name: string }[]>([]);
   const [newLinkInput, setNewLinkInput] = useState('');
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [linkError, setLinkError] = useState('');
+  const [uploadError, setUploadError] = useState('');
   const [loading, setLoading] = useState(true);
   const [postSubmitting, setPostSubmitting] = useState(false);
   const [editSubmitting, setEditSubmitting] = useState(false);
@@ -580,10 +586,15 @@ function CommunityFeedContent() {
         formData.append('category', newPostCategory);
       }
       
-      // Append multiple images and files
-      [...newPostImages, ...newPostFiles].forEach(file => {
+      // Append multiple images, files, and videos
+      [...newPostImages, ...newPostFiles, ...newPostVideoFiles].forEach(file => {
         formData.append('files', file);
       });
+      
+      // Append external video URLs
+      if (newPostVideoUrls.length > 0) {
+        formData.append('videoUrls', JSON.stringify(newPostVideoUrls));
+      }
       
       // Append links as JSON
       if (newPostLinks.length > 0) {
@@ -630,6 +641,8 @@ function CommunityFeedContent() {
       setNewPostCategory('הודעות');
       setNewPostImages([]);
       setNewPostFiles([]);
+      setNewPostVideoFiles([]);
+      setNewPostVideoUrls([]);
       setNewPostLinks([]);
       setImagePreviews([]);
       setFilePreviews([]);
@@ -653,21 +666,44 @@ function CommunityFeedContent() {
     // Collect valid images and files separately
     const validImages: File[] = [];
     const validFiles: File[] = [];
+    const allowedFileTypes = [
+      'application/pdf', 'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'text/plain', 'application/zip', 'application/x-rar-compressed',
+    ];
+    let skippedCount = 0;
     
     for (const file of files) {
       // If image input, only accept images
       if (inputAccept?.includes('image/*')) {
         if (!file.type.startsWith('image/')) {
+          skippedCount++;
+          continue;
+        }
+        if (file.size > MAX_IMAGE_SIZE_BYTES) {
+          skippedCount++;
           continue;
         }
         validImages.push(file);
       } else {
-        // File input - don't accept images
-        if (file.type.startsWith('image/')) {
+        // File input - only accept allowed document types
+        if (!allowedFileTypes.includes(file.type)) {
+          skippedCount++;
           continue;
         }
         validFiles.push(file);
       }
+    }
+    
+    if (skippedCount > 0) {
+      if (inputAccept?.includes('image/*')) {
+        setUploadError('חלק מהקבצים לא נתמכים. ניתן להעלות רק תמונות');
+      } else {
+        setUploadError('חלק מהקבצים לא נתמכים. פורמטים נתמכים: PDF, Word, Excel, PowerPoint, TXT, ZIP, RAR');
+      }
+      setTimeout(() => setUploadError(''), 5000);
     }
     
     // Process images - compress and slice to max 6 total
@@ -750,8 +786,8 @@ function CommunityFeedContent() {
         setLinkError('קישור לא תקין');
         return;
       }
-      if (newPostLinks.length >= 10) {
-        alert('ניתן להוסיף עד 10 קישורים');
+      if (newPostLinks.length >= 3) {
+        alert('ניתן להוסיף עד 3 קישורים');
         return;
       }
       if (newPostLinks.includes(trimmedLink)) {
@@ -1000,8 +1036,8 @@ function CommunityFeedContent() {
     const trimmedLink = editLinkInput.trim();
     if (trimmedLink) {
       const currentTotal = editLinks.length - linksToRemove.length;
-      if (currentTotal >= 10) {
-        alert('ניתן להוסיף עד 10 קישורים');
+      if (currentTotal >= 3) {
+        alert('ניתן להוסיף עד 3 קישורים');
         return;
       }
       if (editLinks.includes(trimmedLink) && !linksToRemove.includes(trimmedLink)) {
@@ -1765,6 +1801,31 @@ function CommunityFeedContent() {
                   </div>
                 )}
                 
+                {/* Video Previews */}
+                {(newPostVideoFiles.length > 0 || newPostVideoUrls.length > 0) && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {newPostVideoFiles.map((file, index) => (
+                      <div key={`vf-${index}`} className="relative flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
+                        <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5 text-gray-500"><rect x="2" y="4" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none"/><path d="M14 8.5L18 6V14L14 11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        <span className="text-sm text-gray-700 max-w-[150px] truncate">{file.name}</span>
+                        <button onClick={() => setNewPostVideoFiles(prev => prev.filter((_, i) => i !== index))} className="text-red-500 hover:text-red-600">
+                          <CloseIcon size={12} />
+                        </button>
+                      </div>
+                    ))}
+                    {newPostVideoUrls.map((url, index) => (
+                      <div key={`vu-${index}`} className="relative flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
+                        <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5 text-gray-500"><rect x="2" y="4" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none"/><path d="M14 8.5L18 6V14L14 11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        <span className="text-sm text-gray-700 max-w-[200px] truncate" dir="ltr">{url}</span>
+                        <button onClick={() => setNewPostVideoUrls(prev => prev.filter((_, i) => i !== index))} className="text-red-500 hover:text-red-600">
+                          <CloseIcon size={12} />
+                        </button>
+                      </div>
+                    ))}
+                    <span className="text-xs text-gray-400 self-center">({newPostVideoFiles.length + newPostVideoUrls.length}/3)</span>
+                  </div>
+                )}
+                
                 {/* Links List - Always visible when links exist */}
                 {newPostLinks.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -1780,7 +1841,7 @@ function CommunityFeedContent() {
                         </button>
                       </div>
                     ))}
-                    <span className="text-xs text-gray-400 self-center">({newPostLinks.length}/10)</span>
+                    <span className="text-xs text-gray-400 self-center">({newPostLinks.length}/3)</span>
                   </div>
                 )}
 
@@ -1816,9 +1877,6 @@ function CommunityFeedContent() {
                       >
                         <CloseIcon size={16} color="currentColor" />
                       </button>
-                      {linkError && (
-                        <span className="text-xs" style={{ color: '#B3261E', position: 'absolute', top: '100%', right: 0, marginTop: '4px' }}>{linkError}</span>
-                      )}
                     </div>
                   </div>
                 )}
@@ -1892,9 +1950,10 @@ function CommunityFeedContent() {
                   </div>
                 )}
                 
-                <div className="flex justify-between items-center mt-3">
+                <div className="flex justify-between items-start mt-3">
                   {/* Attachment buttons */}
-                  <div className="flex items-center gap-2">
+                  <div>
+                    <div className="flex items-center gap-2">
                     <label className="cursor-pointer w-9 h-9 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200 transition">
                       <ImageIcon size={20} color="currentColor" />
                       <input
@@ -1922,6 +1981,39 @@ function CommunityFeedContent() {
                       />
                     </label>
                     
+                    {/* Video upload */}
+                    <label className="cursor-pointer w-9 h-9 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200 transition">
+                      <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-5 h-5">
+                        <rect x="2" y="4" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+                        <path d="M14 8.5L18 6V14L14 11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      <input
+                        type="file"
+                        accept="video/mp4,video/webm,video/quicktime"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            if (!file.type.startsWith('video/')) {
+                              setUploadError('ניתן להעלות רק קבצי וידאו');
+                              setTimeout(() => setUploadError(''), 5000);
+                              e.target.value = '';
+                              return;
+                            }
+                            if (file.size > MAX_VIDEO_SIZE_BYTES) {
+                              setUploadError('גודל הקובץ חורג מ-100MB');
+                              setTimeout(() => setUploadError(''), 5000);
+                              e.target.value = '';
+                              return;
+                            }
+                            setNewPostVideoFiles(prev => [...prev, file]);
+                          }
+                          e.target.value = '';
+                        }}
+                        className="hidden"
+                        disabled={newPostVideoFiles.length + newPostVideoUrls.length >= 3}
+                      />
+                    </label>
+                    
                     <button
                       onClick={() => setShowLinkInput(!showLinkInput)}
                       style={{ width: 36, height: 36, borderRadius: '50%' }}
@@ -1945,6 +2037,13 @@ function CommunityFeedContent() {
                         <rect x="12.25" y="8" width="3" height="9" rx="0.75" stroke="currentColor" strokeWidth="1.5" fill="none"/>
                       </svg>
                     </button>
+                    </div>
+                    {uploadError && (
+                      <div className="text-xs mt-1 px-1" style={{ color: '#B3261E' }}>{uploadError}</div>
+                    )}
+                    {linkError && (
+                      <div className="text-xs mt-1 px-1" style={{ color: '#B3261E' }}>{linkError}</div>
+                    )}
                   </div>
                   
                   <button
@@ -2460,6 +2559,27 @@ function CommunityFeedContent() {
                           <div className="mt-3 space-y-2">
                             {post.links.map((link, index) => {
                               const preview = linkPreviews[link];
+                              const videoProvider = getVideoProvider(link);
+                              
+                              // Video links: render playable inline
+                              if (videoProvider && videoProvider !== 'unknown') {
+                                return (
+                                  <div key={index}>
+                                    <VideoPlayer url={link} />
+                                    <a
+                                      href={link}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-1.5 mt-1 text-xs text-blue-500 hover:text-blue-600 transition"
+                                    >
+                                      <FaExternalLinkAlt className="w-2.5 h-2.5" />
+                                      {(() => { try { return new URL(link).hostname; } catch { return link; } })()}
+                                    </a>
+                                  </div>
+                                );
+                              }
+
+                              // Regular links: show OG preview card
                               return (
                                 <a
                                   key={index}
@@ -2540,6 +2660,15 @@ function CommunityFeedContent() {
                                   onClick={() => openLightbox(post.images!, index)}
                                 />
                               </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Videos Display */}
+                        {post.videos && post.videos.length > 0 && (
+                          <div className="mt-3 space-y-3">
+                            {post.videos.map((videoUrl, index) => (
+                              <VideoPlayer key={index} url={getImageUrl(videoUrl)} />
                             ))}
                           </div>
                         )}

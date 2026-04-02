@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useCommunityContext } from '../CommunityContext';
 import { FaYoutube, FaWhatsapp, FaFacebook, FaInstagram } from 'react-icons/fa';
 import PlayIcon from '../../../components/icons/PlayIcon';
+import VideoPlayer, { VideoThumbnail } from '../../../components/VideoPlayer';
 import LinkIcon from '../../../components/icons/LinkIcon';
 import ChevronLeftIcon from '../../../components/icons/ChevronLeftIcon';
 import ChevronRightIcon from '../../../components/icons/ChevronRightIcon';
@@ -45,17 +46,10 @@ interface UserProfile {
   profileImage?: string;
 }
 
-// Helper to extract YouTube video ID
-function getYouTubeVideoId(url: string): string | null {
-  const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
-  return match ? match[1] : null;
-}
-
 // Gallery media item type
 interface GalleryItem {
   type: 'image' | 'video';
   src: string;
-  videoId?: string;
 }
 
 // Gallery Component with slideshow functionality
@@ -70,7 +64,6 @@ function CommunityGallery({ primaryImage, galleryImages, galleryVideos, communit
     ...galleryVideos.map(url => ({
       type: 'video' as const,
       src: url,
-      videoId: getYouTubeVideoId(url) || undefined,
     })),
     ...(primaryImage ? [{ type: 'image' as const, src: primaryImage }] : []),
     ...galleryImages.map(img => ({ type: 'image' as const, src: img })),
@@ -78,51 +71,16 @@ function CommunityGallery({ primaryImage, galleryImages, galleryVideos, communit
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
-  const [videoActivated, setVideoActivated] = useState(false);
-  
-  // Find first image index for advancing after video ends
-  const firstImageIndex = allMedia.findIndex(item => item.type === 'image');
   
   const goToPrev = () => {
     setCurrentIndex((prev) => (prev === 0 ? allMedia.length - 1 : prev - 1));
     setIsVideoPlaying(false);
-    setVideoActivated(false);
   };
   
   const goToNext = () => {
     setCurrentIndex((prev) => (prev === allMedia.length - 1 ? 0 : prev + 1));
     setIsVideoPlaying(false);
-    setVideoActivated(false);
   };
-
-  // Handle video end - advance to images
-  const handleVideoEnd = () => {
-    if (firstImageIndex !== -1) {
-      setCurrentIndex(firstImageIndex);
-    } else {
-      goToNext();
-    }
-    setVideoActivated(false);
-    setIsVideoPlaying(false);
-  };
-
-  // Listen for YouTube postMessage events
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== 'https://www.youtube.com') return;
-      try {
-        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-        // YouTube sends state change as { event: 'onStateChange', info: 0 } when video ends
-        // Also check for infoDelivery format
-        if ((data.event === 'onStateChange' && data.info === 0) ||
-            (data.info && data.info.playerState === 0)) {
-          handleVideoEnd();
-        }
-      } catch {}
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [firstImageIndex, allMedia.length]);
   
   // Auto-rotate every 10 seconds (pause on video)
   useEffect(() => {
@@ -134,7 +92,6 @@ function CommunityGallery({ primaryImage, galleryImages, galleryVideos, communit
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev === allMedia.length - 1 ? 0 : prev + 1));
       setIsVideoPlaying(false);
-      setVideoActivated(false);
     }, 10000);
     
     return () => clearInterval(interval);
@@ -148,37 +105,10 @@ function CommunityGallery({ primaryImage, galleryImages, galleryVideos, communit
     <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
       {/* Main Image/Video with Navigation */}
       <div className="relative aspect-video bg-black">
-        {currentItem.type === 'video' && currentItem.videoId ? (
-          videoActivated ? (
-            <iframe
-              src={`https://www.youtube.com/embed/${currentItem.videoId}?rel=0&autoplay=1&enablejsapi=1&origin=${typeof window !== 'undefined' ? window.location.origin : ''}`}
-              title={`${communityName} - סרטון ${currentIndex + 1}`}
-              className="w-full h-full"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              onMouseEnter={() => setIsVideoPlaying(true)}
-              onMouseLeave={() => setIsVideoPlaying(false)}
-            />
-          ) : (
-            <button
-              onClick={() => {
-                setVideoActivated(true);
-                setIsVideoPlaying(true);
-              }}
-              className="absolute inset-0 group cursor-pointer"
-            >
-              <img
-                src={`https://img.youtube.com/vi/${currentItem.videoId}/hqdefault.jpg`}
-                alt="Video thumbnail"
-                className="block w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="group-hover:scale-110 transition-transform">
-                  <PlayIcon className="w-16 h-16 md:w-20 md:h-20" />
-                </div>
-              </div>
-            </button>
-          )
+        {currentItem.type === 'video' ? (
+          <div onMouseEnter={() => setIsVideoPlaying(true)} onMouseLeave={() => setIsVideoPlaying(false)}>
+            <VideoPlayer url={currentItem.src} className="rounded-none" />
+          </div>
         ) : (
           <img
             src={getImageUrl(currentItem.src)}
@@ -218,13 +148,9 @@ function CommunityGallery({ primaryImage, galleryImages, galleryVideos, communit
                 idx === currentIndex ? 'border-[#A7EA7B]' : 'border-transparent hover:border-gray-300'
               }`}
             >
-              {item.type === 'video' && item.videoId ? (
+              {item.type === 'video' ? (
                 <>
-                  <img
-                    src={`https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg`}
-                    alt={`Thumbnail ${idx + 1}`}
-                    className="w-full h-full object-cover"
-                  />
+                  <VideoThumbnail url={item.src} />
                   <div className="absolute inset-0 flex items-center justify-center">
                     <PlayIcon className="w-8 h-8" />
                   </div>

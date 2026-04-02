@@ -15,6 +15,15 @@ const imageFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
   cb(null, true);
 };
 
+// Image + video file filter for gallery
+const mediaFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
+  if (!file.mimetype.startsWith('image/') && !file.mimetype.startsWith('video/')) {
+    return cb(new BadRequestException('אפשר להעלות רק תמונות או סרטונים'), false);
+  }
+  cb(null, true);
+};
+
+const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB
 const storage = memoryStorage();
 
 @Controller('communities')
@@ -82,7 +91,8 @@ export class CommunitiesController {
     { name: 'image', maxCount: 1 },
     { name: 'logo', maxCount: 1 },
     { name: 'galleryImages', maxCount: 10 },
-  ], { storage, fileFilter: imageFileFilter }))
+    { name: 'galleryVideoFiles', maxCount: 5 },
+  ], { storage, fileFilter: mediaFileFilter, limits: { fileSize: MAX_VIDEO_SIZE } }))
   async update(
     @Param('id') id: string,
     @Req() req,
@@ -106,7 +116,7 @@ export class CommunitiesController {
       cardBrand?: string;
       showOnlineMembers?: string;
     },
-    @UploadedFiles() files?: { image?: any[]; logo?: any[]; galleryImages?: any[] },
+    @UploadedFiles() files?: { image?: any[]; logo?: any[]; galleryImages?: any[]; galleryVideoFiles?: any[] },
   ) {
     const userId = req.user.userId;
     let imagePath: string | null | undefined = undefined;
@@ -138,7 +148,10 @@ export class CommunitiesController {
     const existingGallery = body.existingGalleryImages ? JSON.parse(body.existingGalleryImages) : [];
     const galleryImages = [...existingGallery, ...newGalleryPaths];
     
-    const galleryVideos = body.existingGalleryVideos ? JSON.parse(body.existingGalleryVideos) : [];
+    // Handle gallery videos: merge existing URLs + newly uploaded MP4s
+    const existingVideoUrls = body.existingGalleryVideos ? JSON.parse(body.existingGalleryVideos) : [];
+    const uploadedVideoPaths = files?.galleryVideoFiles ? await this.storageService.uploadFiles(files.galleryVideoFiles, 'communities') : [];
+    const galleryVideos = [...existingVideoUrls, ...uploadedVideoPaths];
     
     const price = body.price !== undefined ? parseFloat(body.price) : undefined;
     
@@ -258,10 +271,10 @@ export class CommunitiesController {
   }
 
   @UseGuards(AuthGuard('jwt'))
-  @Delete(':id/banned/:oderId')
-  liftBan(@Param('id') id: string, @Param('oderId') oderId: string, @Req() req) {
+  @Delete(':id/banned/:bannedUserId')
+  liftBan(@Param('id') id: string, @Param('bannedUserId') bannedUserId: string, @Req() req) {
     const userId = req.user.userId;
-    return this.communitiesService.liftBan(id, oderId, userId);
+    return this.communitiesService.liftBan(id, bannedUserId, userId);
   }
 
   @Get(':id/managers')

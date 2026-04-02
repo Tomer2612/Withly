@@ -166,6 +166,7 @@ model Post {
   pinnedAt    DateTime?
   files       Json[]
   images      String[]
+  videos      String[]
   links       String[]
   category    String?
   author      User        @relation(fields: [authorId], references: [id], onDelete: Cascade)

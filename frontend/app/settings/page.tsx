@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { jwtDecode } from 'jwt-decode';
-import { compressImage } from '../lib/imageCompression';
+import { compressImage, MAX_IMAGE_SIZE_BYTES } from '../lib/imageCompression';
 import SiteHeader from '../components/SiteHeader';
 import FormSelect from '../components/FormSelect';
 import { HiOutlineUser, HiOutlineCamera, HiOutlineCog6Tooth, HiOutlineArrowRightOnRectangle, HiOutlineLink, HiOutlineLockClosed, HiOutlineEye, HiOutlineEyeSlash, HiOutlineBell, HiOutlineShieldCheck, HiOutlineHeart, HiOutlineChatBubbleLeft, HiOutlineChatBubbleOvalLeft, HiOutlineUserPlus, HiOutlineUsers, HiOutlineEnvelope, HiOutlineMapPin, HiOutlineDocumentText, HiOutlineAtSymbol, HiOutlineCreditCard } from 'react-icons/hi2';
@@ -277,6 +277,12 @@ export default function SettingsPage() {
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (!file.type.startsWith('image/')) {
+        return;
+      }
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        return;
+      }
       // Compress image before setting
       const compressedFile = await compressImage(file);
       setProfileImage(compressedFile);

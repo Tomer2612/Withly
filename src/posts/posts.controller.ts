@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Param, UseGuards, Req, Get, Delete, Patch, Query, UseInterceptors, UploadedFiles, Res, StreamableFile } from '@nestjs/common';
+import { Controller, Post, Body, Param, UseGuards, Req, Get, Delete, Patch, Query, UseInterceptors, UploadedFiles, Res, StreamableFile, BadRequestException } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { join } from 'path';
@@ -13,9 +13,34 @@ import { StorageService } from '../common/storage.service';
 const storage = memoryStorage();
 
 // File filter to determine file type
-const getFileType = (mimetype: string): 'image' | 'file' => {
+const getFileType = (mimetype: string): 'image' | 'video' | 'file' => {
   if (mimetype.startsWith('image/')) return 'image';
+  if (mimetype.startsWith('video/')) return 'video';
   return 'file';
+};
+
+const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB
+
+// Only allow images, videos, and common document types
+const postFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
+  if (
+    file.mimetype.startsWith('image/') ||
+    file.mimetype.startsWith('video/') ||
+    file.mimetype === 'application/pdf' ||
+    file.mimetype === 'application/msword' ||
+    file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    file.mimetype === 'application/vnd.ms-excel' ||
+    file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+    file.mimetype === 'application/vnd.ms-powerpoint' ||
+    file.mimetype === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
+    file.mimetype === 'text/plain' ||
+    file.mimetype === 'application/zip' ||
+    file.mimetype === 'application/x-rar-compressed'
+  ) {
+    cb(null, true);
+  } else {
+    cb(new BadRequestException('סוג קובץ לא נתמך'), false);
+  }
 };
 
 @Controller('posts')
@@ -39,17 +64,18 @@ export class PostsController {
   @UseGuards(AuthGuard('jwt'))
   @Post('community/:communityId')
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 posts per minute
-  @UseInterceptors(FilesInterceptor('files', 12, { storage })) // Max 6 images + 6 files = 12
+  @UseInterceptors(FilesInterceptor('files', 15, { storage, fileFilter: postFileFilter, limits: { fileSize: MAX_VIDEO_SIZE } }))
   async createPost(
     @Param('communityId') communityId: string,
     @Req() req,
-    @Body() body: { content: string; title?: string; links?: string; category?: string },
+    @Body() body: { content: string; title?: string; links?: string; category?: string; videoUrls?: string },
     @UploadedFiles() files?: Express.Multer.File[]
   ) {
     const userId = req.user.userId;
     
     const images: string[] = [];
     const uploadedFiles: { url: string; name: string }[] = [];
+    const videos: string[] = [];
     
     if (files && files.length > 0) {
       for (const file of files) {
@@ -60,11 +86,24 @@ export class PostsController {
         if (fileType === 'image' && images.length < 6) {
           const url = await this.storageService.uploadFile(file, 'posts');
           images.push(url);
+        } else if (fileType === 'video' && videos.length < 3) {
+          const url = await this.storageService.uploadFile(file, 'posts');
+          videos.push(url);
         } else if (fileType === 'file' && uploadedFiles.length < 6) {
           const url = await this.storageService.uploadFile(file, 'posts');
           uploadedFiles.push({ url, name: originalName });
         }
       }
+    }
+    
+    // Parse external video URLs (YouTube, Vimeo, Dailymotion)
+    if (body.videoUrls) {
+      try {
+        const externalVideos = JSON.parse(body.videoUrls);
+        if (Array.isArray(externalVideos)) {
+          videos.push(...externalVideos.slice(0, 3 - videos.length));
+        }
+      } catch {}
     }
     
     // Parse links from JSON string
@@ -90,7 +129,8 @@ export class PostsController {
       images.length > 0 ? images : undefined,
       uploadedFiles.length > 0 ? uploadedFiles : undefined,
       links.length > 0 ? links : undefined,
-      body.category
+      body.category,
+      videos.length > 0 ? videos : undefined
     );
     
     // Notify followers about new post
@@ -122,7 +162,7 @@ export class PostsController {
   // Update a post
   @UseGuards(AuthGuard('jwt'))
   @Patch(':postId')
-  @UseInterceptors(FilesInterceptor('files', 12, { storage })) // Max 6 images + 6 files = 12
+  @UseInterceptors(FilesInterceptor('files', 15, { storage, fileFilter: postFileFilter, limits: { fileSize: MAX_VIDEO_SIZE } }))
   async updatePost(
     @Param('postId') postId: string,
     @Req() req,
@@ -133,6 +173,8 @@ export class PostsController {
       imagesToRemove?: string;
       filesToRemove?: string;
       linksToRemove?: string;
+      videosToRemove?: string;
+      videoUrls?: string;
       pollQuestion?: string;
       pollOptions?: string;
       newPollQuestion?: string;
@@ -144,6 +186,7 @@ export class PostsController {
     
     const newImages: string[] = [];
     const newFiles: { url: string; name: string }[] = [];
+    const newVideos: string[] = [];
     
     if (files && files.length > 0) {
       for (const file of files) {
@@ -154,6 +197,9 @@ export class PostsController {
         if (fileType === 'image' && newImages.length < 6) {
           const url = await this.storageService.uploadFile(file, 'posts');
           newImages.push(url);
+        } else if (fileType === 'video' && newVideos.length < 3) {
+          const url = await this.storageService.uploadFile(file, 'posts');
+          newVideos.push(url);
         } else if (fileType === 'file' && newFiles.length < 6) {
           const url = await this.storageService.uploadFile(file, 'posts');
           newFiles.push({ url, name: originalName });
@@ -161,11 +207,22 @@ export class PostsController {
       }
     }
     
+    // Parse external video URLs
+    if (body.videoUrls) {
+      try {
+        const externalVideos = JSON.parse(body.videoUrls);
+        if (Array.isArray(externalVideos)) {
+          newVideos.push(...externalVideos.slice(0, 3 - newVideos.length));
+        }
+      } catch {}
+    }
+    
     // Parse arrays from JSON strings
     let links: string[] | undefined;
     let imagesToRemove: string[] | undefined;
     let filesToRemove: string[] | undefined;
     let linksToRemove: string[] | undefined;
+    let videosToRemove: string[] | undefined;
     let pollOptions: { id: string; text: string }[] | undefined;
     let newPollOptions: string[] | undefined;
     
@@ -174,6 +231,7 @@ export class PostsController {
       if (body.imagesToRemove) imagesToRemove = JSON.parse(body.imagesToRemove);
       if (body.filesToRemove) filesToRemove = JSON.parse(body.filesToRemove);
       if (body.linksToRemove) linksToRemove = JSON.parse(body.linksToRemove);
+      if (body.videosToRemove) videosToRemove = JSON.parse(body.videosToRemove);
       if (body.pollOptions) pollOptions = JSON.parse(body.pollOptions);
       if (body.newPollOptions) newPollOptions = JSON.parse(body.newPollOptions);
     } catch {
@@ -194,7 +252,9 @@ export class PostsController {
       body.pollQuestion,
       pollOptions,
       body.newPollQuestion,
-      newPollOptions
+      newPollOptions,
+      newVideos.length > 0 ? newVideos : undefined,
+      videosToRemove
     );
   }
 

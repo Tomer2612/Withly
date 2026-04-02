@@ -29,6 +29,14 @@ const imageFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
   cb(null, true);
 };
 
+const videoFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
+  if (!file.mimetype.startsWith('video/')) {
+    return cb(new BadRequestException('אפשר להעלות רק קבצי וידאו'), false);
+  }
+  cb(null, true);
+};
+
+const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB
 const storage = memoryStorage();
 
 // Helper to extract userId from optional JWT token
@@ -207,6 +215,26 @@ export class CoursesController {
     }),
   )
   async uploadLessonImage(
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new Error('No file uploaded');
+    }
+    const url = await this.storageService.uploadFile(file, 'lessons');
+    return { url };
+  }
+
+  // Upload lesson video
+  @UseGuards(AuthGuard('jwt'))
+  @Post('lessons/upload-video')
+  @UseInterceptors(
+    FileInterceptor('video', {
+      storage,
+      fileFilter: videoFileFilter,
+      limits: { fileSize: MAX_VIDEO_SIZE },
+    }),
+  )
+  async uploadLessonVideo(
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file) {

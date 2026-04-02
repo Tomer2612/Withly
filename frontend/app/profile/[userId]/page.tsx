@@ -299,6 +299,8 @@ export default function MemberProfilePage() {
               onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
+                if (!file.type.startsWith('image/')) return;
+                if (file.size > 20 * 1024 * 1024) return;
                 
                 const token = localStorage.getItem('token');
                 if (!token) return;
