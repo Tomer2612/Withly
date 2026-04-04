@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import SiteHeader from '../components/SiteHeader';
 import MailIcon from '../components/icons/MailIcon';
-import CloseIcon from '../components/icons/CloseIcon';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -117,7 +116,7 @@ export default function ForgotPasswordPage() {
               </div>
               {error && (
                 <div className="mt-2 flex items-center gap-2 text-sm p-2 rounded-lg" style={{ color: '#B3261E', backgroundColor: '#FEE2E2' }}>
-                  <CloseIcon className="w-4 h-4 flex-shrink-0" />
+                  <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="#B3261E" strokeWidth="2"/><line x1="12" y1="8" x2="12" y2="13" stroke="#B3261E" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="16.5" r="1" fill="#B3261E"/></svg>
                   <p>{error}</p>
                 </div>
               )}

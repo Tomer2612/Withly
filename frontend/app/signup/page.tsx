@@ -143,7 +143,7 @@ function SignupContent() {
       if (res.ok) {
         const data = await res.json();
         if (data.exists) {
-          setEmailError('כתובת האימייל כבר רשומה במערכת');
+          setEmailError('כתובת האימייל הזו כבר רשומה במערכת');
         } else {
           setEmailError('');
         }
@@ -229,8 +229,8 @@ function SignupContent() {
 
       if (!res.ok) {
         if (data.message?.includes('Unique constraint') || data.message?.includes('already exists')) {
-          setMessage('כתובת האימייל כבר רשומה במערכת');
-          setEmailError('כתובת האימייל כבר רשומה במערכת. אולי תרצה להתחבר או לאפס סיסמה?');
+          setMessage('כתובת האימייל הזו כבר רשומה במערכת');
+          setEmailError('כתובת האימייל הזו כבר רשומה במערכת. אולי תרצה להתחבר או לאפס סיסמה?');
         } else {
           setMessage(data.message || 'ההרשמה נכשלה');
         }
@@ -461,7 +461,7 @@ function SignupContent() {
               </div>
               {nameError && (
                 <div className="mt-2 flex items-center gap-2 text-sm p-2 rounded-lg" style={{ color: '#B3261E', backgroundColor: '#FEE2E2' }}>
-                  <CloseIcon className="w-4 h-4 flex-shrink-0" />
+                  <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="#B3261E" strokeWidth="2"/><line x1="12" y1="8" x2="12" y2="13" stroke="#B3261E" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="16.5" r="1" fill="#B3261E"/></svg>
                   <p>{nameError}</p>
                 </div>
               )}
@@ -506,7 +506,7 @@ function SignupContent() {
               </div>
               {emailError && (
                 <div className="mt-2 flex items-start gap-2 text-sm p-2 rounded-lg" style={{ color: '#B3261E', backgroundColor: '#FEE2E2' }}>
-                    <CloseIcon className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <svg className="w-4 h-4 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="#B3261E" strokeWidth="2"/><line x1="12" y1="8" x2="12" y2="13" stroke="#B3261E" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="16.5" r="1" fill="#B3261E"/></svg>
                   <div>
                     <p>{emailError}</p>
                     {emailError.includes('כבר רשומה') && (
@@ -621,7 +621,7 @@ function SignupContent() {
               )}
               {passwordError && (
                 <div className="mt-2 flex items-center gap-2 text-sm p-2 rounded-lg" style={{ color: '#B3261E', backgroundColor: '#FEE2E2' }}>
-                  <CloseIcon className="w-4 h-4 flex-shrink-0" />
+                  <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="#B3261E" strokeWidth="2"/><line x1="12" y1="8" x2="12" y2="13" stroke="#B3261E" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="16.5" r="1" fill="#B3261E"/></svg>
                   <p>{passwordError}</p>
                 </div>
               )}
@@ -668,7 +668,7 @@ function SignupContent() {
               </div>
               {confirmPassword && !passwordsMatch && (
                 <div className="mt-2 flex items-center gap-2 text-sm p-2 rounded-lg" style={{ color: '#B3261E', backgroundColor: '#FEE2E2' }}>
-                  <CloseIcon className="w-4 h-4 flex-shrink-0" />
+                  <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="#B3261E" strokeWidth="2"/><line x1="12" y1="8" x2="12" y2="13" stroke="#B3261E" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="16.5" r="1" fill="#B3261E"/></svg>
                   <p>הסיסמאות אינן תואמות</p>
                 </div>
               )}

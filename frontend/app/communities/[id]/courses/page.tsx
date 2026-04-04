@@ -334,7 +334,6 @@ export default function CoursesPage() {
               <div
                 key={course.id}
                 className="bg-white rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-300 ease-in-out group border border-gray-100 relative w-full max-w-[432px]"
-                style={{ height: '510px' }}
               >
                 {/* Edit/Delete Buttons for Owner/Author */}
                 {canEditCourse(course) && (
@@ -360,7 +359,7 @@ export default function CoursesPage() {
 
                 {/* Course Image - Clickable */}
                 <Link href={`/communities/${communityId}/courses/${course.id}`} className="block">
-                  <div className="relative h-[250px] bg-gray-200 overflow-hidden">
+                  <div className="relative aspect-video bg-gray-200 overflow-hidden">
                     {course.image ? (
                       <Image
                         src={getImageUrl(course.image)}
@@ -391,9 +390,9 @@ export default function CoursesPage() {
                 </Link>
 
                 {/* Course Info - Clickable */}
-                <Link href={`/communities/${communityId}/courses/${course.id}`} className="block p-5 overflow-hidden no-underline h-[260px]">
+                <Link href={`/communities/${communityId}/courses/${course.id}`} className="block p-5 overflow-hidden">
                   {/* Title */}
-                  <h3 className="text-lg font-bold text-gray-900 mb-3 truncate">
+                  <h3 className="text-lg font-bold text-gray-900 mb-3" style={{ overflowWrap: 'anywhere' }}>
                     {course.title}
                   </h3>
 
@@ -410,7 +409,7 @@ export default function CoursesPage() {
                   </div>
 
                   {/* Description - 18px, regular, gray 8 */}
-                  <p className="text-lg font-normal text-[#3F3F46] line-clamp-2 mb-3 min-h-[56px] break-words overflow-hidden">
+                  <p className="text-lg font-normal text-[#3F3F46] line-clamp-4 mb-3 overflow-hidden" style={{ overflowWrap: 'anywhere' }}>
                     {course.description || 'אין תיאור'}
                   </p>
 

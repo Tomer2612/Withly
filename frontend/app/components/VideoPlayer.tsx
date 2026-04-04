@@ -29,7 +29,7 @@ export default function VideoPlayer({ url, className = '', onEnded }: VideoPlaye
     const thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 
     return (
-      <div className={`relative aspect-video bg-black rounded-xl overflow-hidden ${className}`}>
+      <div className={`relative aspect-video bg-black rounded-lg overflow-hidden ${className}`}>
         <iframe
           ref={iframeRef}
           src={`https://www.youtube.com/embed/${videoId}?enablejsapi=1&rel=0`}
@@ -66,7 +66,7 @@ export default function VideoPlayer({ url, className = '', onEnded }: VideoPlaye
     if (!videoId) return null;
 
     return (
-      <div className={`relative aspect-video bg-black rounded-xl overflow-hidden ${className}`}>
+      <div className={`relative aspect-video bg-black rounded-lg overflow-hidden ${className}`}>
         <iframe
           ref={iframeRef}
           src={`https://player.vimeo.com/video/${videoId}?title=0&byline=0&portrait=0`}
@@ -103,7 +103,7 @@ export default function VideoPlayer({ url, className = '', onEnded }: VideoPlaye
     if (!videoId) return null;
 
     return (
-      <div className={`relative aspect-video bg-black rounded-xl overflow-hidden ${className}`}>
+      <div className={`relative aspect-video bg-black rounded-lg overflow-hidden ${className}`}>
         <iframe
           src={`https://geo.dailymotion.com/player.html?video=${videoId}`}
           className="w-full h-full border-0"
@@ -118,7 +118,7 @@ export default function VideoPlayer({ url, className = '', onEnded }: VideoPlaye
   const videoSrc = url.startsWith('http') ? url : getImageUrl(url);
 
   return (
-    <div className={`relative aspect-video bg-black rounded-xl overflow-hidden ${className}`}>
+    <div className={`relative aspect-video bg-black rounded-lg overflow-hidden ${className}`}>
       <video
         ref={videoRef}
         src={videoSrc}

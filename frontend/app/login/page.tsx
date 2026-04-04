@@ -9,7 +9,6 @@ import SiteHeader from '../components/SiteHeader';
 import GoogleIcon from '../components/icons/GoogleIcon';
 import MailIcon from '../components/icons/MailIcon';
 import KeyIcon from '../components/icons/KeyIcon';
-import CloseIcon from '../components/icons/CloseIcon';
 import { clearSessionData } from '../lib/auth';
 
 function LoginContent() {
@@ -226,7 +225,7 @@ function LoginContent() {
                   </div>
                   {emailError && (
                     <div className="mt-2 flex items-center gap-2 text-sm p-2 rounded-lg" style={{ color: '#B3261E', backgroundColor: '#FEE2E2' }}>
-                      <CloseIcon className="w-4 h-4 flex-shrink-0" />
+                      <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="#B3261E" strokeWidth="2"/><line x1="12" y1="8" x2="12" y2="13" stroke="#B3261E" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="16.5" r="1" fill="#B3261E"/></svg>
                       <p>{emailError}</p>
                     </div>
                   )}
@@ -262,7 +261,7 @@ function LoginContent() {
                   </div>
                   {passwordError && (
                     <div className="mt-2 flex items-center gap-2 text-sm p-2 rounded-lg" style={{ color: '#B3261E', backgroundColor: '#FEE2E2' }}>
-                      <CloseIcon className="w-4 h-4 flex-shrink-0" />
+                      <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="#B3261E" strokeWidth="2"/><line x1="12" y1="8" x2="12" y2="13" stroke="#B3261E" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="16.5" r="1" fill="#B3261E"/></svg>
                       <p>{passwordError}</p>
                     </div>
                   )}
@@ -290,7 +289,7 @@ function LoginContent() {
                     color: messageType === 'error' ? '#B3261E' : '#003233',
                     backgroundColor: messageType === 'error' ? '#FEE2E2' : '#E0F2FE'
                   }}>
-                    <CloseIcon className="w-4 h-4 flex-shrink-0" />
+                    <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/><line x1="12" y1="8" x2="12" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="16.5" r="1" fill="currentColor"/></svg>
                     <p>{message}</p>
                   </div>
                 )}

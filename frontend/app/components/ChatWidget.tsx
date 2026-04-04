@@ -747,7 +747,7 @@ function ChatWindow({
             const isLastInGroup = !isSameSenderAsNext;
             
             // Tighter bottom spacing if next message is from same sender
-            const marginClass = isSameSenderAsNext ? 'mb-0.5' : 'mb-3';
+            const marginClass = isSameSenderAsNext ? 'mb-1' : 'mb-3';
             // Tighter top spacing if prev message is from same sender
             const marginTopClass = isSameSenderAsPrev ? 'mt-0' : '';
             

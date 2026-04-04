@@ -1068,24 +1068,16 @@ function CommunityFeedContent() {
     setLinksToRemove(prev => prev.filter(l => l !== link));
   };
 
-  // Download file handler - needed for cross-origin downloads
-  const handleDownload = async (url: string, filename: string) => {
-    try {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(downloadUrl);
-    } catch (err) {
-      console.error('Download error:', err);
-      // Fallback: open in new tab
-      window.open(url, '_blank');
-    }
+  // Download file handler
+  const handleDownload = (url: string, filename: string) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Save/Unsave handler
@@ -2066,7 +2058,7 @@ function CommunityFeedContent() {
             )}
 
             {/* Sort and Filter Row */}
-            <div style={{ paddingTop: '24px', paddingBottom: '24px' }} className="flex items-center">
+            <div className="flex items-center">
               {/* Filter by category */}
               <div className="flex items-center gap-3">
                 <span style={{ fontSize: '16px' }} className="font-normal text-black">סינון לפי</span>
@@ -2503,25 +2495,25 @@ function CommunityFeedContent() {
                                     key={option.id}
                                     onClick={() => post.poll && handleVotePoll(post.poll.id, option.id, post.id, post.poll.userVotedOptionId)}
                                     disabled={isVoting}
-                                    className={`w-full relative overflow-hidden rounded-lg border transition ${
+                                    className={`w-full relative overflow-hidden rounded-lg border transition text-right ${
                                       isVoted 
-                                        ? 'border-indigo-400 bg-indigo-50' 
-                                        : 'border-gray-200 bg-white hover:border-indigo-300 hover:bg-indigo-50'
+                                        ? 'border-[#A7EA7B] bg-[#F0FDF4]' 
+                                        : 'border-gray-200 bg-white hover:border-[#A7EA7B] hover:bg-[#F0FDF4]'
                                     }`}
                                   >
                                     {/* Progress bar background */}
                                     <div 
-                                      className={`absolute inset-y-0 right-0 transition-all duration-500 ${isVoted ? 'bg-indigo-100' : 'bg-gray-100'}`}
+                                      className={`absolute inset-y-0 right-0 transition-all duration-500 ${isVoted ? 'bg-[#DCFCE7]' : 'bg-gray-100'}`}
                                       style={{ width: `${option.percentage}%` }}
                                     />
-                                    <div className="relative flex items-center justify-between px-4 py-3">
+                                    <div className="relative flex items-center justify-between px-4 py-3" dir="rtl">
                                       <div className="flex items-center gap-2">
-                                        {isVoted && <CheckIcon size={12} color="#4F46E5" />}
-                                        <span className={`text-sm ${isVoted ? 'font-medium text-indigo-700' : 'text-gray-700'}`}>
+                                        {isVoted && <CheckIcon size={12} color="#163300" />}
+                                        <span className={`text-sm ${isVoted ? 'font-medium text-[#163300]' : 'text-gray-700'}`}>
                                           {option.text}
                                         </span>
                                       </div>
-                                      <span className={`text-sm font-medium ${isVoted ? 'text-indigo-600' : 'text-gray-500'}`}>
+                                      <span className={`text-sm font-medium ${isVoted ? 'text-[#163300]' : 'text-gray-500'}`}>
                                         {option.votes} ({option.percentage}%)
                                       </span>
                                     </div>
@@ -2542,7 +2534,7 @@ function CommunityFeedContent() {
                               <button
                                 key={index}
                                 onClick={() => handleDownload(
-                                  `${file.url}`,
+                                  getImageUrl(file.url),
                                   file.name || 'file'
                                 )}
                                 className="w-full flex items-center gap-3 bg-gray-50 rounded-lg px-4 py-3 border border-gray-200 hover:bg-gray-100 transition text-right"
@@ -3002,17 +2994,17 @@ function CommunityFeedContent() {
                     ))}
                   </ul>
                 </>
-              ) : (
+              ) : userId ? (
                 <p style={{ fontSize: '16px' }} className="text-gray-800 text-center py-2">
                   {(isOwner || isManager) ? (
-                    <Link href={`/communities/${communityId}/manage`} className="text-gray-800 underline hover:opacity-80">
+                    <Link href={`/communities/${communityId}/manage?tab=rules`} className="text-gray-800 underline hover:opacity-80">
                       הוסיפו כללים לקהילה
                     </Link>
                   ) : (
                     <span className="underline">לא הוגדרו כללים לקהילה זו</span>
                   )}
                 </p>
-              )}
+              ) : null}
             </div>
 
             {/* אירועים קרובים */}

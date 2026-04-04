@@ -101,8 +101,8 @@ export default function CreateCoursePage() {
   const [isOwnerOrManager, setIsOwnerOrManager] = useState(false);
 
   // Validation constants
-  const MAX_TITLE_LENGTH = 20;
-  const MAX_DESCRIPTION_LENGTH = 100;
+  const MAX_TITLE_LENGTH = 100;
+  const MAX_DESCRIPTION_LENGTH = 1000;
   const MAX_CHAPTER_TITLE_LENGTH = 80;
   const MAX_LESSON_TITLE_LENGTH = 80;
   const MAX_LESSON_DURATION = 480; // 8 hours max
@@ -738,7 +738,7 @@ export default function CreateCoursePage() {
                       }
                     }}
                     rows={4}
-                    className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black text-right resize-none ${
+                    className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black text-right resize-none scrollbar-styled ${
                       errors.description ? 'border-[#B3261E]' : 'border-gray-300'
                     }`}
                     placeholder="תאר את הקורס בכמה משפטים..."
@@ -837,7 +837,7 @@ export default function CreateCoursePage() {
                       {/* Chapter Lessons */}
                       {chapter.expanded && (
                         <div className="p-4" style={{ backgroundColor: '#F4F4F5', borderTop: '1px solid #7A7A83' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0px' }}>
                           {chapter.lessons.map((lesson, lessonIndex) => {
                             const hasMultipleContent = [
                               lesson.videoUrl,
@@ -868,10 +868,7 @@ export default function CreateCoursePage() {
                             
                             return (
                             <Fragment key={lessonIndex}>
-                            {lessonIndex > 0 && (
-                              <div style={{ width: 'calc(100% + 32px)', height: '1px', backgroundColor: 'black', marginLeft: '-16px', marginRight: '-16px' }} />
-                            )}
-                            <div id={`lesson-${chapterIndex}-${lessonIndex}`} className="rounded-lg p-4">
+                            <div id={`lesson-${chapterIndex}-${lessonIndex}`} className="px-4" style={{ paddingTop: lessonIndex === 0 ? '4px' : '12px', paddingBottom: '12px', borderTop: lessonIndex > 0 ? '1px solid #D0D0D4' : 'none' }}>
                               <div className="flex items-center gap-3">
                                 <div className="flex items-center gap-2">
                                   {getLessonIcon()}
@@ -1393,7 +1390,7 @@ export default function CreateCoursePage() {
                                       value={lesson.content}
                                       onChange={(e) => updateLesson(chapterIndex, lessonIndex, { content: e.target.value })}
                                       rows={3}
-                                      className="w-full p-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-black focus:border-black text-right"
+                                      className="w-full p-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-black focus:border-black text-right scrollbar-styled"
                                       style={{ resize: 'none' }}
                                       placeholder="תוכן טקסט לשיעור..."
                                     />

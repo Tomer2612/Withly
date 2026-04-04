@@ -616,56 +616,50 @@ function CommunityPreviewContent() {
                   <Link
                     key={comm.id}
                     href={`/communities/${comm.id}/preview`}
-                    className="rounded-2xl overflow-hidden shadow-md hover:shadow-xl bg-white transition-all duration-200"
+                    className="rounded-2xl overflow-hidden bg-white transition-all duration-200 hover:shadow-lg flex flex-col"
                   >
                     {comm.image ? (
                       <img
                         src={getImageUrl(comm.image)}
                         alt={comm.name}
-                        className="w-full h-44 object-cover"
+                        className="w-full object-cover"
+                        style={{ aspectRatio: '16/9' }}
                       />
                     ) : (
-                      <div className="w-full h-44 bg-gradient-to-br from-blue-100 to-green-100 flex items-center justify-center">
-                        <span className="text-gray-400 font-medium">תמונת קהילה</span>
+                      <div className="w-full flex items-center justify-center" style={{ aspectRatio: '16/9', background: 'linear-gradient(to bottom right, #DBEAFE, #DCFCE7)' }}>
+                        <span className="font-medium" style={{ color: '#A1A1AA' }}>תמונת קהילה</span>
                       </div>
                     )}
-                    <div className="p-5 text-right">
+                    <div className="p-5 text-right flex-1 flex flex-col" dir="rtl">
                       <div className="flex items-start gap-3 mb-2">
                         {comm.logo ? (
                           <img
                             src={getImageUrl(comm.logo)}
                             alt={comm.name}
-                            className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                            className="w-12 h-12 rounded-full object-cover flex-shrink-0"
                           />
                         ) : (
-                          <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-                            <span className="text-gray-400 text-lg font-bold">{comm.name.charAt(0)}</span>
+                          <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#F4F4F5' }}>
+                            <span className="text-lg font-bold" style={{ color: '#A1A1AA' }}>{comm.name.charAt(0)}</span>
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-xl text-black">{comm.name}</h3>
+                          <h3 className="font-bold text-black" style={{ fontSize: '1.5rem' }}>{comm.name}</h3>
+                          {comm.topic && (
+                            <span className="font-normal" style={{ fontSize: '1rem', color: '#3F3F46' }}>{comm.topic}</span>
+                          )}
                         </div>
                       </div>
-                      <p className="text-sm text-gray-600 line-clamp-3 leading-relaxed">
+                      <p className="line-clamp-3 leading-relaxed" style={{ fontSize: '1rem', color: '#3F3F46' }}>
                         {comm.description}
                       </p>
                       
-                      {/* Separator line */}
-                      <div className="border-t border-gray-200 my-4"></div>
-                      
-                      {/* Topic + Member count + Price badges */}
-                      <div className="flex flex-wrap items-center justify-start gap-2">
-                        {/* Topic badge */}
-                        {comm.topic && (
-                          <span className="bg-purple-100 text-purple-700 px-3 py-1.5 rounded-full text-sm font-medium border border-purple-200">
-                            {comm.topic}
-                          </span>
-                        )}
-                        
+                      {/* Member count + Price badges */}
+                      <div className="flex flex-wrap items-center justify-start gap-2 mt-auto pt-4">
                         {/* Member count badge */}
                         <span 
-                          className="px-3 py-1.5 rounded-full text-sm font-medium"
-                          style={{ backgroundColor: '#F4F4F5', color: '#52525B' }}
+                          className="rounded-full font-normal"
+                          style={{ backgroundColor: '#F4F4F5', color: '#3F3F46', fontSize: '1rem', padding: '0.5rem 1rem' }}
                         >
                           {(comm.memberCount ?? 0) === 1 
                             ? 'משתמש אחד' 
@@ -677,15 +671,15 @@ function CommunityPreviewContent() {
                         {/* Free/Paid badge */}
                         {(comm.price ?? 0) === 0 ? (
                           <span 
-                            className="px-3 py-1.5 rounded-full text-sm font-medium"
-                            style={{ backgroundColor: '#E9FCC5', color: '#365908' }}
+                            className="rounded-full font-normal"
+                            style={{ backgroundColor: '#A7EA7B', color: '#163300', fontSize: '1rem', padding: '0.5rem 1rem' }}
                           >
                             חינם
                           </span>
                         ) : (
                           <span 
-                            className="px-3 py-1.5 rounded-full text-sm font-medium"
-                            style={{ backgroundColor: '#DCF1FE', color: '#02527D' }}
+                            className="rounded-full font-normal"
+                            style={{ backgroundColor: '#91DCED', color: '#003233', fontSize: '1rem', padding: '0.5rem 1rem' }}
                           >
                             ₪{comm.price} לחודש
                           </span>

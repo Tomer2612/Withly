@@ -12,6 +12,8 @@ export default function RouteProgress() {
   // Listen for link clicks to start progress immediately
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
+      // Skip if navigation was blocked by unsaved-changes guard
+      if (e.defaultPrevented) return;
       const target = e.target as HTMLElement;
       const anchor = target.closest('a');
       

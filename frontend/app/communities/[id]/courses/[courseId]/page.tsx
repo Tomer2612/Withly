@@ -117,6 +117,7 @@ function CourseViewerContent() {
   // Quiz state
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string[]>>({});
   const [quizSubmitted, setQuizSubmitted] = useState<Record<string, boolean>>({});
+  const [descExpanded, setDescExpanded] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -216,7 +217,20 @@ function CourseViewerContent() {
   // Reset state when lesson changes
   useEffect(() => {
     if (!currentLesson || !course?.enrollment) return;
-    if (course.lessonProgress[currentLesson.id]) return; // Already completed
+    if (course.lessonProgress[currentLesson.id]) {
+      // Pre-populate quiz answers for completed quiz lessons
+      if (currentLesson.lessonType === 'quiz' && currentLesson.quiz) {
+        const answers: Record<string, string[]> = {};
+        const submitted: Record<string, boolean> = {};
+        for (const q of currentLesson.quiz.questions) {
+          answers[q.id] = q.options.filter(o => o.isCorrect).map(o => o.id);
+          submitted[q.id] = true;
+        }
+        setQuizAnswers(answers);
+        setQuizSubmitted(submitted);
+      }
+      return;
+    }
     
     setLessonStartTime(Date.now());
     setHasScrolledToBottom(false);
@@ -509,9 +523,9 @@ function CourseViewerContent() {
       <main className="min-h-screen bg-gray-100" dir="rtl">
         <div className="max-w-4xl mx-auto px-8 py-16">
           <div className="bg-white rounded-2xl shadow-sm p-8 text-center">
-            {course.image && <img src={getImageUrl(course.image)} alt={course.title} className="w-full h-64 object-cover rounded-xl mb-8" />}
+            {course.image && <img src={getImageUrl(course.image)} alt={course.title} className="w-full aspect-video object-cover rounded-xl mb-8" />}
             <h1 className="text-3xl font-bold text-gray-900 mb-4">{course.title}</h1>
-            <p className="text-gray-600 mb-8 max-w-2xl mx-auto">{course.description}</p>
+            <p className="text-gray-600 mb-8 max-w-2xl mx-auto whitespace-pre-wrap" style={{ overflowWrap: 'anywhere' }}>{course.description}</p>
             <div className="flex items-center justify-center gap-6 mb-8 text-gray-500">
               <span className="flex items-center gap-2"><VideoIcon size={20} />{course.totalLessons} שיעורים</span>
               <span className="flex items-center gap-2"><ClockIcon size={20} />{course.totalDuration} דקות</span>
@@ -532,8 +546,10 @@ function CourseViewerContent() {
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <aside className="w-80 border-l border-gray-200 bg-white flex flex-col overflow-hidden">
-          {/* Sticky sidebar header */}
-          <div className="flex-shrink-0 p-4">
+          {/* Sidebar - scrollable as one unit */}
+          <div className="flex-1 overflow-y-auto" dir="ltr">
+            <div dir="rtl">
+            <div className="p-4">
             {/* Edit button for course author */}
             {isCourseAuthor && (
               <Link 
@@ -549,7 +565,20 @@ function CourseViewerContent() {
             <h2 className="font-semibold text-[#18181B] leading-tight" style={{ fontSize: '21px' }}>{course.title}</h2>
             {/* Course description */}
             {course.description && (
-              <p className="text-[#52525B] mt-2 break-words" style={{ fontSize: '14px' }}>{course.description}</p>
+              <div className="mt-2">
+                <p className={`text-[#52525B] whitespace-pre-wrap ${!descExpanded ? 'line-clamp-3' : ''}`} style={{ fontSize: '14px', overflowWrap: 'anywhere' }}>
+                  {course.description}
+                </p>
+                {course.description.length > 100 && (
+                  <button
+                    onClick={() => setDescExpanded(!descExpanded)}
+                    className="text-black font-medium hover:underline mt-1"
+                    style={{ fontSize: '14px' }}
+                  >
+                    {descExpanded ? 'הצג פחות' : 'הצג עוד'}
+                  </button>
+                )}
+              </div>
             )}
             {/* Progress bar - only for non-authors */}
             {course.enrollment && !isCourseAuthor && (
@@ -561,8 +590,6 @@ function CourseViewerContent() {
           </div>
           {/* Divider */}
           <div className="h-px bg-[#D4D4D8]" />
-          <div className="flex-1 overflow-y-auto" dir="ltr">
-            <div dir="rtl">
             {course.chapters.map((chapter, chapterIndex) => {
               const { completed, total } = getChapterCompletion(chapter);
               const isExpanded = expandedChapters.has(chapter.id);
@@ -596,7 +623,7 @@ function CourseViewerContent() {
                                   {getLessonIcon(lesson, isCompleted)}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-[#18181B] truncate" style={{ fontSize: '16px' }}>{lesson.title}</p>
+                                  <p className="text-[#18181B]" style={{ fontSize: '16px', overflowWrap: 'anywhere' }}>{lesson.title}</p>
                                 </div>
                               </button>
                               {!isCourseAuthor && (
@@ -648,7 +675,7 @@ function CourseViewerContent() {
               {/* Title Card - Detached */}
               <div className="bg-white border border-[#D4D4D8] p-6 mb-4" style={{ borderRadius: '16px' }}>
                 <div className="text-center">
-                  <h2 className="font-semibold text-[#18181B] mb-2" style={{ fontSize: '21px' }}>{currentLesson.title}</h2>
+                  <h2 className="font-semibold text-[#18181B] mb-2" style={{ fontSize: '21px', overflowWrap: 'anywhere' }}>{currentLesson.title}</h2>
                   <div className="flex items-center justify-center gap-4" style={{ fontSize: '16px', color: '#000000' }}>
                     <span className="flex items-center gap-1 font-normal">
                       {(() => {
@@ -690,7 +717,7 @@ function CourseViewerContent() {
                   contentItems.push({
                     type: 'text',
                     render: () => (
-                      <div className="prose max-w-none text-right leading-relaxed" style={{ fontSize: '18px', color: '#000000', fontWeight: 400 }} dangerouslySetInnerHTML={{ __html: currentLesson.content! }} />
+                      <div className="prose max-w-none text-right leading-relaxed whitespace-pre-wrap" style={{ fontSize: '18px', color: '#000000', fontWeight: 400 }} dangerouslySetInnerHTML={{ __html: currentLesson.content! }} />
                     )
                   });
                 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { FaYoutube, FaWhatsapp, FaFacebook, FaInstagram } from 'react-icons/fa';
 import { compressImage, compressImages, MAX_IMAGE_SIZE_BYTES } from '../../../lib/imageCompression';
@@ -59,6 +59,7 @@ type TabType = 'general' | 'rules' | 'social' | 'payments';
 export default function ManageCommunityPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const communityId = params.id as string;
   
   const [activeTab, setActiveTab] = useState<TabType>('general');
@@ -148,8 +149,91 @@ export default function ManageCommunityPage() {
     'יזמות ועסקים עצמאיים'
   ];
 
+  // Track initial form values to detect unsaved changes
+  const initialFormRef = useRef<{ name: string; description: string; topic: string; slug: string; rules: string[]; youtubeUrl: string; whatsappUrl: string; facebookUrl: string; instagramUrl: string; price: number; isPaidCommunity: boolean; showOnlineMembers: boolean } | null>(null);
+
+  const hasUnsavedChanges = () => {
+    const init = initialFormRef.current;
+    if (!init) return false;
+    return (
+      name !== init.name ||
+      description !== init.description ||
+      topic !== init.topic ||
+      slug !== init.slug ||
+      JSON.stringify(rules) !== JSON.stringify(init.rules) ||
+      youtubeUrl !== init.youtubeUrl ||
+      whatsappUrl !== init.whatsappUrl ||
+      facebookUrl !== init.facebookUrl ||
+      instagramUrl !== init.instagramUrl ||
+      price !== init.price ||
+      isPaidCommunity !== init.isPaidCommunity ||
+      showOnlineMembers !== init.showOnlineMembers ||
+      images.some(img => !img.isExisting) ||
+      galleryVideoFiles.length > 0 ||
+      (logo && !logo.isExisting)
+    );
+  };
+
+  // Keep a ref in sync so stable closures can read latest value
+  const shouldBlockRef = useRef(false);
+  useEffect(() => {
+    shouldBlockRef.current = hasUnsavedChanges();
+  });
+
   useEffect(() => {
     setMounted(true);
+    const tab = searchParams.get('tab');
+    if (tab === 'rules' || tab === 'social' || tab === 'payments') {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
+  // Warn user about unsaved changes when leaving (browser close/refresh + client-side navigation)
+  useEffect(() => {
+    // Browser close / refresh
+    const beforeUnload = (e: BeforeUnloadEvent) => {
+      if (shouldBlockRef.current) {
+        e.preventDefault();
+      }
+    };
+
+    // Intercept clicks on links (catches Next.js <Link> before router processes them)
+    const onLinkClick = (e: MouseEvent) => {
+      if (!shouldBlockRef.current) return;
+      const anchor = (e.target as HTMLElement).closest('a');
+      if (!anchor) return;
+      // Only block same-origin navigation
+      if (anchor.origin !== window.location.origin) return;
+      // Don't block same-page anchors
+      if (anchor.pathname === window.location.pathname && anchor.hash) return;
+      const confirmed = window.confirm('\u05d9\u05e9\u05e0\u05dd \u05e9\u05d9\u05e0\u05d5\u05d9\u05d9\u05dd \u05dc\u05d0 \u05e9\u05de\u05d5\u05e8\u05d9\u05dd. \u05d4\u05d0\u05dd \u05d0\u05ea\u05d4 \u05d1\u05d8\u05d5\u05d7 \u05e9\u05d1\u05e8\u05e6\u05d5\u05e0\u05da \u05dc\u05e2\u05d6\u05d5\u05d1?');
+      if (!confirmed) {
+        e.preventDefault();
+        e.stopPropagation();
+      } else {
+        shouldBlockRef.current = false;
+        initialFormRef.current = null;
+      }
+    };
+
+    // Intercept back/forward button
+    const onPopState = () => {
+      if (shouldBlockRef.current) {
+        const confirmed = window.confirm('\u05d9\u05e9\u05e0\u05dd \u05e9\u05d9\u05e0\u05d5\u05d9\u05d9\u05dd \u05dc\u05d0 \u05e9\u05de\u05d5\u05e8\u05d9\u05dd. \u05d4\u05d0\u05dd \u05d0\u05ea\u05d4 \u05d1\u05d8\u05d5\u05d7 \u05e9\u05d1\u05e8\u05e6\u05d5\u05e0\u05da \u05dc\u05e2\u05d6\u05d5\u05d1?');
+        if (!confirmed) {
+          history.go(1);
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', beforeUnload);
+    window.addEventListener('popstate', onPopState);
+    window.addEventListener('click', onLinkClick, true);
+    return () => {
+      window.removeEventListener('beforeunload', beforeUnload);
+      window.removeEventListener('popstate', onPopState);
+      window.removeEventListener('click', onLinkClick, true);
+    };
   }, []);
 
   // Auto-dismiss messages after 5 seconds and scroll to message
@@ -226,6 +310,22 @@ export default function ManageCommunityPage() {
         setCardLastFour(data.cardLastFour || null);
         setCardBrand(data.cardBrand || null);
         setShowOnlineMembers(data.showOnlineMembers !== false);
+        
+        // Store initial form values for unsaved changes detection
+        initialFormRef.current = {
+          name: data.name,
+          description: data.description,
+          topic: data.topic || '',
+          slug: data.slug || '',
+          rules: data.rules || [],
+          youtubeUrl: data.youtubeUrl || '',
+          whatsappUrl: data.whatsappUrl || '',
+          facebookUrl: data.facebookUrl || '',
+          instagramUrl: data.instagramUrl || '',
+          price: data.price || 10,
+          isPaidCommunity: (data.price ?? 0) > 0,
+          showOnlineMembers: data.showOnlineMembers !== false,
+        };
         
         // Load logo
         if (data.logo) {
@@ -497,6 +597,7 @@ export default function ManageCommunityPage() {
 
       setMessage('הקהילה עודכנה בהצלחה!');
       setMessageType('success');
+      initialFormRef.current = null; // Reset so beforeunload won't trigger
       setTimeout(() => {
         router.push(`/communities/${communityId}/about`);
       }, 3000);
@@ -587,6 +688,7 @@ export default function ManageCommunityPage() {
   // Rules handlers
   const handleAddRule = () => {
     if (!newRule.trim()) return;
+    if (newRule.trim().length > 50) return;
     if (rules.length >= 3) return; // Limit to 3 rules max
     setRules(prev => [...prev, newRule.trim()]);
     setNewRule('');
@@ -1149,7 +1251,10 @@ export default function ManageCommunityPage() {
                       placeholder="כלל חדש..."
                       className="flex-1 p-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black text-right text-base disabled:bg-gray-100 disabled:cursor-not-allowed"
                       value={newRule}
-                      onChange={(e) => setNewRule(e.target.value)}
+                      onChange={(e) => {
+                        if (e.target.value.length <= 50) setNewRule(e.target.value);
+                      }}
+                      maxLength={50}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
@@ -1164,10 +1269,13 @@ export default function ManageCommunityPage() {
                       disabled={!newRule.trim() || rules.length >= 3}
                       className="px-5 py-3.5 bg-black text-white rounded-lg font-medium hover:bg-gray-800 disabled:opacity-50 transition flex items-center gap-2 text-base"
                     >
-                      <PlusIcon size={12} />
                       הוסף
+                      <PlusIcon size={12} />
                     </button>
                   </div>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {newRule.length}/50 תווים
+                  </p>
                   </div>
                 </div>
               </div>

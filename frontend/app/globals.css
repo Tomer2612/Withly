@@ -80,6 +80,27 @@ select:disabled,
   display: none;
 }
 
+/* Thin styled scrollbar for textareas and scrollable areas */
+.scrollbar-styled {
+  scrollbar-width: thin;
+  scrollbar-color: #D0D0D4 transparent;
+  direction: ltr;
+  unicode-bidi: plaintext;
+}
+.scrollbar-styled::-webkit-scrollbar {
+  width: 6px;
+}
+.scrollbar-styled::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-styled::-webkit-scrollbar-thumb {
+  background-color: #D0D0D4;
+  border-radius: 3px;
+}
+.scrollbar-styled::-webkit-scrollbar-thumb:hover {
+  background-color: #A1A1AA;
+}
+
 /* Placeholder color - Gray 5 */
 input::placeholder {
   color: var(--color-gray-5);

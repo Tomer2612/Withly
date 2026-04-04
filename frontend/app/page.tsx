@@ -247,7 +247,7 @@ export default function Home() {
         {userEmail ? (
           <Link
             href="/pricing"
-            className="bg-black text-white font-normal hover:opacity-90 transition text-lg"
+            className="bg-black text-white font-normal hover:opacity-90 transition text-lg leading-none"
             style={{ padding: '1rem 1.5rem', borderRadius: '1rem' }}
           >
             צרו קהילה משלכם
@@ -255,7 +255,7 @@ export default function Home() {
         ) : (
           <Link
             href="/signup?createCommunity=true"
-            className="bg-black text-white font-normal hover:opacity-90 transition text-lg"
+            className="bg-black text-white font-normal hover:opacity-90 transition text-lg leading-none"
             style={{ padding: '1rem 1.5rem', borderRadius: '1rem' }}
           >
             צרו קהילה משלכם

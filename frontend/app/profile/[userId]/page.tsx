@@ -529,7 +529,7 @@ export default function MemberProfilePage() {
                       .map((community) => (
                       <div
                         key={community.id}
-                        className="rounded-2xl overflow-hidden hover:shadow-lg bg-white transition-all duration-200 flex flex-col border border-gray-100"
+                        className="rounded-2xl overflow-hidden hover:shadow-lg bg-gray-1 transition-all duration-200 flex flex-col border border-gray-100"
                       >
                         <Link href={`/communities/${community.slug || community.id}/feed`}>
                           {community.image ? (
@@ -664,7 +664,7 @@ export default function MemberProfilePage() {
                       .map((community) => (
                       <div
                         key={community.id}
-                        className="rounded-2xl overflow-hidden hover:shadow-lg bg-white transition-all duration-200 flex flex-col border border-gray-100"
+                        className="rounded-2xl overflow-hidden hover:shadow-lg bg-gray-1 transition-all duration-200 flex flex-col border border-gray-100"
                       >
                         <Link href={`/communities/${community.slug || community.id}/feed`}>
                           {community.image ? (

@@ -196,6 +196,72 @@ export default function SettingsPage() {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'error' | 'success'>('error');
 
+  // Track initial form values for unsaved changes detection
+  const initialFormRef = useRef<{ name: string; bio: string; location: string } | null>(null);
+
+  const hasUnsavedChanges = () => {
+    const init = initialFormRef.current;
+    if (!init) return false;
+    return (
+      name !== init.name ||
+      bio !== init.bio ||
+      location !== init.location ||
+      profileImage !== null
+    );
+  };
+
+  // Keep a ref in sync so stable closures can read latest value
+  const shouldBlockRef = useRef(false);
+  useEffect(() => {
+    shouldBlockRef.current = hasUnsavedChanges();
+  });
+
+  // Warn user about unsaved changes when leaving (browser close/refresh + client-side navigation)
+  useEffect(() => {
+    // Browser close / refresh
+    const beforeUnload = (e: BeforeUnloadEvent) => {
+      if (shouldBlockRef.current) {
+        e.preventDefault();
+      }
+    };
+
+    // Intercept clicks on links (catches Next.js <Link> before router processes them)
+    const onLinkClick = (e: MouseEvent) => {
+      if (!shouldBlockRef.current) return;
+      const anchor = (e.target as HTMLElement).closest('a');
+      if (!anchor) return;
+      if (anchor.origin !== window.location.origin) return;
+      if (anchor.pathname === window.location.pathname && anchor.hash) return;
+      const confirmed = window.confirm('\u05d9\u05e9\u05e0\u05dd \u05e9\u05d9\u05e0\u05d5\u05d9\u05d9\u05dd \u05dc\u05d0 \u05e9\u05de\u05d5\u05e8\u05d9\u05dd. \u05d4\u05d0\u05dd \u05d0\u05ea\u05d4 \u05d1\u05d8\u05d5\u05d7 \u05e9\u05d1\u05e8\u05e6\u05d5\u05e0\u05da \u05dc\u05e2\u05d6\u05d5\u05d1?');
+      if (!confirmed) {
+        e.preventDefault();
+        e.stopPropagation();
+      } else {
+        shouldBlockRef.current = false;
+        initialFormRef.current = null;
+      }
+    };
+
+    // Intercept back/forward button
+    const onPopState = () => {
+      if (shouldBlockRef.current) {
+        const confirmed = window.confirm('\u05d9\u05e9\u05e0\u05dd \u05e9\u05d9\u05e0\u05d5\u05d9\u05d9\u05dd \u05dc\u05d0 \u05e9\u05de\u05d5\u05e8\u05d9\u05dd. \u05d4\u05d0\u05dd \u05d0\u05ea\u05d4 \u05d1\u05d8\u05d5\u05d7 \u05e9\u05d1\u05e8\u05e6\u05d5\u05e0\u05da \u05dc\u05e2\u05d6\u05d5\u05d1?');
+        if (!confirmed) {
+          history.go(1);
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', beforeUnload);
+    window.addEventListener('popstate', onPopState);
+    window.addEventListener('click', onLinkClick, true);
+    return () => {
+      window.removeEventListener('beforeunload', beforeUnload);
+      window.removeEventListener('popstate', onPopState);
+      window.removeEventListener('click', onLinkClick, true);
+    };
+  }, []);
+
   useEffect(() => {
     setMounted(true);
 
@@ -230,6 +296,11 @@ export default function SettingsPage() {
           setName(data.name || '');
           setBio(data.bio || '');
           setLocation(data.location || '');
+          initialFormRef.current = {
+            name: data.name || '',
+            bio: data.bio || '',
+            location: data.location || '',
+          };
           if (data.profileImage) {
             setImagePreview(getImageUrl(data.profileImage));
           }
@@ -345,6 +416,7 @@ export default function SettingsPage() {
       // Show success message
       setMessage('השינויים נשמרו בהצלחה');
       setMessageType('success');
+      initialFormRef.current = null; // Reset so beforeunload won't trigger
       
       // Redirect to profile page after short delay
       setTimeout(() => {
