@@ -170,7 +170,7 @@ export default function ManageCommunityPage() {
       showOnlineMembers !== init.showOnlineMembers ||
       images.some(img => !img.isExisting) ||
       galleryVideoFiles.length > 0 ||
-      (logo && !logo.isExisting)
+      !!(logo && !logo.isExisting)
     );
   };
 
