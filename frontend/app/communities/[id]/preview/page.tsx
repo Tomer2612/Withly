@@ -698,7 +698,7 @@ function CommunityPreviewContent() {
               <CloseIcon className="w-5 h-5" />
             </button>
 
-            <h2 className="text-2xl font-bold text-center mb-8">מתחילים 7 ימי ניסיון חינם</h2>
+            <h2 className="text-2xl font-bold text-center mb-8">מתחילים 14 ימי ניסיון חינם</h2>
 
             <div className="space-y-4">
               <div>

@@ -31,7 +31,7 @@ export default function SiteFooter() {
 
         {/* Copyright */}
         <p className="text-[18px] text-[#7A7A83]">
-          זכויות יוצרים - כל הזכויות שמורות לWithly © {new Date().getFullYear()}
+         זכויות יוצרים - כל הזכויות שמורות ל{new Date().getFullYear()} © Withly    
         </p>
       </div>
     </footer>
