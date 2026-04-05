@@ -930,7 +930,7 @@ export default function EditCoursePage() {
                   />
                   <div className="flex justify-between mt-1">
                     {errors.title && <span style={{ color: '#B3261E', fontSize: '14px' }}>{errors.title}</span>}
-                    <span className={`text-xs mr-auto ${course.title.length > MAX_TITLE_LENGTH * 0.9 ? 'text-orange-500' : 'text-gray-400'}`}>
+                    <span className={`text-xs mr-auto ${course.title.length > MAX_TITLE_LENGTH * 0.9 ? 'text-[#B3261E]' : 'text-gray-400'}`}>
                       {course.title.length}/{MAX_TITLE_LENGTH}
                     </span>
                   </div>
@@ -1012,7 +1012,7 @@ export default function EditCoursePage() {
                   />
                   <div className="flex justify-between mt-1">
                     {errors.description && <span className="text-xs" style={{ color: '#B3261E' }}>{errors.description}</span>}
-                    <span className={`text-xs mr-auto ${course.description.length > MAX_DESCRIPTION_LENGTH * 0.9 ? 'text-orange-500' : 'text-gray-400'}`}>
+                    <span className={`text-xs mr-auto ${course.description.length > MAX_DESCRIPTION_LENGTH * 0.9 ? 'text-[#B3261E]' : 'text-gray-400'}`}>
                       {course.description.length}/{MAX_DESCRIPTION_LENGTH}
                     </span>
                   </div>

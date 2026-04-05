@@ -558,7 +558,7 @@ export default function MemberProfilePage() {
                               </div>
                             )}
                             <div className="flex-1 min-w-0">
-                              <h2 className="font-bold text-black" style={{ fontSize: '1.5rem' }}>{community.name}</h2>
+                              <h2 className="font-bold text-black truncate" style={{ fontSize: '1.5rem' }}>{community.name}</h2>
                               {/* Topic below heading */}
                               {community.topic && (
                                 <span className="font-normal" style={{ fontSize: '1rem', color: '#3F3F46' }}>{community.topic}</span>
@@ -694,7 +694,7 @@ export default function MemberProfilePage() {
                               </div>
                             )}
                             <div className="flex-1 min-w-0">
-                              <h2 className="font-bold text-black" style={{ fontSize: '1.5rem' }}>{community.name}</h2>
+                              <h2 className="font-bold text-black truncate" style={{ fontSize: '1.5rem' }}>{community.name}</h2>
                               {/* Topic below heading */}
                               {community.topic && (
                                 <span className="font-normal" style={{ fontSize: '1rem', color: '#3F3F46' }}>{community.topic}</span>

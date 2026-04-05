@@ -240,6 +240,7 @@ function CommunityPreviewContent() {
       const token = localStorage.getItem('token');
 
       try {
+        setCommunity(null);
         setLoading(true);
         
         // Check membership - if member, redirect to feed
@@ -418,18 +419,10 @@ function CommunityPreviewContent() {
                          !getExpiryError() && 
                          cardCvv.length === 3;
 
-  if (loading) {
+  if (loading || !community) {
     return (
       <main className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-gray-300 border-t-black rounded-full animate-spin"></div>
-      </main>
-    );
-  }
-
-  if (!community) {
-    return (
-      <main className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <p className="text-gray-600">קהילה לא נמצאה</p>
       </main>
     );
   }
@@ -644,7 +637,7 @@ function CommunityPreviewContent() {
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-black" style={{ fontSize: '1.5rem' }}>{comm.name}</h3>
+                          <h3 className="font-bold text-black truncate" style={{ fontSize: '1.5rem' }}>{comm.name}</h3>
                           {comm.topic && (
                             <span className="font-normal" style={{ fontSize: '1rem', color: '#3F3F46' }}>{comm.topic}</span>
                           )}

@@ -104,13 +104,13 @@ export default function CommunityNavbar({
     <header dir="rtl" className="sticky top-0 z-40 flex items-center justify-between px-8 py-4 bg-white border-b border-gray-200 h-[72px]">
       {/* Right side: Withly Logo + Community name - FIXED WIDTH */}
       <div className="flex items-center w-[280px] flex-shrink-0">
-        <Link href="/" className="hover:opacity-75 transition flex-shrink-0 px-6">
+        <Link href="/" className="hover:opacity-75 transition flex-shrink-0 pl-4">
           <WithlyIcon size={28} />
         </Link>
         
-        <div className="w-px h-[30px] bg-gray-400 flex-shrink-0" />
+        <div className="w-px h-[30px] bg-gray-400 flex-shrink-0 mx-4" />
         
-        <div className="pr-6">
+        <div>
         
         {/* Community Switcher */}
         <div className="relative" ref={dropdownRef}>
@@ -129,7 +129,7 @@ export default function CommunityNavbar({
                 <UsersIcon className="w-5 h-5 text-gray-400" />
               </div>
             )}
-            <span className="font-medium text-black truncate max-w-[120px]" style={{ fontSize: '16px' }}>{community?.name}</span>
+            <span className="font-medium text-black truncate max-w-[200px]" style={{ fontSize: '16px' }}>{community?.name}</span>
             
             {showCommunityDropdown && (
               <svg 

@@ -598,9 +598,6 @@ export default function ManageCommunityPage() {
       setMessage('הקהילה עודכנה בהצלחה!');
       setMessageType('success');
       initialFormRef.current = null; // Reset so beforeunload won't trigger
-      setTimeout(() => {
-        router.push(`/communities/${communityId}/about`);
-      }, 3000);
     } catch (err: any) {
       console.error('Community update error:', err);
       setMessage(err.message || 'שגיאה בעדכון הקהילה');
@@ -820,8 +817,11 @@ export default function ManageCommunityPage() {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       required
-                      maxLength={100}
+                      maxLength={50}
                     />
+                    <span className={`text-xs mt-1 block text-left ${name.length > 45 ? 'text-[#B3261E]' : 'text-gray-400'}`}>
+                      {name.length}/50
+                    </span>
                   </div>
                 </div>
 
@@ -1506,16 +1506,7 @@ export default function ManageCommunityPage() {
                   : { backgroundColor: '#A7EA7B', color: 'black', fontSize: '16px', fontWeight: 400 }
                 }
               >
-                <div className="flex items-center justify-between gap-3">
-                  <span>{message}</span>
-                  <button
-                    type="button"
-                    onClick={() => setMessage('')}
-                    className="text-current opacity-60 hover:opacity-100 transition"
-                  >
-                    ✕
-                  </button>
-                </div>
+                <span>{message}</span>
               </div>
             )}
 
