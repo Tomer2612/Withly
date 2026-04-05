@@ -449,16 +449,23 @@ export default function ManageCommunityPage() {
     // Compress all images
     const compressedFiles = await compressImages(filesToProcess);
     
-    compressedFiles.forEach((file) => {
+    compressedFiles.forEach((file, idx) => {
       const reader = new FileReader();
       reader.onloadend = () => {
         const newImage: ImageFile = {
           file,
           preview: reader.result as string,
-          isPrimary: images.length === 0, // First image is primary if no images exist
+          isPrimary: false,
           isExisting: false,
         };
-        setImages(prev => [...prev, newImage]);
+        setImages(prev => {
+          const updated = [...prev, newImage];
+          // If no image is primary yet, make the first one primary
+          if (!updated.some(img => img.isPrimary)) {
+            updated[0] = { ...updated[0], isPrimary: true };
+          }
+          return updated;
+        });
       };
       reader.readAsDataURL(file);
     });

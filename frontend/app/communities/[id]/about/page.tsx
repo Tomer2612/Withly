@@ -92,7 +92,7 @@ function CommunityGallery({ primaryImage, galleryImages, galleryVideos, communit
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev === allMedia.length - 1 ? 0 : prev + 1));
       setIsVideoPlaying(false);
-    }, 10000);
+    }, 5000);
     
     return () => clearInterval(interval);
   }, [allMedia.length, currentIndex, isVideoPlaying]);
@@ -477,7 +477,8 @@ export default function CommunityAboutPage() {
               <div className="bg-white rounded-2xl border border-gray-200 p-5">
                 <button
                   onClick={() => setShowLeaveModal(true)}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-4 text-red-600 hover:bg-red-50 rounded-xl transition font-medium"
+                  className="w-full flex items-center justify-center gap-2 py-3 px-4 hover:bg-red-50 rounded-xl transition font-medium"
+                  style={{ color: '#B3261E' }}
                 >
                   <LogoutIcon size={16} />
                   עזוב את הקהילה
@@ -528,7 +529,8 @@ export default function CommunityAboutPage() {
               <button
                 onClick={handleLeaveCommunity}
                 disabled={leavingCommunity}
-                className="flex-1 py-3 px-4 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 py-3 px-4 text-white rounded-xl font-medium transition disabled:opacity-50 flex items-center justify-center gap-2"
+                style={{ backgroundColor: '#B3261E' }}
               >
                 {leavingCommunity ? (
                   <>

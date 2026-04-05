@@ -14,10 +14,10 @@ interface CompressionOptions {
 }
 
 const defaultOptions: CompressionOptions = {
-  maxWidth: 1920,
-  maxHeight: 1920,
-  quality: 0.85,
-  maxSizeMB: 2,
+  maxWidth: 3840,
+  maxHeight: 3840,
+  quality: 0.95,
+  maxSizeMB: 10,
 };
 
 /**
@@ -32,8 +32,8 @@ export async function compressImage(
 ): Promise<File> {
   const opts = { ...defaultOptions, ...options };
   
-  // Skip compression for small files (< 500KB) or non-image files
-  if (file.size < 500 * 1024 || !file.type.startsWith('image/')) {
+  // Skip compression for files under 5MB or non-image files
+  if (file.size < 5 * 1024 * 1024 || !file.type.startsWith('image/')) {
     return file;
   }
   
@@ -67,6 +67,10 @@ export async function compressImage(
         // Draw image on canvas
         ctx!.drawImage(img, 0, 0, width, height);
         
+        // Preserve original format when possible
+        const outputType = file.type === 'image/png' ? 'image/png' : 
+                          file.type === 'image/webp' ? 'image/webp' : 'image/jpeg';
+        
         // Convert to blob
         canvas.toBlob(
           (blob) => {
@@ -83,7 +87,7 @@ export async function compressImage(
             
             // Create new file with same name
             const compressedFile = new File([blob], file.name, {
-              type: 'image/jpeg',
+              type: outputType,
               lastModified: Date.now(),
             });
             
@@ -93,7 +97,7 @@ export async function compressImage(
             
             resolve(compressedFile);
           },
-          'image/jpeg',
+          outputType,
           opts.quality
         );
       } catch (error) {

@@ -100,7 +100,7 @@ function CommunityGallery({ primaryImage, galleryImages, galleryVideos, communit
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev === allMedia.length - 1 ? 0 : prev + 1));
       setIsVideoPlaying(false);
-    }, 10000);
+    }, 5000);
     
     return () => clearInterval(interval);
   }, [allMedia.length, currentIndex, isVideoPlaying]);

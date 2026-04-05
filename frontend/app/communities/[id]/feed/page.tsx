@@ -3162,7 +3162,7 @@ function CommunityFeedContent() {
           <img
             src={getImageUrl(lightboxImages[lightboxIndex])}
             alt={`תמונה ${lightboxIndex + 1}`}
-            className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg shadow-2xl"
+            className="max-h-[90vh] max-w-[90vw] object-contain"
             onClick={(e) => e.stopPropagation()}
           />
 

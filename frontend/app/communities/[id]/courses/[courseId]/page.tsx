@@ -788,7 +788,7 @@ function CourseViewerContent() {
                                 setViewedImages(prev => new Set([...prev, index]));
                                 openLightbox(currentLesson.images!.slice(0, 6), index);
                               }}
-                              className={`block relative cursor-pointer ${
+                              className={`block relative cursor-pointer outline-none focus:outline-none ${
                                 imageCount === 3 && index === 0 ? 'col-span-3' :
                                 ''
                               }`}
@@ -1081,14 +1081,14 @@ function CourseViewerContent() {
               <CloseIcon size={20} className="text-gray-400" />
             </button>
             <div className="text-center">
-              <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <UsersIcon className="w-7 h-7 text-orange-500" />
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: '#FEE2E2' }}>
+                <UsersIcon className="w-7 h-7" style={{ color: '#B3261E' }} />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">ביטול הרשמה לקורס</h3>
               <p className="text-gray-600 mb-6">
                 האם אתה בטוח שברצונך לבטל את ההרשמה לקורס <span className="font-semibold">"{course?.title}"</span>?
                 <br />
-                <span className="text-orange-500 text-sm">ההתקדמות שלך בקורס תימחק.</span>
+                <span className="text-sm" style={{ color: '#B3261E' }}>ההתקדמות שלך בקורס תימחק.</span>
               </p>
               <div className="flex gap-3 justify-center">
                 <button
@@ -1101,7 +1101,8 @@ function CourseViewerContent() {
                 <button
                   onClick={handleUnenroll}
                   disabled={unenrolling}
-                  className="px-6 py-2.5 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 transition disabled:opacity-50 flex items-center gap-2"
+                  className="px-6 py-2.5 text-white rounded-lg font-medium hover:opacity-90 transition disabled:opacity-50 flex items-center gap-2"
+                  style={{ backgroundColor: '#B3261E' }}
                 >
                   {unenrolling ? 'מבטל...' : 'בטל הרשמה'}
                 </button>
@@ -1160,7 +1161,7 @@ function CourseViewerContent() {
           <img
             src={getImageUrl(lightboxImages[lightboxIndex])}
             alt={`תמונה ${lightboxIndex + 1}`}
-            className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg shadow-2xl"
+            className="max-h-[90vh] max-w-[90vw] object-contain"
             onClick={(e) => e.stopPropagation()}
           />
 
