@@ -9,6 +9,7 @@ import NotificationBell from './NotificationBell';
 import { MessagesBell } from './ChatWidget';
 import UserProfileDropdown from './UserProfileDropdown';
 import { getImageUrl } from '@/app/lib/imageUrl';
+import ComingSoonTooltip from './ComingSoonTooltip';
 
 interface UserCommunity {
   id: string;
@@ -186,20 +187,35 @@ export default function CommunityNavbar({
 
       {/* Center: Nav links - CENTERED ABSOLUTELY */}
       <nav className="absolute left-1/2 -translate-x-1/2 flex items-center gap-4">
-        {navLinks.map((link) => (
-          <Link
-            key={link.key}
-            href={link.href}
-            className={`transition px-3 py-1.5 whitespace-nowrap text-black ${
-              activePage === link.key
-                ? 'bg-gray-200 font-normal'
-                : 'hover:bg-gray-50 font-normal'
-            }`}
-            style={{ borderRadius: '10px', fontSize: '16px' }}
-          >
-            {link.label}
-          </Link>
-        ))}
+        {navLinks.map((link) => {
+          // Insert חנות (coming soon) between לוח תוצאות and אודות
+          const showShopAfter = link.key === 'leaderboard';
+          return (
+            <span key={link.key} className="contents">
+              <Link
+                href={link.href}
+                className={`transition px-3 py-1.5 whitespace-nowrap text-black ${
+                  activePage === link.key
+                    ? 'bg-gray-200 font-normal'
+                    : 'hover:bg-gray-50 font-normal'
+                }`}
+                style={{ borderRadius: '10px', fontSize: '16px' }}
+              >
+                {link.label}
+              </Link>
+              {showShopAfter && (
+                <ComingSoonTooltip tailDirection="up">
+                  <span
+                    className="px-3 py-1.5 whitespace-nowrap cursor-default select-none"
+                    style={{ borderRadius: '10px', fontSize: '16px', color: '#A1A1AA' }}
+                  >
+                    חנות
+                  </span>
+                </ComingSoonTooltip>
+              )}
+            </span>
+          );
+        })}
       </nav>
 
       {/* Left side: Search (optional) + Notifications + Profile - FIXED WIDTH */}

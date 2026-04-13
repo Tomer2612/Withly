@@ -32,6 +32,8 @@ import FileTextIcon from '../../../components/icons/FileTextIcon';
 import TrophyIcon from '../../../components/icons/TrophyIcon';
 import VideoPlayer from '../../../components/VideoPlayer';
 import { getImageUrl } from '@/app/lib/imageUrl';
+import ComingSoonTooltip from '../../../components/ComingSoonTooltip';
+import MessageIcon from '../../../components/icons/MessageIcon';
 
 interface Community {
   id: string;
@@ -1524,18 +1526,21 @@ function CommunityFeedContent() {
                 <path 
                   d="M4.66675 1.33203H11.3334" 
                   stroke="currentColor" 
+                  strokeWidth={1.5}
                   strokeLinecap="round" 
                   strokeLinejoin="round"
                 />
                 <path 
                   d="M3.33325 4H12.6666" 
                   stroke="currentColor" 
+                  strokeWidth={1.5}
                   strokeLinecap="round" 
                   strokeLinejoin="round"
                 />
                 <path 
                   d="M12.6667 6.66797H3.33333C2.59695 6.66797 2 7.26492 2 8.0013V13.3346C2 14.071 2.59695 14.668 3.33333 14.668H12.6667C13.403 14.668 14 14.071 14 13.3346V8.0013C14 7.26492 13.403 6.66797 12.6667 6.66797Z" 
                   stroke="currentColor" 
+                  strokeWidth={1.5}
                   strokeLinecap="round" 
                   strokeLinejoin="round"
                 />
@@ -1564,6 +1569,7 @@ function CommunityFeedContent() {
                   <path 
                     d="M12.6666 14L7.99992 11.3333L3.33325 14V3.33333C3.33325 2.97971 3.47373 2.64057 3.72378 2.39052C3.97382 2.14048 4.31296 2 4.66659 2H11.3333C11.6869 2 12.026 2.14048 12.2761 2.39052C12.5261 2.64057 12.6666 2.97971 12.6666 3.33333V14Z" 
                     stroke="currentColor" 
+                    strokeWidth={1.5}
                     strokeLinecap="round" 
                     strokeLinejoin="round"
                   />
@@ -1572,6 +1578,19 @@ function CommunityFeedContent() {
               </button>
             </div>
           )}
+
+          {/* Coming Soon: ערוצי טקסט */}
+          <div className="mb-2">
+            <ComingSoonTooltip tailDirection="right">
+              <div
+                className="w-full px-4 py-3 flex items-center gap-3 rounded-xl cursor-default select-none"
+                style={{ color: '#A1A1AA' }}
+              >
+                <MessageIcon className="w-4 h-4 flex-shrink-0" />
+                <span style={{ fontSize: '16px' }} className="font-normal">ערוצי טקסט</span>
+              </div>
+            </ComingSoonTooltip>
+          </div>
         </div>
 
         {/* Spacer for fixed sidebar */}
@@ -1596,18 +1615,21 @@ function CommunityFeedContent() {
                 <path 
                   d="M4.66675 1.33203H11.3334" 
                   stroke="currentColor" 
+                  strokeWidth={2}
                   strokeLinecap="round" 
                   strokeLinejoin="round"
                 />
                 <path 
                   d="M3.33325 4H12.6666" 
                   stroke="currentColor" 
+                  strokeWidth={2}
                   strokeLinecap="round" 
                   strokeLinejoin="round"
                 />
                 <path 
                   d="M12.6667 6.66797H3.33333C2.59695 6.66797 2 7.26492 2 8.0013V13.3346C2 14.071 2.59695 14.668 3.33333 14.668H12.6667C13.403 14.668 14 14.071 14 13.3346V8.0013C14 7.26492 13.403 6.66797 12.6667 6.66797Z" 
                   stroke="currentColor" 
+                  strokeWidth={2}
                   strokeLinecap="round" 
                   strokeLinejoin="round"
                 />
@@ -1630,6 +1652,7 @@ function CommunityFeedContent() {
                   <path 
                     d="M12.6666 14L7.99992 11.3333L3.33325 14V3.33333C3.33325 2.97971 3.47373 2.64057 3.72378 2.39052C3.97382 2.14048 4.31296 2 4.66659 2H11.3333C11.6869 2 12.026 2.14048 12.2761 2.39052C12.5261 2.64057 12.6666 2.97971 12.6666 3.33333V14Z" 
                     stroke="currentColor" 
+                    strokeWidth={1.5}
                     strokeLinecap="round" 
                     strokeLinejoin="round"
                   />
