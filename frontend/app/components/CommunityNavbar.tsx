@@ -170,13 +170,13 @@ export default function CommunityNavbar({
                 <UsersIcon className="w-4 h-4 md:w-5 md:h-5 text-gray-400" />
               </div>
             )}
-            <span className="font-medium text-black truncate max-w-[120px] md:max-w-[200px] hidden sm:inline" style={{ fontSize: '16px' }}>{community?.name}</span>
+            <span className="font-medium text-black truncate max-w-[120px] md:max-w-[200px]" style={{ fontSize: '16px' }}>{community?.name}</span>
             
             {showCommunityDropdown && (
               <svg 
                 width="10" height="5" viewBox="0 0 10 5" fill="none" 
                 xmlns="http://www.w3.org/2000/svg"
-                className={`transform transition-transform duration-200 flex-shrink-0 hidden sm:block ${isDropdownOpen ? 'rotate-180' : ''}`}
+                className={`transform transition-transform duration-200 flex-shrink-0 ${isDropdownOpen ? 'rotate-180' : ''}`}
               >
                 <path 
                   d="M1 1L5 5L9 1" 
