@@ -740,10 +740,33 @@ export default function ManageCommunityPage() {
 
   return (
     <main className="min-h-screen bg-gray-100 text-right" dir="rtl">
+      {/* Mobile Tab Bar */}
+      <div className="md:hidden flex overflow-x-auto bg-white px-3 py-2 gap-1 border-b" style={{ borderColor: '#E1E1E2' }}>
+        {[
+          { key: 'general' as const, label: 'כללי' },
+          { key: 'rules' as const, label: 'כללי הקהילה' },
+          { key: 'social' as const, label: 'רשתות חברתיות' },
+          ...(isOwner ? [{ key: 'payments' as const, label: 'תשלומים' }] : []),
+        ].map(tab => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-4 py-2 text-sm rounded-lg whitespace-nowrap transition ${
+              activeTab === tab.key
+                ? 'bg-gray-900 text-white font-medium'
+                : 'text-gray-600 hover:bg-gray-100 font-normal'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Main Layout with Sidebar */}
       <div className="flex min-h-[calc(100vh-65px)]">
-        {/* Right Sidebar - Settings Tabs */}
-        <aside className="w-64 bg-white border-l border-gray-200 p-6 flex-shrink-0">
+        {/* Right Sidebar - Settings Tabs (hidden on mobile) */}
+        <aside className="hidden md:block w-64 bg-white border-l border-gray-200 p-6 flex-shrink-0">
           <div className="flex items-center gap-2 mb-6">
             <SettingsIcon size={20} className="text-gray-600" />
             <h2 className="text-base font-semibold text-gray-900">הגדרות</h2>
@@ -804,15 +827,15 @@ export default function ManageCommunityPage() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-6 overflow-auto">
+        <main className="flex-1 p-4 md:p-6 overflow-auto">
           <form onSubmit={handleUpdateCommunity} className="max-w-5xl">
             
             {/* General Tab */}
             {activeTab === 'general' && (
-              <div className="bg-white rounded-xl border border-gray-200 p-8 space-y-8">
+              <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-8 space-y-8">
                 {/* Community Name */}
-                <div className="flex gap-8">
-                  <div className="w-48 flex-shrink-0 text-right">
+                <div className="flex flex-col md:flex-row gap-4 md:gap-8">
+                  <div className="md:w-48 flex-shrink-0 text-right">
                     <h3 className="font-medium text-gray-900 text-base">שם הקהילה</h3>
                     <p className="text-sm text-gray-500 mt-1">השם הכללי שיוצג ברחבי האתר</p>
                   </div>
@@ -833,8 +856,8 @@ export default function ManageCommunityPage() {
                 </div>
 
                 {/* Community URL */}
-                <div className="flex gap-8">
-                  <div className="w-48 flex-shrink-0 text-right">
+                <div className="flex flex-col md:flex-row gap-4 md:gap-8">
+                  <div className="md:w-48 flex-shrink-0 text-right">
                     <h3 className="font-medium text-gray-900 text-base">לינק (URL)</h3>
                     <p className="text-sm text-gray-500 mt-1">הכתובת הציבורית של הקהילה (אותיות באנגלית, מספרים ומקפים בלבד)</p>
                   </div>
@@ -871,8 +894,8 @@ export default function ManageCommunityPage() {
                 </div>
 
                 {/* Logo */}
-                <div className="flex gap-8">
-                  <div className="w-48 flex-shrink-0 text-right">
+                <div className="flex flex-col md:flex-row gap-4 md:gap-8">
+                  <div className="md:w-48 flex-shrink-0 text-right">
                     <h3 className="font-medium text-gray-900 text-base">לוגו / תמונת פרופיל</h3>
                     <p className="text-sm text-gray-500 mt-1">האייקון שמייצג את הקהילה</p>
                   </div>
@@ -923,8 +946,8 @@ export default function ManageCommunityPage() {
                 </div>
 
                 {/* Category */}
-                <div className="flex gap-8">
-                  <div className="w-48 flex-shrink-0 text-right">
+                <div className="flex flex-col md:flex-row gap-4 md:gap-8">
+                  <div className="md:w-48 flex-shrink-0 text-right">
                     <h3 className="font-medium text-gray-900 text-base">קטגוריה</h3>
                     <p className="text-sm text-gray-500 mt-1">עוזר לאיתור וגילוי הקהילה</p>
                   </div>
@@ -939,8 +962,8 @@ export default function ManageCommunityPage() {
                 </div>
 
                 {/* Description */}
-                <div className="flex gap-8">
-                  <div className="w-48 flex-shrink-0 text-right">
+                <div className="flex flex-col md:flex-row gap-4 md:gap-8">
+                  <div className="md:w-48 flex-shrink-0 text-right">
                     <h3 className="font-medium text-gray-900 text-base">תיאור הקהילה</h3>
                     <p className="text-sm text-gray-500 mt-1">פירוט על הקהילה, למי היא מתאימה, מטרותיה ותחומי העניין שעוסקים בה</p>
                   </div>
@@ -961,16 +984,16 @@ export default function ManageCommunityPage() {
                 </div>
 
                 {/* Community Images */}
-                <div className="flex gap-8">
-                  <div className="w-48 flex-shrink-0 text-right">
+                <div className="flex flex-col md:flex-row gap-4 md:gap-8">
+                  <div className="md:w-48 flex-shrink-0 text-right">
                     <h3 className="font-medium text-gray-900 text-base">תמונות הקהילה</h3>
                     <p className="text-sm text-gray-500 mt-1">תמונות שיוצגו בעמוד הקהילה</p>
                   </div>
                   <div className="flex-1">
                   {images.length > 0 && (
-                    <div className="grid grid-cols-3 gap-2 mb-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
                       {images.map((img, index) => (
-                        <div key={index} className="relative group" style={{ width: '220px', height: '124px' }}>
+                        <div key={index} className="relative group aspect-video">
                           <img
                             src={img.preview}
                             alt={`תמונה ${index + 1}`}
@@ -1054,8 +1077,8 @@ export default function ManageCommunityPage() {
                 </div>
 
                 {/* Gallery Videos */}
-                <div className="flex gap-8">
-                  <div className="w-48 flex-shrink-0 text-right">
+                <div className="flex flex-col md:flex-row gap-4 md:gap-8">
+                  <div className="md:w-48 flex-shrink-0 text-right">
                     <h3 className="font-medium text-gray-900 text-base">סרטונים</h3>
                     <p className="text-sm text-gray-500 mt-1">סרטונים שיוצגו בעמוד הקהילה</p>
                     <p className="text-xs text-gray-500 mt-1">תומך בסרטונים של YouTube, Vimeo, Dailymotion או העלאת סרטון אישי</p>
@@ -1226,8 +1249,8 @@ export default function ManageCommunityPage() {
             {/* Rules Tab */}
             {activeTab === 'rules' && (
               <div className="bg-white rounded-xl border border-gray-200 p-8 space-y-8">
-                <div className="flex gap-8">
-                  <div className="w-48 flex-shrink-0 text-right">
+                <div className="flex flex-col md:flex-row gap-4 md:gap-8">
+                  <div className="md:w-48 flex-shrink-0 text-right">
                     <h3 className="font-medium text-gray-900 text-base">כללי הקהילה</h3>
                     <p className="text-sm text-gray-500 mt-1">הכללים שחברי הקהילה יראו בעמוד הפיד. אפשר להוסיף עד 3 כללים</p>
                   </div>
@@ -1291,8 +1314,8 @@ export default function ManageCommunityPage() {
             {/* Social Links Tab */}
             {activeTab === 'social' && (
               <div className="bg-white rounded-xl border border-gray-200 p-8 space-y-8">
-                <div className="flex gap-8">
-                  <div className="w-48 flex-shrink-0 text-right">
+                <div className="flex flex-col md:flex-row gap-4 md:gap-8">
+                  <div className="md:w-48 flex-shrink-0 text-right">
                     <h3 className="font-medium text-gray-900 text-base">רשתות חברתיות</h3>
                     <p className="text-sm text-gray-500 mt-1">קישורים לפרופילים החברתיים שלכם</p>
                   </div>

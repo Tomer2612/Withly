@@ -685,15 +685,15 @@ export default function CreateCoursePage() {
                     id="course-image-upload"
                   />
 
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                     {course.imagePreview ? (
                       <img
                         src={course.imagePreview}
                         alt="Course preview"
-                        className="w-96 aspect-video object-cover rounded-lg border border-gray-200"
+                        className="w-full sm:w-96 aspect-video object-cover rounded-lg border border-gray-200"
                       />
                     ) : (
-                      <div className={`w-96 aspect-video border rounded-lg flex items-center justify-center bg-white ${errors.image ? 'border-red-400' : 'border-gray-200'}`}>
+                      <div className={`w-full sm:w-96 aspect-video border rounded-lg flex items-center justify-center bg-white ${errors.image ? 'border-red-400' : 'border-gray-200'}`}>
                         <ImageIcon size={32} color={errors.image ? '#F87171' : '#D1D5DB'} />
                       </div>
                     )}

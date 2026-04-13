@@ -1583,7 +1583,7 @@ function CommunityFeedContent() {
           <div className="mb-2">
             <ComingSoonTooltip tailDirection="right">
               <div
-                className="w-full px-4 py-3 flex items-center gap-3 rounded-xl cursor-default select-none"
+                className="w-fit px-4 py-3 flex items-center gap-3 rounded-xl cursor-default select-none"
                 style={{ color: '#A1A1AA' }}
               >
                 <MessageIcon className="w-4 h-4 flex-shrink-0" />
@@ -1598,126 +1598,6 @@ function CommunityFeedContent() {
 
         {/* Main content area */}
         <div className="flex-1 py-6 px-4 lg:px-6">
-          {/* Mobile filters - shown on mobile only */}
-          <div className="lg:hidden mb-4 space-y-2">
-            <button 
-              onClick={() => setShowSavedOnly(false)}
-              className={`w-full rounded-xl px-4 py-2.5 flex items-center gap-3 ${
-                !showSavedOnly ? 'bg-gray-950 text-white' : 'bg-white text-gray-600 border border-gray-200'
-              }`}
-            >
-              <svg 
-                viewBox="0 0 16 16" 
-                fill="none" 
-                xmlns="http://www.w3.org/2000/svg"
-                className="w-4 h-4 flex-shrink-0"
-              >
-                <path 
-                  d="M4.66675 1.33203H11.3334" 
-                  stroke="currentColor" 
-                  strokeWidth={2}
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                />
-                <path 
-                  d="M3.33325 4H12.6666" 
-                  stroke="currentColor" 
-                  strokeWidth={2}
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                />
-                <path 
-                  d="M12.6667 6.66797H3.33333C2.59695 6.66797 2 7.26492 2 8.0013V13.3346C2 14.071 2.59695 14.668 3.33333 14.668H12.6667C13.403 14.668 14 14.071 14 13.3346V8.0013C14 7.26492 13.403 6.66797 12.6667 6.66797Z" 
-                  stroke="currentColor" 
-                  strokeWidth={2}
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <span style={{ fontSize: '16px' }} className="font-normal">פוסטים אחרונים</span>
-            </button>
-            {userEmail && (
-              <button 
-                onClick={() => setShowSavedOnly(true)}
-                className={`w-full rounded-xl px-4 py-2.5 flex items-center gap-3 ${
-                  showSavedOnly ? 'bg-gray-950 text-white' : 'bg-white text-gray-600 border border-gray-200'
-                }`}
-              >
-                <svg 
-                  viewBox="0 0 16 16" 
-                  fill="none" 
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="w-4 h-4 flex-shrink-0"
-                >
-                  <path 
-                    d="M12.6666 14L7.99992 11.3333L3.33325 14V3.33333C3.33325 2.97971 3.47373 2.64057 3.72378 2.39052C3.97382 2.14048 4.31296 2 4.66659 2H11.3333C11.6869 2 12.026 2.14048 12.2761 2.39052C12.5261 2.64057 12.6666 2.97971 12.6666 3.33333V14Z" 
-                    stroke="currentColor" 
-                    strokeWidth={1.5}
-                    strokeLinecap="round" 
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                <span style={{ fontSize: '16px' }} className="font-normal">פוסטים שמורים</span>
-              </button>
-            )}
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              <button
-                onClick={() => setCategoryFilter('')}
-                className={`px-2.5 py-1 rounded-full text-xs font-medium transition ${
-                  categoryFilter === '' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                הכל
-              </button>
-              {POST_CATEGORIES.map(cat => (
-                <button
-                  key={cat.value}
-                  onClick={() => setCategoryFilter(cat.value)}
-                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition ${
-                    categoryFilter === cat.value ? cat.color + ' ring-1 ring-gray-400' : cat.color + ' opacity-60'
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
-            {/* Mobile sorting */}
-            <div className="flex flex-wrap gap-1.5 pt-2">
-              <span className="text-xs text-gray-500 w-full mb-1">מיון:</span>
-              <button
-                onClick={() => setSortBy('newest')}
-                className={`px-2.5 py-1 rounded-full text-xs font-medium transition ${
-                  sortBy === 'newest' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                חדש ביותר
-              </button>
-              <button
-                onClick={() => setSortBy('oldest')}
-                className={`px-2.5 py-1 rounded-full text-xs font-medium transition ${
-                  sortBy === 'oldest' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                ישן ביותר
-              </button>
-              <button
-                onClick={() => setSortBy('mostLiked')}
-                className={`px-2.5 py-1 rounded-full text-xs font-medium transition ${
-                  sortBy === 'mostLiked' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                הכי אהוב
-              </button>
-              <button
-                onClick={() => setSortBy('mostCommented')}
-                className={`px-2.5 py-1 rounded-full text-xs font-medium transition ${
-                  sortBy === 'mostCommented' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                הכי מדובר
-              </button>
-            </div>
-          </div>
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px] max-w-5xl mx-auto">
 
@@ -2081,7 +1961,7 @@ function CommunityFeedContent() {
             )}
 
             {/* Sort and Filter Row */}
-            <div className="flex items-center">
+            <div className="flex flex-wrap items-center gap-y-3">
               {/* Filter by category */}
               <div className="flex items-center gap-3">
                 <span style={{ fontSize: '16px' }} className="font-normal text-black">סינון לפי</span>
@@ -2173,8 +2053,8 @@ function CommunityFeedContent() {
                       </Link>
                       
                       {/* Author info - next to profile pic */}
-                      <div className="flex-1 text-right">
-                        <Link href={`/profile/${post.author?.id}`} className="font-medium text-black hover:underline">
+                      <div className="flex-1 text-right min-w-0">
+                        <Link href={`/profile/${post.author?.id}`} className="font-medium text-black hover:underline truncate block">
                           {post.author?.name || 'משתמש אנונימי'}
                         </Link>
                         <p className="text-sm text-[#52525B]">
@@ -3117,7 +2997,7 @@ function CommunityFeedContent() {
                           )}
                         </Link>
                         {/* Name */}
-                        <Link href={`/profile/${member.userId}`} style={{ fontSize: '16px' }} className="font-normal text-black flex-1 hover:underline">
+                        <Link href={`/profile/${member.userId}`} style={{ fontSize: '16px' }} className="font-normal text-black flex-1 hover:underline truncate min-w-0">
                           {member.name}
                         </Link>
                         {/* Score */}

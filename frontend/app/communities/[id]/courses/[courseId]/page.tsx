@@ -118,6 +118,7 @@ function CourseViewerContent() {
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string[]>>({});
   const [quizSubmitted, setQuizSubmitted] = useState<Record<string, boolean>>({});
   const [descExpanded, setDescExpanded] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -543,9 +544,21 @@ function CourseViewerContent() {
   // Enrolled or Owner - show course viewer
   return (
     <div className="flex flex-col bg-white overflow-hidden" style={{ height: 'calc(100vh - 72px)' }} dir="rtl">
+      {/* Mobile sidebar toggle */}
+      <button
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="lg:hidden flex items-center gap-2 px-4 py-3 bg-white border-b border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+      >
+        <LayersIcon className="w-4 h-4" />
+        {sidebarOpen ? 'הסתר תוכן עניינים' : 'הצג תוכן עניינים'}
+        <svg width="12" height="7" viewBox="0 0 12 7" fill="none" className={`transform transition-transform ${sidebarOpen ? 'rotate-180' : ''}`}>
+          <path d="M1 1L6 6L11 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <aside className="w-80 border-l border-gray-200 bg-white flex flex-col overflow-hidden">
+        {/* Sidebar - hidden on mobile unless toggled */}
+        <aside className={`${sidebarOpen ? 'block' : 'hidden'} lg:block w-full lg:w-80 border-l border-gray-200 bg-white flex-col overflow-hidden ${sidebarOpen ? 'absolute inset-0 top-auto z-30 h-[60vh] lg:relative lg:h-auto lg:z-auto' : ''} lg:flex`}>
           {/* Sidebar - scrollable as one unit */}
           <div className="flex-1 overflow-y-auto" dir="ltr">
             <div dir="rtl">

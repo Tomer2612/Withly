@@ -65,7 +65,7 @@ export default function SupportPage() {
 
       {/* Hero Section */}
       <section className="text-center py-16 px-4">
-        <h1 className="font-semibold text-black" style={{ fontSize: '3.5rem' }}>
+        <h1 className="font-semibold text-black text-3xl md:text-5xl lg:text-[3.5rem]">
           שאלות ותשובות
         </h1>
       </section>

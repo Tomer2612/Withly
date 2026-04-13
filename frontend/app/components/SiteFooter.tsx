@@ -4,10 +4,10 @@ import Link from 'next/link';
 
 export default function SiteFooter() {
   return (
-    <footer dir="rtl" className="py-6" style={{ backgroundColor: '#F4F4F5' }}>
+    <footer dir="rtl" className="py-6 px-4 md:px-8" style={{ backgroundColor: '#F4F4F5' }}>
       <div className="flex flex-col items-center gap-4">
         {/* Navigation Links */}
-        <nav className="flex items-center gap-4 text-[18px]">
+        <nav className="flex flex-wrap justify-center items-center gap-3 md:gap-4 text-sm md:text-[18px]">
           <Link href="/pricing" className="text-black hover:opacity-70 transition font-normal">
             מחירון
           </Link>
@@ -30,7 +30,7 @@ export default function SiteFooter() {
         </nav>
 
         {/* Copyright */}
-        <p className="text-[18px] text-[#7A7A83]">
+        <p className="text-sm md:text-[18px] text-[#7A7A83] text-center">
          זכויות יוצרים - כל הזכויות שמורות ל{new Date().getFullYear()} © Withly    
         </p>
       </div>

@@ -264,6 +264,7 @@ model Event {
   capacity      Int?
   sendReminders Boolean     @default(true)
   reminderDays  Int         @default(1)
+  reminderSentAt DateTime?
   attendeeType  String      @default("all")
   communityId   String
   createdById   String

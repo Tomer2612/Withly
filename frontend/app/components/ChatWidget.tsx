@@ -435,7 +435,7 @@ export default function ChatWidget() {
       {showConversations && (
         <div 
           ref={conversationsRef}
-          className="fixed top-16 left-8 w-80 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden"
+          className="fixed top-16 left-2 right-2 sm:left-8 sm:right-auto sm:w-80 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden"
           dir="rtl"
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
@@ -552,7 +552,7 @@ export default function ChatWidget() {
       )}
 
       {/* Chat windows at bottom */}
-      <div className="fixed bottom-0 right-24 flex flex-row-reverse items-end gap-2 z-40">
+      <div className="fixed bottom-0 right-2 sm:right-24 flex flex-row-reverse items-end gap-2 z-40">
       {openChats.map((chat) => (
         chat.isMinimized ? (
           <div
@@ -672,7 +672,7 @@ function ChatWindow({
   };
 
   return (
-    <div className="w-80 max-h-[350px] bg-white rounded-t-xl shadow-2xl border border-gray-200 flex flex-col">
+    <div className="w-[calc(100vw-1rem)] sm:w-80 max-h-[350px] bg-white rounded-t-xl shadow-2xl border border-gray-200 flex flex-col">
       {/* Header */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200 px-3 py-2 flex items-center justify-between rounded-t-xl">
         <div className="flex items-center gap-2">

@@ -341,14 +341,14 @@ export default function CommunityMembersPage() {
                 </Link>
 
                 {/* Member Info */}
-                <div className="flex-1 text-right">
-                  <div className="flex items-center gap-2">
-                    <Link href={`/profile/${member.id}`} className="font-semibold text-black hover:underline">
+                <div className="flex-1 text-right min-w-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Link href={`/profile/${member.id}`} className="font-semibold text-black hover:underline truncate">
                       {member.name || 'משתמש'}
                     </Link>
                     {getRoleBadge(member.role)}
                   </div>
-                  <p className="text-sm text-[#52525B]">
+                  <p className="text-sm text-[#52525B] truncate">
                     {getUsername(member.email)} · תאריך הצטרפות: {formatDate(member.joinedAt)}
                   </p>
                 </div>

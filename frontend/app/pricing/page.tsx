@@ -408,7 +408,7 @@ function PricingContent() {
 
       {/* Hero Section */}
       <section className="text-center py-16 px-4">
-        <h1 className="font-semibold text-black mb-4" style={{ fontSize: '3.5rem' }}>
+        <h1 className="font-semibold text-black mb-4 text-3xl md:text-5xl lg:text-[3.5rem]">
           מחיר אחד. בלי הפתעות.
         </h1>
         <p className="text-lg" style={{ color: '#52525B' }}>
@@ -419,8 +419,8 @@ function PricingContent() {
       {/* Pricing Card */}
       <section className="flex justify-center px-4 pb-16">
         <div
-          className="bg-white rounded-2xl border p-8 flex flex-col"
-          style={{ width: '300px', minHeight: '380px', borderColor: '#A1A1AA' }}
+          className="bg-white rounded-2xl border p-8 flex flex-col w-full max-w-[300px]"
+          style={{ minHeight: '380px', borderColor: '#A1A1AA' }}
         >
           {/* Price */}
           <div className="mb-6">

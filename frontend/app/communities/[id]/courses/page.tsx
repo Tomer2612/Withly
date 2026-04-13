@@ -222,56 +222,56 @@ export default function CoursesPage() {
   return (
     <main className="min-h-screen bg-[#F4F4F5] text-right">
       {/* Sub header with tabs and create button */}
-      <div className="bg-[#F4F4F5] border-b border-gray-200 pt-10">
-        <div className="max-w-5xl mx-auto px-8 flex items-center justify-between">
-          <div className="flex gap-4">
+      <div className="bg-white md:bg-[#F4F4F5] border-b border-gray-200 md:pt-10">
+        <div className="max-w-5xl mx-auto px-4 md:px-8 flex items-center justify-between">
+          <div className="flex gap-1 md:gap-4 overflow-x-auto">
             {/* Owner sees only הקורסים שלי tab, regular users see the other 3 tabs */}
             {isOwner ? (
               <button
                 onClick={() => setActiveTab('my-courses')}
-                className={`px-4 py-3 text-[18px] relative transition ${
-                  activeTab === 'my-courses'
-                    ? 'font-semibold text-black'
-                    : 'font-normal text-[#3F3F46] hover:text-gray-700'
-                }`}
+                className="px-4 py-3 text-sm md:text-[18px] relative transition whitespace-nowrap"
+                style={{
+                  color: activeTab === 'my-courses' ? '#1D1D20' : '#52525B',
+                  borderBottom: activeTab === 'my-courses' ? '2px solid #1D1D20' : '2px solid transparent',
+                  fontWeight: activeTab === 'my-courses' ? 600 : 400,
+                }}
               >
                 הקורסים שלי
-                {activeTab === 'my-courses' && <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-black"></span>}
               </button>
             ) : (
               <>
                 <button
                   onClick={() => setActiveTab('all')}
-                  className={`px-4 py-3 text-[18px] relative transition ${
-                    activeTab === 'all'
-                      ? 'font-semibold text-black'
-                      : 'font-normal text-[#3F3F46] hover:text-gray-700'
-                  }`}
+                  className="px-4 py-3 text-sm md:text-[18px] relative transition whitespace-nowrap"
+                  style={{
+                    color: activeTab === 'all' ? '#1D1D20' : '#52525B',
+                    borderBottom: activeTab === 'all' ? '2px solid #1D1D20' : '2px solid transparent',
+                    fontWeight: activeTab === 'all' ? 600 : 400,
+                  }}
                 >
                   כל הקורסים
-                  {activeTab === 'all' && <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-black"></span>}
                 </button>
                 <button
                   onClick={() => setActiveTab('in-progress')}
-                  className={`px-4 py-3 text-[18px] relative transition ${
-                    activeTab === 'in-progress'
-                      ? 'font-semibold text-black'
-                      : 'font-normal text-[#3F3F46] hover:text-gray-700'
-                  }`}
+                  className="px-4 py-3 text-sm md:text-[18px] relative transition whitespace-nowrap"
+                  style={{
+                    color: activeTab === 'in-progress' ? '#1D1D20' : '#52525B',
+                    borderBottom: activeTab === 'in-progress' ? '2px solid #1D1D20' : '2px solid transparent',
+                    fontWeight: activeTab === 'in-progress' ? 600 : 400,
+                  }}
                 >
                   קורסים בתהליך
-                  {activeTab === 'in-progress' && <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-black"></span>}
                 </button>
                 <button
                   onClick={() => setActiveTab('completed')}
-                  className={`px-4 py-3 text-[18px] relative transition ${
-                    activeTab === 'completed'
-                      ? 'font-semibold text-black'
-                      : 'font-normal text-[#3F3F46] hover:text-gray-700'
-                  }`}
+                  className="px-4 py-3 text-sm md:text-[18px] relative transition whitespace-nowrap"
+                  style={{
+                    color: activeTab === 'completed' ? '#1D1D20' : '#52525B',
+                    borderBottom: activeTab === 'completed' ? '2px solid #1D1D20' : '2px solid transparent',
+                    fontWeight: activeTab === 'completed' ? 600 : 400,
+                  }}
                 >
                   קורסים שהושלמו
-                  {activeTab === 'completed' && <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-black"></span>}
                 </button>
               </>
             )}
@@ -279,7 +279,7 @@ export default function CoursesPage() {
           {isOwner && (
             <Link
               href={`/communities/${communityId}/courses/create`}
-              className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition font-medium text-[18px]"
+              className="flex items-center gap-2 px-3 md:px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition font-medium text-sm md:text-[18px] whitespace-nowrap"
             >
               יצירת קורס חדש
             </Link>
@@ -288,7 +288,7 @@ export default function CoursesPage() {
       </div>
 
       {/* Course Grid */}
-      <div className="max-w-5xl mx-auto px-8 py-8">
+      <div className="max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-8">
         {displayedCourses.length === 0 ? (
           <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center">
             {searchQuery ? (

@@ -259,6 +259,54 @@ export class EmailService {
     await this.sendEmail(supportEmails, `צור קשר: ${subject}`, htmlBody, textBody);
   }
 
+  private buildEventReminderBody(userName: string, eventTitle: string, eventDate: string, eventTime: string, communityName: string, eventLink: string): string {
+    return `
+                <!-- 9. Email text -->
+                <tr>
+                  <td style="padding: 0 48px;">
+                    <p style="margin: 0 0 16px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif; color: #000000;">&#1513;&#1500;&#1493;&#1501; <span style="font-weight: 600;">${userName}</span>,</p>
+                    <p style="margin: 0 0 16px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif; color: #000000;">&#1512;&#1510;&#1497;&#1504;&#1493; &#1500;&#1492;&#1494;&#1499;&#1497;&#1512; &#1500;&#1498; &#1513;&#1492;&#1488;&#1497;&#1512;&#1493;&#1506; <span style="font-weight: 600;">${eventTitle}</span> &#1489;&#1511;&#1492;&#1497;&#1500;&#1514; <span style="font-weight: 600;">${communityName}</span> &#1502;&#1514;&#1511;&#1512;&#1489;!</p>
+                    <p style="margin: 0 0 16px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif; color: #000000;">&#x1F4C5; <span style="font-weight: 600;">${eventDate}</span> &#1489;&#1513;&#1506;&#1492; <span style="font-weight: 600;">${eventTime}</span></p>
+                  </td>
+                </tr>
+                <!-- 11. Spacing 32px before button -->
+                <tr>
+                  <td style="height: 32px; line-height: 0; font-size: 0;">&nbsp;</td>
+                </tr>
+                <!-- 12. Button -->
+                <tr>
+                  <td align="center" style="padding: 0;">
+                    <a href="${eventLink}" style="display: inline-block; width: 200px; height: 50px; line-height: 50px; background-color: #000000; color: #FFFFFF !important; font-family: 'Assistant', Arial, sans-serif; font-size: 18px; font-weight: 400; text-decoration: none; border-radius: 12px; text-align: center;">&#1510;&#1508;&#1497;&#1497;&#1492; &#1489;&#1488;&#1497;&#1512;&#1493;&#1506;</a>
+                  </td>
+                </tr>
+                <!-- 13. Spacing 32px after button -->
+                <tr>
+                  <td style="height: 32px; line-height: 0; font-size: 0;">&nbsp;</td>
+                </tr>
+                <!-- 14. More text -->
+                <tr>
+                  <td style="padding: 0 48px;">
+                    <p style="margin: 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif; color: #000000;">&#1489;&#1489;&#1512;&#1499;&#1492;,<br>&#1510;&#1493;&#1493;&#1514; <span dir="ltr" style="unicode-bidi: embed;">Withly</span></p>
+                  </td>
+                </tr>`;
+  }
+
+  async sendEventReminder(
+    email: string,
+    userName: string,
+    eventTitle: string,
+    eventDate: string,
+    eventTime: string,
+    communityName: string,
+    eventLink: string,
+  ): Promise<void> {
+    const bodyContent = this.buildEventReminderBody(userName, eventTitle, eventDate, eventTime, communityName, eventLink);
+    const htmlBody = this.buildEmailHtml(bodyContent);
+    const textBody = `שלום ${userName},\n\nרצינו להזכיר לך שהאירוע "${eventTitle}" בקהילת ${communityName} מתקרב!\n\n📅 ${eventDate} בשעה ${eventTime}\n\nצפייה באירוע: ${eventLink}\n\nבברכה,\nצוות Withly`;
+
+    await this.sendEmail(email, `תזכורת: ${eventTitle} מתקרב!`, htmlBody, textBody);
+  }
+
   private get inlineAttachments() {
     return [
       { filename: 'WithlyLogo.png', content: this.markPng, contentId: 'WithlyLogo' },

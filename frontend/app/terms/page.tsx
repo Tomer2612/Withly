@@ -10,7 +10,7 @@ export default function TermsPage() {
 
       {/* Hero Section */}
       <section className="text-center py-16 px-4">
-        <h1 className="font-semibold text-black" style={{ fontSize: '3.5rem' }}>
+        <h1 className="font-semibold text-black text-3xl md:text-5xl lg:text-[3.5rem]">
           תנאי שימוש
         </h1>
         <p className="text-lg max-w-2xl mx-auto" style={{ marginBottom: '2rem', color: '#52525B' }}>

@@ -332,22 +332,22 @@ export default function MemberProfilePage() {
       </div>
 
       {/* Main Content - full width with padding */}
-      <div className="w-full px-8">
-        {/* Profile Section - Two columns with justify-between */}
-        <div className="flex justify-between items-start pb-6">
+      <div className="w-full px-4 md:px-8">
+        {/* Profile Section - stacks on mobile, side-by-side on desktop */}
+        <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start pb-6">
           {/* Left Side - Profile Info */}
-          <div className="flex flex-col items-start">
+          <div className="flex flex-col items-start min-w-0">
             {/* Profile Picture with negative margin for overlap */}
             <div className="-mt-20 relative z-10">
               {profile?.profileImage ? (
                 <img
                   src={getImageUrl(profile.profileImage)}
                   alt={profile.name}
-                  className="w-36 h-36 rounded-full object-cover"
+                  className="w-24 h-24 md:w-36 md:h-36 rounded-full object-cover"
                   style={{ border: '6px solid white' }}
                 />
               ) : (
-                <div className="w-36 h-36 rounded-full bg-gray-200 flex items-center justify-center" style={{ border: '6px solid white' }}>
+                <div className="w-24 h-24 md:w-36 md:h-36 rounded-full bg-gray-200 flex items-center justify-center" style={{ border: '6px solid white' }}>
                   <span className="text-4xl font-bold text-gray-400">
                     {profile?.name?.charAt(0) || '?'}
                   </span>
@@ -435,18 +435,18 @@ export default function MemberProfilePage() {
           </div>
 
           {/* Right Side - Stats & Buttons grouped together */}
-          <div className="flex flex-col items-start ml-20 mt-24 flex-shrink-0">
-            {/* Stats - all on one line */}
-            <div className="flex items-center flex-shrink-0">
-              <div className="text-right px-6">
+          <div className="flex flex-col items-start lg:ml-20 mt-6 lg:mt-24 flex-shrink-0">
+            {/* Stats - wraps on small screens */}
+            <div className="flex flex-wrap items-center flex-shrink-0">
+              <div className="text-right px-3 md:px-6">
                 <p className="font-bold text-black" style={{ fontSize: '24px', lineHeight: '1.2' }}>{stats.communityMembers.toLocaleString()}</p>
                 <p style={{ fontSize: '16px', color: '#3F3F46', marginTop: '2px' }}>חברים בקהילות שלי</p>
               </div>
-              <div className="text-right border-r border-gray-200 px-6">
+              <div className="text-right border-r border-gray-200 px-3 md:px-6">
                 <p className="font-bold text-black" style={{ fontSize: '24px', lineHeight: '1.2' }}>{stats.followers.toLocaleString()}</p>
                 <p style={{ fontSize: '16px', color: '#3F3F46', marginTop: '2px' }}>עוקבים</p>
               </div>
-              <div className="text-right border-r border-gray-200 px-6">
+              <div className="text-right border-r border-gray-200 px-3 md:px-6">
                 <p className="font-bold text-black" style={{ fontSize: '24px', lineHeight: '1.2' }}>{stats.following.toLocaleString()}</p>
                 <p style={{ fontSize: '16px', color: '#3F3F46', marginTop: '2px' }}>עוקב/ת אחרי</p>
               </div>

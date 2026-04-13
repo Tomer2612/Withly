@@ -159,8 +159,8 @@ export default function LeaderboardPage() {
                   </Link>
 
                   {/* Name */}
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-900">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 truncate">
                       <Link href={`/profile/${member.userId}`} className="hover:underline">
                         {member.name}
                       </Link>

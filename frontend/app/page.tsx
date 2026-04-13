@@ -234,8 +234,8 @@ export default function Home() {
       <SiteHeader />
 
       {/* Title + CTA */}
-      <section className="text-center mb-8 mt-12">
-        <h1 className="font-semibold text-black mb-3" style={{ fontSize: '3.5rem' }}>
+      <section className="text-center mb-8 mt-8 md:mt-12 px-4">
+        <h1 className="font-semibold text-black mb-3 text-3xl md:text-5xl lg:text-[3.5rem]">
           מאגר הקהילות הגדול בארץ
         </h1>
         <p className="text-lg" style={{ color: '#52525B' }}>

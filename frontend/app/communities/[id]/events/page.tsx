@@ -957,7 +957,7 @@ function EventsPageContent() {
               </div>
 
               {/* Day Headers */}
-              <div className="grid grid-cols-7 border-b border-gray-100">
+              <div className="grid grid-cols-7 border-b border-gray-100 min-w-[320px]">
                 {HEBREW_DAYS.map(day => (
                   <div key={day} className="py-2 text-center text-sm font-medium text-gray-500">
                     {day}
@@ -966,7 +966,7 @@ function EventsPageContent() {
               </div>
 
               {/* Calendar Grid */}
-              <div className="grid grid-cols-7">
+              <div className="grid grid-cols-7 min-w-[320px]">
                 {renderCalendar()}
               </div>
             </div>
@@ -975,7 +975,7 @@ function EventsPageContent() {
             <div className="space-y-4">
               {/* View Toggle & Add Event */}
               <div className="bg-white rounded-2xl border border-gray-200 p-4">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                   {/* View Toggle */}
                   <div className="flex bg-gray-100 rounded-lg p-1 flex-1">
                     <button
@@ -1073,7 +1073,7 @@ function EventsPageContent() {
             <div className="space-y-4">
               {/* View Toggle & Add Event */}
               <div className="bg-white rounded-2xl border border-gray-200 p-4">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                   {/* View Toggle */}
                   <div className="flex bg-gray-100 rounded-lg p-1 flex-1">
                     <button
@@ -1359,7 +1359,7 @@ function EventCard({
           )}
 
           {/* RSVP Buttons */}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => onRsvp(event.id, 'GOING')}
               disabled={isLoading}
@@ -1556,7 +1556,7 @@ function AddEventModal({
           </div>
 
           {/* Date, Time, Duration Row */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-1">תאריך <span className="text-red-500">*</span></label>
               <DateInput 
@@ -1647,7 +1647,7 @@ function AddEventModal({
           </div>
 
           {/* Recurring */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <input
               type="checkbox"
               id="recurring"
@@ -1709,8 +1709,8 @@ function AddEventModal({
               </button>
             </div>
             {locationType === 'online' ? (
-              <div className="flex gap-2">
-                <div style={{ minWidth: '160px' }}>
+              <div className="flex flex-wrap gap-2">
+                <div style={{ minWidth: '140px' }}>
                   <FormSelect
                     value={locationName}
                     onChange={setLocationName}
@@ -1779,7 +1779,7 @@ function AddEventModal({
           </div>
 
           {/* Settings Row */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">מי יכול להשתתף</label>
               <FormSelect
@@ -1828,7 +1828,7 @@ function AddEventModal({
           </div>
 
           {/* Reminders */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <input
               type="checkbox"
               id="reminders"
@@ -2036,7 +2036,7 @@ function EditEventModal({
           </div>
 
           {/* Date, Time, Duration Row */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-1">תאריך <span className="text-red-500">*</span></label>
               <DateInput 
@@ -2127,7 +2127,7 @@ function EditEventModal({
           </div>
 
           {/* Recurring */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <input
               type="checkbox"
               id="recurring-edit"
@@ -2189,8 +2189,8 @@ function EditEventModal({
               </button>
             </div>
             {locationType === 'online' ? (
-              <div className="flex gap-2">
-                <div style={{ minWidth: '160px' }}>
+              <div className="flex flex-wrap gap-2">
+                <div style={{ minWidth: '140px' }}>
                   <FormSelect
                     value={locationName}
                     onChange={setLocationName}
@@ -2259,7 +2259,7 @@ function EditEventModal({
           </div>
 
           {/* Settings Row */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">מי יכול להשתתף</label>
               <FormSelect
@@ -2308,7 +2308,7 @@ function EditEventModal({
           </div>
 
           {/* Reminders */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <input
               type="checkbox"
               id="reminders-edit"

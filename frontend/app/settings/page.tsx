@@ -638,10 +638,33 @@ export default function SettingsPage() {
     <main className="min-h-screen text-right" style={{ backgroundColor: '#F4F4F5' }} dir="rtl">
       <SiteHeader />
 
+      {/* Mobile Tab Bar */}
+      <div className="md:hidden flex overflow-x-auto bg-white px-3 py-2 gap-1 border-b" style={{ borderColor: '#E1E1E2' }}>
+        {[
+          { key: 'profile' as const, label: 'פרטי פרופיל' },
+          { key: 'security' as const, label: 'אבטחה' },
+          { key: 'notifications' as const, label: 'התראות' },
+          { key: 'payment' as const, label: 'תשלומים' },
+        ].map(tab => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => { setActiveTab(tab.key); setMessage(''); }}
+            className={`px-4 py-2 text-sm rounded-lg whitespace-nowrap transition ${
+              activeTab === tab.key
+                ? 'bg-gray-900 text-white font-medium'
+                : 'text-gray-600 hover:bg-gray-100 font-normal'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Main Layout with Sidebar */}
       <div className="flex min-h-[calc(100vh-65px)]">
-        {/* Right Sidebar - Settings Tabs */}
-        <aside className="w-64 bg-white border-l p-6 flex-shrink-0" style={{ borderColor: '#E1E1E2' }}>
+        {/* Right Sidebar - Settings Tabs (hidden on mobile) */}
+        <aside className="hidden md:block w-64 bg-white border-l p-6 flex-shrink-0" style={{ borderColor: '#E1E1E2' }}>
           <div className="flex items-center gap-2 mb-6">
             <HiOutlineCog6Tooth className="w-5 h-5" style={{ color: '#52525B' }} />
             <h2 className="text-base font-semibold" style={{ color: '#1D1D20' }}>הגדרות</h2>
@@ -712,13 +735,13 @@ export default function SettingsPage() {
         </aside>
 
         {/* Main Content */}
-        <div className="flex-1 p-8">
+        <div className="flex-1 p-4 md:p-8">
           <form onSubmit={handleSubmit} className="max-w-3xl">
             {/* Profile Tab */}
             {activeTab === 'profile' && (
-              <div className="bg-white rounded-xl border p-6 space-y-6" style={{ borderColor: '#E1E1E2' }}>
+              <div className="bg-white rounded-xl border p-4 md:p-6 space-y-6" style={{ borderColor: '#E1E1E2' }}>
                 {/* Profile Photo */}
-                <div className="flex items-center gap-8">
+                <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-8">
                   <h3 className="text-sm font-medium w-32 flex-shrink-0" style={{ color: '#1D1D20' }}>תמונת פרופיל</h3>
                   <div className="flex items-center gap-4">
                     <div className="relative">
@@ -793,7 +816,7 @@ export default function SettingsPage() {
                     <h3 className="text-sm font-medium" style={{ color: '#1D1D20' }}>תיאור</h3>
                     <p className="text-xs" style={{ color: '#71717A' }}>ספרו על עצמכם</p>
                   </div>
-                  <div className="flex-1 min-w-[400px] relative">
+                  <div className="flex-1 min-w-0 relative">
                     <textarea
                       value={bio}
                       onChange={(e) => setBio(e.target.value.slice(0, 300))}
