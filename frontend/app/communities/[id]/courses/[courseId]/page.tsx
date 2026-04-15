@@ -672,7 +672,8 @@ function CourseViewerContent() {
             <div className="p-4 border-t border-gray-200">
               <button
                 onClick={() => setShowUnenrollModal(true)}
-                className="w-full py-2 text-sm text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition border border-red-200"
+                className="w-full py-2 text-base hover:bg-red-50 rounded-lg transition border border-red-200"
+                style={{ color: '#B3261E' }}
               >
                 ביטול הרשמה לקורס
               </button>

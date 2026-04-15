@@ -166,8 +166,10 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
           )
         ) : (
           <div className="flex items-center gap-3">
-            <MessagesBell />
-            <NotificationBell />
+            <div className="flex items-center gap-1">
+              <MessagesBell />
+              <NotificationBell />
+            </div>
             <UserProfileDropdown
               userEmail={userEmail}
               userId={userId}
@@ -181,8 +183,10 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
       <div className="flex md:hidden items-center gap-3">
         {mounted && userEmail && (
           <>
-            <MessagesBell />
-            <NotificationBell />
+            <div className="flex items-center gap-1">
+              <MessagesBell />
+              <NotificationBell />
+            </div>
             <UserProfileDropdown
               userEmail={userEmail}
               userId={userId}

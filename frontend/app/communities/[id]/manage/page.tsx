@@ -1489,8 +1489,8 @@ export default function ManageCommunityPage() {
                     <h3 className="font-medium text-gray-900 text-base">חיוב ותשלומים</h3>
                     {!trialCancelled && trialStartDate ? (
                       <p className="text-sm text-gray-500 mt-1">
-                        תקופת הניסיון שלך (14 ימים) מסתיימת בתאריך {new Date(trialStartDate.getTime() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString('he-IL')}.
-                        {` החל מ-${new Date(trialStartDate.getTime() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString('he-IL')} יחויב אמצעי התשלום שלך ב99₪ לחודש.`}
+                        תקופת הניסיון שלך (3 חודשים) מסתיימת בתאריך {new Date(new Date(trialStartDate).setMonth(new Date(trialStartDate).getMonth() + 3)).toLocaleDateString('he-IL')}.
+                        {` החל מ-${new Date(new Date(trialStartDate).setMonth(new Date(trialStartDate).getMonth() + 3)).toLocaleDateString('he-IL')} יחויב אמצעי התשלום שלך ב99₪ לחודש.`}
                       </p>
                     ) : trialCancelled ? (
                       <p className="text-sm text-gray-500 mt-1">תקופת הניסיון בוטלה.</p>

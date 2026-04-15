@@ -232,11 +232,13 @@ export default function CoursesPage() {
                 className="px-4 py-3 text-sm md:text-[18px] relative transition whitespace-nowrap"
                 style={{
                   color: activeTab === 'my-courses' ? '#1D1D20' : '#52525B',
-                  borderBottom: activeTab === 'my-courses' ? '2px solid #1D1D20' : '2px solid transparent',
                   fontWeight: activeTab === 'my-courses' ? 600 : 400,
                 }}
               >
                 הקורסים שלי
+                {activeTab === 'my-courses' && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1D1D20]" style={{ borderRadius: 0 }} />
+                )}
               </button>
             ) : (
               <>
@@ -245,33 +247,39 @@ export default function CoursesPage() {
                   className="px-4 py-3 text-sm md:text-[18px] relative transition whitespace-nowrap"
                   style={{
                     color: activeTab === 'all' ? '#1D1D20' : '#52525B',
-                    borderBottom: activeTab === 'all' ? '2px solid #1D1D20' : '2px solid transparent',
                     fontWeight: activeTab === 'all' ? 600 : 400,
                   }}
                 >
                   כל הקורסים
+                  {activeTab === 'all' && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1D1D20]" style={{ borderRadius: 0 }} />
+                  )}
                 </button>
                 <button
                   onClick={() => setActiveTab('in-progress')}
                   className="px-4 py-3 text-sm md:text-[18px] relative transition whitespace-nowrap"
                   style={{
                     color: activeTab === 'in-progress' ? '#1D1D20' : '#52525B',
-                    borderBottom: activeTab === 'in-progress' ? '2px solid #1D1D20' : '2px solid transparent',
                     fontWeight: activeTab === 'in-progress' ? 600 : 400,
                   }}
                 >
                   קורסים בתהליך
+                  {activeTab === 'in-progress' && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1D1D20]" style={{ borderRadius: 0 }} />
+                  )}
                 </button>
                 <button
                   onClick={() => setActiveTab('completed')}
                   className="px-4 py-3 text-sm md:text-[18px] relative transition whitespace-nowrap"
                   style={{
                     color: activeTab === 'completed' ? '#1D1D20' : '#52525B',
-                    borderBottom: activeTab === 'completed' ? '2px solid #1D1D20' : '2px solid transparent',
                     fontWeight: activeTab === 'completed' ? 600 : 400,
                   }}
                 >
                   קורסים שהושלמו
+                  {activeTab === 'completed' && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1D1D20]" style={{ borderRadius: 0 }} />
+                  )}
                 </button>
               </>
             )}

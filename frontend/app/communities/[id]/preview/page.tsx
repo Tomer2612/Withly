@@ -452,21 +452,23 @@ function CommunityPreviewContent() {
               <div className="px-5 pb-5 -mt-12 text-center">
                 {/* Centered Profile Photo */}
                 <div className="flex justify-center mb-3">
-                  {ownerData?.profileImage ? (
-                    <img
-                      src={getImageUrl(ownerData.profileImage)}
-                      alt={ownerData.name}
-                      className="w-24 h-24 rounded-full object-cover border-[5px] border-white"
-                    />
-                  ) : (
-                    <div className="w-24 h-24 rounded-full bg-pink-100 flex items-center justify-center text-2xl font-bold text-pink-600 border-[5px] border-white">
-                      {ownerData?.name?.charAt(0) || 'U'}
-                    </div>
-                  )}
+                  <Link href={`/profile/${ownerData?.id}`} className="cursor-pointer hover:opacity-80 transition">
+                    {ownerData?.profileImage ? (
+                      <img
+                        src={getImageUrl(ownerData.profileImage)}
+                        alt={ownerData.name}
+                        className="w-24 h-24 rounded-full object-cover border-[5px] border-white"
+                      />
+                    ) : (
+                      <div className="w-24 h-24 rounded-full bg-pink-100 flex items-center justify-center text-2xl font-bold text-pink-600 border-[5px] border-white">
+                        {ownerData?.name?.charAt(0) || 'U'}
+                      </div>
+                    )}
+                  </Link>
                 </div>
                 
                 {/* Centered Name */}
-                <h3 className="font-bold text-black text-xl mb-2">{ownerData?.name || 'מנהל הקהילה'}</h3>
+                <Link href={`/profile/${ownerData?.id}`} className="font-bold text-black text-xl mb-2 hover:underline block">{ownerData?.name || 'מנהל הקהילה'}</Link>
                 
                 {/* Centered Bio */}
                 {ownerData?.bio && (
@@ -493,7 +495,7 @@ function CommunityPreviewContent() {
                 )}
               </button>
               {community.price && community.price > 0 ? (
-                <p className="text-xs text-gray-500 text-center mt-2">₪{community.price} לחודש • 14 ימי ניסיון חינם</p>
+                <p className="text-xs text-gray-500 text-center mt-2">₪{community.price} לחודש • 3 חודשי ניסיון חינם</p>
               ) : null}
               </div>
             </div>
@@ -698,7 +700,7 @@ function CommunityPreviewContent() {
               <CloseIcon className="w-5 h-5" />
             </button>
 
-            <h2 className="text-2xl font-bold text-center mb-8">מתחילים 14 ימי ניסיון חינם</h2>
+            <h2 className="text-2xl font-bold text-center mb-8">מתחילים 3 חודשי ניסיון חינם</h2>
 
             <div className="space-y-4">
               <div>

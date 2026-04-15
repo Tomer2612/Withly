@@ -119,13 +119,13 @@ export default function SettingsPage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   
   // Notification preferences state
-  const [notifyLikes, setNotifyLikes] = useState(true);
-  const [notifyComments, setNotifyComments] = useState(true);
-  const [notifyFollows, setNotifyFollows] = useState(true);
-  const [notifyNewPosts, setNotifyNewPosts] = useState(true);
-  const [notifyMentions, setNotifyMentions] = useState(true);
-  const [notifyCommunityJoins, setNotifyCommunityJoins] = useState(true);
-  const [notifyMessages, setNotifyMessages] = useState(true);
+  const [notifyLikes, setNotifyLikes] = useState(false);
+  const [notifyComments, setNotifyComments] = useState(false);
+  const [notifyFollows, setNotifyFollows] = useState(false);
+  const [notifyNewPosts, setNotifyNewPosts] = useState(false);
+  const [notifyMentions, setNotifyMentions] = useState(false);
+  const [notifyCommunityJoins, setNotifyCommunityJoins] = useState(false);
+  const [notifyMessages, setNotifyMessages] = useState(false);
   const [savingNotifications, setSavingNotifications] = useState(false);
   
   // Form state

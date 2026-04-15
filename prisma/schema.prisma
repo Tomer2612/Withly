@@ -25,13 +25,13 @@ model User {
   bio                      String?
   coverImage               String?
   location                 String?
-  notifyComments           Boolean             @default(true)
-  notifyCommunityJoins     Boolean             @default(true)
-  notifyFollows            Boolean             @default(true)
-  notifyLikes              Boolean             @default(true)
-  notifyMentions           Boolean             @default(true)
-  notifyNewPosts           Boolean             @default(true)
-  notifyMessages           Boolean             @default(true)
+  notifyComments           Boolean             @default(false)
+  notifyCommunityJoins     Boolean             @default(false)
+  notifyFollows            Boolean             @default(false)
+  notifyLikes              Boolean             @default(false)
+  notifyMentions           Boolean             @default(false)
+  notifyNewPosts           Boolean             @default(false)
+  notifyMessages           Boolean             @default(false)
   posts                    Post[]
   comments                 Comment[]
   communities              Community[]

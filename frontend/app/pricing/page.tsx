@@ -85,7 +85,7 @@ const COMMUNITY_TOPICS = [
 const faqs: FAQ[] = [
   {
     question: 'האם אפשר לנסות את המערכת לפני שמתחייבים?',
-    answer: 'בטח. יש לכם 14 ימי התנסות בחינם שבהם תוכלו להקים את הקהילה, לשחק עם הפיצ\'רים ולראות איך הכל עובד, ללא שום התחייבות.',
+answer: 'בטח. יש לכם 3 חודשי התנסות בחינם שבהם תוכלו להקים את הקהילה, לשחק עם הפיצ\'\'רים ולראות איך הכל עובד, ללא שום התחייבות.',
   },
   {
     question: 'יש הגבלה על קורסים, וידאו או תכנים?',
@@ -314,7 +314,7 @@ function PricingContent() {
     return (
       <main className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#F4F4F5' }} dir="rtl">
         <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-md">
-          <h2 className="text-2xl font-bold text-center mb-8">מתחילים 14 ימי ניסיון חינם</h2>
+          <h2 className="text-2xl font-bold text-center mb-8">מתחילים 3 חודשי ניסיון חינם</h2>
           
           <div className="space-y-4">
             <div>
@@ -453,7 +453,7 @@ function PricingContent() {
             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1A1A1A'}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'black'}
           >
-            נסו חינם ל-14 ימים
+            נסו חינם ל-3 חודשים
           </button>
         </div>
       </section>
