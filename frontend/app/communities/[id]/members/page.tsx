@@ -61,10 +61,10 @@ export default function CommunityMembersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
-  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const [removeModal, setRemoveModal] = useState<{ open: boolean; memberId: string | null; memberName: string }>({ open: false, memberId: null, memberName: '' });
   
-  const { userEmail, userId, userProfile, isOwnerOrManager } = useCommunityContext();
+  const { userEmail, userId, userProfile, isOwnerOrManager, userRole } = useCommunityContext();
+  const currentUserRole = userRole;
   const [showBanned, setShowBanned] = useState(false);
 
   useEffect(() => {
@@ -96,15 +96,6 @@ export default function CommunityMembersPage() {
           }
           
           setCommunity(communityData);
-        }
-
-        // Check current user's role
-        const membershipRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/membership`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (membershipRes.ok) {
-          const membershipData = await membershipRes.json();
-          setCurrentUserRole(membershipData.role);
         }
 
         // Fetch members
@@ -168,20 +159,20 @@ export default function CommunityMembersPage() {
     switch (role) {
       case 'OWNER':
         return (
-          <span className="inline-flex items-center gap-1 text-[12px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: '#A7EA7B', color: '#163300' }}>
-            <CrownIcon className="w-3 h-3" />
+          <span className="inline-flex items-center gap-1 text-[12px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap overflow-hidden text-ellipsis" style={{ backgroundColor: '#A7EA7B', color: '#163300' }}>
+            <CrownIcon className="w-3 h-3 flex-shrink-0" />
             בעלים
           </span>
         );
       case 'MANAGER':
         return (
-          <span className="inline-flex items-center text-[12px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: '#91DCED', color: '#003233' }}>
+          <span className="inline-flex items-center text-[12px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap overflow-hidden text-ellipsis" style={{ backgroundColor: '#91DCED', color: '#003233' }}>
             מנהל קהילה
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center text-[12px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: '#E1E1E2', color: '#52525B' }}>
+          <span className="inline-flex items-center text-[12px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap overflow-hidden text-ellipsis" style={{ backgroundColor: '#E1E1E2', color: '#52525B' }}>
             חבר קהילה
           </span>
         );
@@ -299,7 +290,7 @@ export default function CommunityMembersPage() {
                 viewBox="0 0 24 24" 
                 strokeWidth={1.5} 
                 stroke="currentColor" 
-                className="w-5 h-5 text-zinc-600"
+                className="w-5 h-5 text-gray-600"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
               </svg>
@@ -320,7 +311,7 @@ export default function CommunityMembersPage() {
             filteredMembers.map((member) => (
               <div
                 key={member.id}
-                className="group flex items-center gap-4 p-4 hover:bg-[#F4F4F5] rounded-xl transition"
+                className="group flex items-center gap-3 sm:gap-4 p-3 sm:p-4 hover:bg-[#F4F4F5] rounded-xl transition"
               >
                 {/* Profile Image */}
                 <Link href={`/profile/${member.id}`} className="relative flex-shrink-0">
@@ -328,10 +319,10 @@ export default function CommunityMembersPage() {
                     <img
                       src={getImageUrl(member.profileImage)}
                       alt={member.name}
-                      className="w-12 h-12 rounded-full object-cover hover:opacity-80 transition"
+                      className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover hover:opacity-80 transition"
                     />
                   ) : (
-                    <div className="w-12 h-12 rounded-full bg-pink-100 flex items-center justify-center text-lg font-bold text-pink-600 hover:opacity-80 transition">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-pink-100 flex items-center justify-center text-lg font-bold text-pink-600 hover:opacity-80 transition">
                       {member.name?.charAt(0) || member.email.charAt(0).toUpperCase()}
                     </div>
                   )}
@@ -343,7 +334,7 @@ export default function CommunityMembersPage() {
                 {/* Member Info */}
                 <div className="flex-1 text-right min-w-0">
                   <div className="flex items-center gap-2 min-w-0">
-                    <Link href={`/profile/${member.id}`} className="font-semibold text-black hover:underline truncate">
+                    <Link href={`/profile/${member.id}`} className="font-semibold text-black hover:underline truncate flex-shrink-0">
                       {member.name || 'משתמש'}
                     </Link>
                     {getRoleBadge(member.role)}
@@ -355,12 +346,12 @@ export default function CommunityMembersPage() {
 
                 {/* Role Management & Remove - Only for Owners/Managers, can't change owner role */}
                 {(currentUserRole === 'OWNER' || currentUserRole === 'MANAGER') && member.role !== 'OWNER' && (
-                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                     {/* Role change button - Only owners can change roles */}
                     {currentUserRole === 'OWNER' && (
                       <button
                         onClick={() => handleRoleChange(member.id, member.role === 'MANAGER' ? 'USER' : 'MANAGER')}
-                        className="px-3 py-1.5 text-[12px] font-medium rounded-md bg-[#3F3F46] text-white hover:bg-[#52525B] transition"
+                        className="px-2 sm:px-3 py-1.5 text-[11px] sm:text-[12px] font-medium rounded-md bg-[#3F3F46] text-white hover:bg-[#52525B] transition whitespace-nowrap"
                       >
                         {member.role === 'MANAGER' ? 'שנה לחבר קהילה' : 'קדם למנהל'}
                       </button>

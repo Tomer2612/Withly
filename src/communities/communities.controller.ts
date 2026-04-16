@@ -115,6 +115,7 @@ export class CommunitiesController {
       cardLastFour?: string;
       cardBrand?: string;
       showOnlineMembers?: string;
+      status?: string;
     },
     @UploadedFiles() files?: { image?: any[]; logo?: any[]; galleryImages?: any[]; galleryVideoFiles?: any[] },
   ) {
@@ -174,6 +175,7 @@ export class CommunitiesController {
       body.cardLastFour,
       body.cardBrand,
       body.showOnlineMembers !== undefined ? body.showOnlineMembers === 'true' : undefined,
+      body.status,
     );
   }
 

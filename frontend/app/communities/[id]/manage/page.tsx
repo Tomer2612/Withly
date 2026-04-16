@@ -19,8 +19,11 @@ import CalendarIcon from '../../../components/icons/CalendarIcon';
 import ImageIcon from '../../../components/icons/ImageIcon';
 import VideoIcon from '../../../components/icons/VideoIcon';
 import LockIcon from '../../../components/icons/LockIcon';
-import SettingsIcon from '../../../components/icons/SettingsIcon';
+import { HiOutlineCog6Tooth } from 'react-icons/hi2';
 import CreditCardIcon from '../../../components/icons/CreditCardIcon';
+import EditIcon from '../../../components/icons/EditIcon';
+import LinkIcon from '../../../components/icons/LinkIcon';
+import GlobeIcon from '../../../components/icons/GlobeIcon';
 import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface Community {
@@ -76,7 +79,7 @@ export default function ManageCommunityPage() {
   const [deleting, setDeleting] = useState(false);
   
   // Get user data from layout context
-  const { userEmail, userId, userProfile, isOwner } = useCommunityContext();
+  const { userEmail, userId, userProfile, isOwner, isOwnerOrManager, loading: contextLoading } = useCommunityContext();
   
   // Slug
   const [slug, setSlug] = useState('');
@@ -110,6 +113,10 @@ export default function ManageCommunityPage() {
   
   // Online members indicator
   const [showOnlineMembers, setShowOnlineMembers] = useState(true);
+  
+  // Community status
+  const [communityStatus, setCommunityStatus] = useState<'DRAFT' | 'PRIVATE' | 'PUBLIC'>('DRAFT');
+  const [pendingStatus, setPendingStatus] = useState<'DRAFT' | 'PRIVATE' | 'PUBLIC' | null>(null);
   
   // Price
   const [price, setPrice] = useState<number>(10);
@@ -150,7 +157,7 @@ export default function ManageCommunityPage() {
   ];
 
   // Track initial form values to detect unsaved changes
-  const initialFormRef = useRef<{ name: string; description: string; topic: string; slug: string; rules: string[]; youtubeUrl: string; whatsappUrl: string; facebookUrl: string; instagramUrl: string; price: number; isPaidCommunity: boolean; showOnlineMembers: boolean } | null>(null);
+  const initialFormRef = useRef<{ name: string; description: string; topic: string; slug: string; rules: string[]; youtubeUrl: string; whatsappUrl: string; facebookUrl: string; instagramUrl: string; price: number; isPaidCommunity: boolean; showOnlineMembers: boolean; communityStatus: string } | null>(null);
 
   const hasUnsavedChanges = () => {
     const init = initialFormRef.current;
@@ -168,6 +175,7 @@ export default function ManageCommunityPage() {
       price !== init.price ||
       isPaidCommunity !== init.isPaidCommunity ||
       showOnlineMembers !== init.showOnlineMembers ||
+      communityStatus !== init.communityStatus ||
       images.some(img => !img.isExisting) ||
       galleryVideoFiles.length > 0 ||
       !!(logo && !logo.isExisting)
@@ -252,29 +260,19 @@ export default function ManageCommunityPage() {
     const fetchCommunity = async () => {
       if (!communityId || !userId) return;
       
+      // Wait for context to finish loading
+      if (contextLoading) return;
+      
+      // Only owners and managers can access manage page (from context)
+      if (!isOwnerOrManager) {
+        router.push(`/communities/${communityId}/feed`);
+        return;
+      }
+      
       const token = localStorage.getItem('token');
       if (!token) return;
       
       try {
-        // First check membership and permissions
-        const membershipRes = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/membership`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        
-        if (membershipRes.ok) {
-          const membershipData = await membershipRes.json();
-          
-          // Only owners and managers can access manage page
-          if (!membershipData.canEdit) {
-            router.push(`/communities/${communityId}/feed`);
-            return;
-          }
-        } else {
-          router.push('/');
-          return;
-        }
-        
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
         if (!res.ok) throw new Error('Community not found');
         
@@ -290,13 +288,13 @@ export default function ManageCommunityPage() {
         setName(data.name);
         setDescription(data.description);
         setTopic(data.topic || '');
-        setSlug(data.slug || '');
+        setSlug(data.slug || communityId);
         setYoutubeUrl(data.youtubeUrl || '');
         setWhatsappUrl(data.whatsappUrl || '');
         setFacebookUrl(data.facebookUrl || '');
         setInstagramUrl(data.instagramUrl || '');
         setRules(data.rules || []);
-        setPrice(data.price || 10);
+        setPrice(data.price ?? 10);
         setIsPaidCommunity((data.price ?? 0) > 0);
         
         // Load trial and payment info
@@ -310,21 +308,23 @@ export default function ManageCommunityPage() {
         setCardLastFour(data.cardLastFour || null);
         setCardBrand(data.cardBrand || null);
         setShowOnlineMembers(data.showOnlineMembers !== false);
+        setCommunityStatus(data.status || 'DRAFT');
         
         // Store initial form values for unsaved changes detection
         initialFormRef.current = {
           name: data.name,
           description: data.description,
           topic: data.topic || '',
-          slug: data.slug || '',
+          slug: data.slug || communityId,
           rules: data.rules || [],
           youtubeUrl: data.youtubeUrl || '',
           whatsappUrl: data.whatsappUrl || '',
           facebookUrl: data.facebookUrl || '',
           instagramUrl: data.instagramUrl || '',
-          price: data.price || 10,
+          price: data.price ?? 10,
           isPaidCommunity: (data.price ?? 0) > 0,
           showOnlineMembers: data.showOnlineMembers !== false,
+          communityStatus: data.status || 'DRAFT',
         };
         
         // Load logo
@@ -376,7 +376,7 @@ export default function ManageCommunityPage() {
     };
 
     fetchCommunity();
-  }, [communityId, userId, router]);
+  }, [communityId, userId, router, contextLoading, isOwnerOrManager]);
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -536,7 +536,7 @@ export default function ManageCommunityPage() {
       formData.append('instagramUrl', instagramUrl);
       
       // Price
-      formData.append('price', price.toString());
+      formData.append('price', isPaidCommunity ? price.toString() : '0');
       
       // Find primary image
       const primaryImage = images.find(img => img.isPrimary);
@@ -574,6 +574,9 @@ export default function ManageCommunityPage() {
       
       // Online members indicator
       formData.append('showOnlineMembers', showOnlineMembers.toString());
+      
+      // Community status
+      formData.append('status', communityStatus);
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`, {
         method: 'PUT',
@@ -768,8 +771,8 @@ export default function ManageCommunityPage() {
         {/* Right Sidebar - Settings Tabs (hidden on mobile) */}
         <aside className="hidden md:block w-64 bg-white border-l border-gray-200 p-6 flex-shrink-0">
           <div className="flex items-center gap-2 mb-6">
-            <SettingsIcon size={20} className="text-gray-600" />
-            <h2 className="text-base font-semibold text-gray-900">הגדרות</h2>
+            <HiOutlineCog6Tooth className="w-5 h-5" style={{ color: '#000000' }} />
+            <h2 className="font-semibold" style={{ color: '#1D1D20', fontSize: '21px' }}>הגדרות</h2>
           </div>
           
           <nav className="space-y-1">
@@ -863,32 +866,32 @@ export default function ManageCommunityPage() {
                   </div>
                   <div className="flex-1">
                     {/* Slug input */}
-                    <div className="flex items-center gap-2" dir="ltr">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2" dir="ltr">
+                      <button
+                        type="button"
+                        onClick={handleUpdateSlug}
+                        disabled={slugLoading || !slug.trim() || slug === (community?.slug || communityId)}
+                        className="px-4 py-3.5 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm whitespace-nowrap"
+                      >
+                        {slugLoading ? '...' : 'שמור'}
+                      </button>
                       <div className="flex items-center flex-1 border border-gray-300 rounded-lg overflow-hidden">
-                        <span className="px-4 py-3.5 bg-gray-50 text-gray-500 text-base border-r border-gray-300 whitespace-nowrap">withly.co.il/communities/</span>
+                        <span className="px-3 sm:px-4 py-3.5 bg-gray-50 text-gray-500 text-xs sm:text-base border-r border-gray-300 whitespace-nowrap">withly.co.il/communities/</span>
                         <input
                           type="text"
                           placeholder="הזן כתובת מותאמת אישית"
-                          className="flex-1 p-3.5 text-left text-gray-900 text-base bg-white focus:outline-none"
+                          className="flex-1 p-3.5 text-left text-gray-900 text-base bg-white focus:outline-none min-w-0"
                           value={slug}
                           onChange={(e) => handleSlugChange(e.target.value)}
                           maxLength={50}
                         />
                       </div>
-                      <button
-                        type="button"
-                        onClick={handleUpdateSlug}
-                        disabled={slugLoading || !slug.trim() || slug === community?.slug}
-                        className="px-4 py-3.5 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm whitespace-nowrap"
-                      >
-                        {slugLoading ? '...' : 'שמור'}
-                      </button>
                     </div>
                     {slugError && (
-                      <p className="text-sm text-red-500 mt-2" dir="rtl">{slugError}</p>
+                      <p className="text-error mt-2" dir="rtl" style={{ fontSize: '14px' }}>{slugError}</p>
                     )}
                     {slugSuccess && (
-                      <p className="text-sm text-green-600 mt-2" dir="rtl">{slugSuccess}</p>
+                      <p className="text-green-dark mt-2" dir="rtl" style={{ fontSize: '14px' }}>{slugSuccess}</p>
                     )}
                   </div>
                 </div>
@@ -933,7 +936,7 @@ export default function ManageCommunityPage() {
                         <button
                           type="button"
                           onClick={() => setLogo(null)}
-                          className="flex items-center justify-center gap-2 px-4 py-2.5 border border-[#B3261E] text-[#B3261E] hover:bg-red-50 transition text-base font-normal w-44"
+                          className="flex items-center justify-center gap-2 px-4 py-2.5 border border-[#B3261E] text-error transition text-base font-normal w-44 hover:opacity-80"
                           style={{ borderRadius: '8px' }}
                         >
                           <TrashIcon className="w-4 h-4" />
@@ -1019,7 +1022,7 @@ export default function ManageCommunityPage() {
                               ראשית
                             </div>
                           )}
-                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center" style={{ borderRadius: '12px', gap: '8px' }}>
+                          <div className="absolute inset-0 bg-black/50 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center" style={{ borderRadius: '12px', gap: '8px' }}>
                             {!img.isPrimary && (
                               <button
                                 type="button"
@@ -1187,7 +1190,7 @@ export default function ManageCommunityPage() {
                     {galleryVideoFiles.length > 0 && (
                       <div className="space-y-2">
                         {galleryVideoFiles.map((file, index) => (
-                          <div key={index} className="flex items-center gap-3 bg-blue-50 rounded-lg p-3 border border-blue-200">
+                          <div key={index} className="flex items-center gap-3 bg-blue-lighter rounded-lg p-3 border" style={{ borderColor: '#91DCED' }}>
                             <div className="w-16 h-12 bg-gray-800 rounded flex items-center justify-center">
                               <VideoIcon size={20} color="#9CA3AF" />
                             </div>
@@ -1203,6 +1206,94 @@ export default function ManageCommunityPage() {
                         ))}
                       </div>
                     )}
+                  </div>
+                </div>
+
+                {/* Community Status */}
+                <div className="space-y-3">
+                  <div className="text-right">
+                    <h3 className="font-semibold text-black" style={{ fontSize: '18px' }}>מצב הקהילה</h3>
+                    <p className="mt-1" style={{ fontSize: '14px', color: '#3F3F46', fontWeight: 400 }}>קובע מי יכול לראות את הקהילה ולהצטרף אליה</p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    {/* Draft */}
+                    <button
+                      type="button"
+                      onClick={() => communityStatus !== 'DRAFT' && setPendingStatus('DRAFT')}
+                      className={`group flex-1 flex flex-col justify-start p-4 border-2 text-right transition relative ${
+                        communityStatus === 'DRAFT'
+                          ? 'border-black bg-gray-50'
+                          : 'bg-white hover:border-gray-300'
+                      }`}
+                      style={{ borderColor: communityStatus === 'DRAFT' ? '#000000' : '#D0D0D4', borderRadius: '16px' }}
+                    >
+                      <div className="absolute top-4 left-4">
+                        {communityStatus === 'DRAFT' ? (
+                          <div className="w-5 h-5 rounded-full bg-black flex items-center justify-center">
+                            <CheckIcon size={12} color="#FFFFFF" />
+                          </div>
+                        ) : (
+                          <div className="w-5 h-5 rounded-full border opacity-0 group-hover:opacity-100 transition" style={{ borderColor: '#D0D0D4' }} />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <EditIcon size={16} color={communityStatus === 'DRAFT' ? '#000000' : '#3F3F46'} />
+                        <span style={{ fontSize: '16px', fontWeight: 400, color: communityStatus === 'DRAFT' ? '#000000' : '#3F3F46' }}>טיוטה</span>
+                      </div>
+                      <p style={{ fontSize: '14px', fontWeight: 400, color: communityStatus === 'DRAFT' ? '#000000' : '#3F3F46' }}>רק אתם רואים את הקהילה ואף אחד אחר לא יכול להיכנס.</p>
+                    </button>
+                    {/* Private */}
+                    <button
+                      type="button"
+                      onClick={() => communityStatus !== 'PRIVATE' && setPendingStatus('PRIVATE')}
+                      className={`group flex-1 flex flex-col justify-start p-4 border-2 text-right transition relative ${
+                        communityStatus === 'PRIVATE'
+                          ? 'border-black bg-gray-50'
+                          : 'bg-white hover:border-gray-300'
+                      }`}
+                      style={{ borderColor: communityStatus === 'PRIVATE' ? '#000000' : '#D0D0D4', borderRadius: '16px' }}
+                    >
+                      <div className="absolute top-4 left-4">
+                        {communityStatus === 'PRIVATE' ? (
+                          <div className="w-5 h-5 rounded-full bg-black flex items-center justify-center">
+                            <CheckIcon size={12} color="#FFFFFF" />
+                          </div>
+                        ) : (
+                          <div className="w-5 h-5 rounded-full border opacity-0 group-hover:opacity-100 transition" style={{ borderColor: '#D0D0D4' }} />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <LinkIcon size={16} color={communityStatus === 'PRIVATE' ? '#000000' : '#3F3F46'} />
+                        <span style={{ fontSize: '16px', fontWeight: 400, color: communityStatus === 'PRIVATE' ? '#000000' : '#3F3F46' }}>פרטית</span>
+                      </div>
+                      <p style={{ fontSize: '14px', fontWeight: 400, color: communityStatus === 'PRIVATE' ? '#000000' : '#3F3F46' }}>רק מי שיש לו לינק הזמנה יכול להצטרף לקהילה.</p>
+                    </button>
+                    {/* Public */}
+                    <button
+                      type="button"
+                      onClick={() => communityStatus !== 'PUBLIC' && setPendingStatus('PUBLIC')}
+                      className={`group flex-1 flex flex-col justify-start p-4 border-2 text-right transition relative ${
+                        communityStatus === 'PUBLIC'
+                          ? 'border-black bg-gray-50'
+                          : 'bg-white hover:border-gray-300'
+                      }`}
+                      style={{ borderColor: communityStatus === 'PUBLIC' ? '#000000' : '#D0D0D4', borderRadius: '16px' }}
+                    >
+                      <div className="absolute top-4 left-4">
+                        {communityStatus === 'PUBLIC' ? (
+                          <div className="w-5 h-5 rounded-full bg-black flex items-center justify-center">
+                            <CheckIcon size={12} color="#FFFFFF" />
+                          </div>
+                        ) : (
+                          <div className="w-5 h-5 rounded-full border opacity-0 group-hover:opacity-100 transition" style={{ borderColor: '#D0D0D4' }} />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <GlobeIcon size={16} color={communityStatus === 'PUBLIC' ? '#000000' : '#3F3F46'} />
+                        <span style={{ fontSize: '16px', fontWeight: 400, color: communityStatus === 'PUBLIC' ? '#000000' : '#3F3F46' }}>ציבורית</span>
+                      </div>
+                      <p style={{ fontSize: '14px', fontWeight: 400, color: communityStatus === 'PUBLIC' ? '#000000' : '#3F3F46' }}>הקהילה מופיעה בעמוד הבית וכל אחד יכול להצטרף.</p>
+                    </button>
                   </div>
                 </div>
 
@@ -1403,14 +1494,14 @@ export default function ManageCommunityPage() {
 
             {/* Payments Tab */}
             {activeTab === 'payments' && isOwner && (
-              <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
-                <div className="flex items-center gap-42">
+              <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                   <div>
                     <h3 className="font-medium text-gray-900 text-base">מחיר חודשי</h3>
                     <p className="text-sm text-gray-500 mt-1">בחר/י אם להצטרפות לקהילה יש עלות</p>
                   </div>
                   <div className="flex-shrink-0">
-                    <div className="inline-flex gap-3">
+                    <div className="inline-flex flex-col sm:flex-row gap-3">
                       <button
                         type="button"
                         onClick={() => {
@@ -1428,7 +1519,7 @@ export default function ManageCommunityPage() {
                         <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center bg-white ${
                           !isPaidCommunity ? 'border-black' : 'border-gray-300'
                         }`}>
-                          {!isPaidCommunity && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#91DCED' }} />}
+                          {!isPaidCommunity && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#A7EA7B' }} />}
                         </div>
                       </button>
                       <button
@@ -1448,20 +1539,20 @@ export default function ManageCommunityPage() {
                         <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center bg-white ${
                           isPaidCommunity ? 'border-black' : 'border-gray-300'
                         }`}>
-                          {isPaidCommunity && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#A7EA7B' }} />}
+                          {isPaidCommunity && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#91DCED' }} />}
                         </div>
                       </button>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-6 pt-6 border-t border-gray-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-6 border-t border-gray-200">
                   <div className={`flex-1 ${!isPaidCommunity ? 'opacity-50' : ''}`}>
                     <h3 className="font-medium text-gray-900 text-base">עלות מנוי חודשי</h3>
                     <p className="text-sm text-gray-500 mt-1">סכום החיוב החודשי (בשקלים) לכל חבר קהילה (ניתן לשנות בהמשך)</p>
                   </div>
                   <div className="flex-shrink-0">
-                    <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+                    <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden w-fit">
                       <span className={`px-5 py-3.5 bg-gray-50 text-lg font-medium border-l border-gray-300 ${
                         isPaidCommunity ? 'text-gray-600' : 'text-gray-300'
                       }`}>₪</span>
@@ -1471,7 +1562,7 @@ export default function ManageCommunityPage() {
                         max="1000"
                         step="1"
                         placeholder=""
-                        className={`w-108 p-3.5 text-right text-lg focus:outline-none ${
+                        className={`w-24 p-3.5 text-right text-lg focus:outline-none ${
                           isPaidCommunity
                             ? 'bg-white'
                             : 'bg-gray-50 text-gray-400 cursor-not-allowed'
@@ -1484,7 +1575,7 @@ export default function ManageCommunityPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-6 pt-6 border-t border-gray-200">
+                <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
                   <div className="flex-1">
                     <h3 className="font-medium text-gray-900 text-base">חיוב ותשלומים</h3>
                     {!trialCancelled && trialStartDate ? (
@@ -1504,7 +1595,7 @@ export default function ManageCommunityPage() {
                       </p>
                     )}
                   </div>
-                  <div className="flex-shrink-0 flex gap-2">
+                  <div className="flex-shrink-0 flex flex-col sm:flex-row gap-2 sm:items-start">
                     {!trialCancelled && trialStartDate && (
                       <button
                         type="button"
@@ -1532,8 +1623,8 @@ export default function ManageCommunityPage() {
                 ref={messageRef}
                 className="mt-4 px-6 py-3 rounded-lg"
                 style={messageType === 'error' 
-                  ? { backgroundColor: '#FEE2E2', color: '#B3261E' }
-                  : { backgroundColor: '#A7EA7B', color: 'black', fontSize: '16px', fontWeight: 400 }
+                  ? { backgroundColor: '#FEE2E2', color: 'var(--color-error)' }
+                  : { backgroundColor: 'var(--color-green-light)', color: 'black', fontSize: '16px', fontWeight: 400 }
                 }
               >
                 <span>{message}</span>
@@ -1592,13 +1683,13 @@ export default function ManageCommunityPage() {
                         value={newCardNumber}
                         onChange={(e) => setNewCardNumber(e.target.value.replace(/\D/g, '').slice(0, 16))}
                         className={`w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black ${
-                          newCardNumber.length > 0 && newCardNumber.length < 16 ? 'border-red-400' : 'border-gray-300'
+                          newCardNumber.length > 0 && newCardNumber.length < 16 ? 'border-[#B3261E]' : 'border-gray-300'
                         }`}
                       />
                       <CreditCardIcon className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     </div>
                     {newCardNumber.length > 0 && newCardNumber.length < 16 && (
-                      <p className="text-red-500 text-sm mt-1">חסרות {16 - newCardNumber.length} ספרות</p>
+                      <p className="text-error mt-1" style={{ fontSize: '14px' }}>חסרות {16 - newCardNumber.length} ספרות</p>
                     )}
                   </div>
                   
@@ -1632,13 +1723,13 @@ export default function ManageCommunityPage() {
                               const cm = now.getMonth() + 1;
                               const cy = now.getFullYear() % 100;
                               return y < cy || (y === cy && m < cm);
-                            })()) ? 'border-red-400' : 'border-gray-300'
+                            })()) ? 'border-[#B3261E]' : 'border-gray-300'
                           }`}
                         />
                         <CalendarIcon className="absolute right-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                       </div>
                       {newCardExpiry.length > 0 && newCardExpiry.length < 5 && (
-                        <p className="text-red-500 text-sm mt-1">פורמט: MM/YY</p>
+                        <p className="text-error mt-1" style={{ fontSize: '14px' }}>פורמט: MM/YY</p>
                       )}
                       {newCardExpiry.length === 5 && (() => {
                         const [m, y] = newCardExpiry.split('/').map(Number);
@@ -1647,7 +1738,7 @@ export default function ManageCommunityPage() {
                         const cy = now.getFullYear() % 100;
                         return y < cy || (y === cy && m < cm);
                       })() && (
-                        <p className="text-red-500 text-sm mt-1">הכרטיס פג תוקף</p>
+                        <p className="text-error mt-1" style={{ fontSize: '14px' }}>הכרטיס פג תוקף</p>
                       )}
                     </div>
                     <div>
@@ -1658,13 +1749,13 @@ export default function ManageCommunityPage() {
                           value={newCardCvv}
                           onChange={(e) => setNewCardCvv(e.target.value.replace(/\D/g, '').slice(0, 3))}
                           className={`w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black ${
-                            newCardCvv.length > 0 && newCardCvv.length < 3 ? 'border-red-400' : 'border-gray-300'
+                            newCardCvv.length > 0 && newCardCvv.length < 3 ? 'border-[#B3261E]' : 'border-gray-300'
                           }`}
                         />
                         <LockIcon className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                       </div>
                       {newCardCvv.length > 0 && newCardCvv.length < 3 && (
-                        <p className="text-red-500 text-sm mt-1">חסרות {3 - newCardCvv.length} ספרות</p>
+                        <p className="text-error mt-1" style={{ fontSize: '14px' }}>חסרות {3 - newCardCvv.length} ספרות</p>
                       )}
                     </div>
                   </div>
@@ -1768,7 +1859,7 @@ export default function ManageCommunityPage() {
                 <p className="text-gray-600 mb-6">
                   האם אתה בטוח שברצונך לבטל את תקופת הניסיון?
                   <br />
-                  <span className="text-red-600 font-medium">לאחר הביטול, הקהילה תיסגר ולא תוכל לגבות תשלומים מהחברים.</span>
+                  <span className="text-error font-medium">לאחר הביטול, הקהילה תיסגר ולא תוכל לגבות תשלומים מהחברים.</span>
                 </p>
                 <div className="flex gap-3 justify-end">
                   <button
@@ -1807,7 +1898,7 @@ export default function ManageCommunityPage() {
                       }
                     }}
                     disabled={cancellingTrial}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition"
+                    className="px-4 py-2 bg-error text-white rounded-lg font-medium hover:opacity-80 disabled:opacity-50 transition"
                   >
                     {cancellingTrial ? 'מבטל...' : 'בטל תקופת ניסיון'}
                   </button>
@@ -1817,6 +1908,47 @@ export default function ManageCommunityPage() {
           )}
         </main>
       </div>
+
+      {/* Status Change Confirmation Modal */}
+      {pendingStatus && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-6 max-w-md w-full text-center" dir="rtl" style={{ borderRadius: '16px' }}>
+            <h2 className="font-semibold text-black" style={{ fontSize: '21px', marginBottom: '12px' }}>
+              {pendingStatus === 'DRAFT' && 'להעביר את הקהילה למצב טיוטה?'}
+              {pendingStatus === 'PRIVATE' && 'להעביר את הקהילה למצב פרטי?'}
+              {pendingStatus === 'PUBLIC' && 'להפעיל את הקהילה?'}
+            </h2>
+            <p style={{ fontSize: '18px', fontWeight: 400, color: '#1D1D20', marginBottom: '24px' }}>
+              {pendingStatus === 'DRAFT' && 'חברים קיימים יישארו בקהילה כרגיל, אבל אנשים חדשים לא יוכלו להצטרף.'}
+              {pendingStatus === 'PRIVATE' && 'הקהילה לא תופיע בעמוד הבית. אנשים חדשים יוכלו להצטרף רק דרך לינק הזמנה.'}
+              {pendingStatus === 'PUBLIC' && 'הקהילה תופיע בעמוד הבית וכל אחד יוכל להצטרף אליה.'}
+            </p>
+            <div className="flex gap-3 justify-center">
+              <button
+                type="button"
+                onClick={() => setPendingStatus(null)}
+                style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.5rem 1.5rem', borderColor: '#D0D0D4' }}
+                className="bg-white text-black border hover:bg-gray-50 transition"
+              >
+                ביטול
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCommunityStatus(pendingStatus);
+                  setPendingStatus(null);
+                }}
+                style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.5rem 1.5rem' }}
+                className="bg-black text-white hover:bg-gray-800 transition"
+              >
+                {pendingStatus === 'DRAFT' && 'העבר לטיוטה'}
+                {pendingStatus === 'PRIVATE' && 'העבר לפרטית'}
+                {pendingStatus === 'PUBLIC' && 'הפעל את הקהילה'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && isOwner && (

@@ -34,6 +34,7 @@ import VideoPlayer from '../../../components/VideoPlayer';
 import { getImageUrl } from '@/app/lib/imageUrl';
 import ComingSoonTooltip from '../../../components/ComingSoonTooltip';
 import MessageIcon from '../../../components/icons/MessageIcon';
+import MagicWandIcon from '../../../components/icons/MagicWandIcon';
 
 interface Community {
   id: string;
@@ -48,6 +49,7 @@ interface Community {
   memberCount?: number | null;
   rules?: string[];
   showOnlineMembers?: boolean;
+  status?: string;
 }
 
 interface Comment {
@@ -187,9 +189,10 @@ function CommunityFeedContent() {
   
   // Filter state
   const [showSavedOnly, setShowSavedOnly] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   
   // Get searchQuery and user data from layout context
-  const { searchQuery, setSearchQuery, userEmail, userId, userProfile, isOwner, isManager, isMember: contextIsMember, community: layoutCommunity } = useCommunityContext();
+  const { searchQuery, setSearchQuery, userEmail, userId, userProfile, isOwner, isManager, isMember: contextIsMember, community: layoutCommunity, loading: contextLoading } = useCommunityContext();
   
   // Comments state
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
@@ -220,9 +223,7 @@ function CommunityFeedContent() {
   const [votingPollId, setVotingPollId] = useState<string | null>(null);
   
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [isMember, setIsMember] = useState<boolean | null>(contextIsMember);
-  const [, setCanEdit] = useState(false);
-  const [, setCanDelete] = useState(false);
+  const isMember = contextIsMember;
   const [userMemberships, setUserMemberships] = useState<string[]>([]);
   const [topMembers, setTopMembers] = useState<TopMember[]>([]);
   const [onlineCount, setOnlineCount] = useState<number>(0);
@@ -232,6 +233,7 @@ function CommunityFeedContent() {
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [showLightbox, setShowLightbox] = useState(false);
+  const [showWelcomePopup, setShowWelcomePopup] = useState(false);
 
   const openLightbox = (images: string[], startIndex: number = 0) => {
     setLightboxImages(images);
@@ -311,39 +313,16 @@ function CommunityFeedContent() {
         return;
       }
 
+      // Wait for context to finish loading membership info
+      if (contextLoading) return;
+
       const token = localStorage.getItem('token');
       
       try {
         setLoading(true);
         
-        // First check membership
-        if (token) {
-          const membershipRes = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/membership`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          if (membershipRes.ok) {
-            const membershipData = await membershipRes.json();
-            setIsMember(membershipData.isMember);
-            setCanEdit(membershipData.canEdit || false);
-            setCanDelete(membershipData.canDelete || false);
-            
-            // If not a member, don't fetch posts
-            if (!membershipData.isMember) {
-              const communityRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
-              if (communityRes.ok) {
-                setCommunity(await communityRes.json());
-              }
-              setPosts([]);
-              setLoading(false);
-              return;
-            }
-          }
-        } else {
-          // Not logged in - can't be a member
-          setIsMember(false);
-          setCanEdit(false);
-          setCanDelete(false);
+        // Use membership from context - if not a member, just fetch community info
+        if (isMember === false) {
           const communityRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
           if (communityRes.ok) {
             setCommunity(await communityRes.json());
@@ -434,7 +413,7 @@ function CommunityFeedContent() {
     };
 
     fetchCommunityDetails();
-  }, [communityId, userId, communities]);
+  }, [communityId, userId, communities, contextLoading, isMember]);
 
   // Refresh online count every 30 seconds
   useEffect(() => {
@@ -482,12 +461,12 @@ function CommunityFeedContent() {
     return () => clearInterval(interval);
   }, [communityId, userId]);
 
-  // Redirect non-members to homepage
+  // Redirect non-members to preview page
   useEffect(() => {
     if (isMember === false) {
-      router.push('/');
+      router.push(`/communities/${communityId}/preview`);
     }
-  }, [isMember, router]);
+  }, [isMember, router, communityId]);
 
   // Fetch link previews for posts
   useEffect(() => {
@@ -1500,6 +1479,23 @@ function CommunityFeedContent() {
     );
   }
 
+  // Welcome popup for new community owners (use community.id to avoid slug/id mismatch)
+  useEffect(() => {
+    if (isOwner && community?.id) {
+      const key = `welcome_shown_${community.id}`;
+      if (!localStorage.getItem(key)) {
+        setShowWelcomePopup(true);
+      }
+    }
+  }, [isOwner, community?.id]);
+
+  const handleCloseWelcome = () => {
+    setShowWelcomePopup(false);
+    if (community?.id) {
+      localStorage.setItem(`welcome_shown_${community.id}`, 'true');
+    }
+  };
+
   return (
     <main className="min-h-screen bg-gray-100 text-right">
       {/* Main 3-column layout - only show if member */}
@@ -1602,7 +1598,7 @@ function CommunityFeedContent() {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px] max-w-5xl mx-auto">
 
           {/* CENTER: Posts feed */}
-          <div className="space-y-6">
+          <div className="space-y-6 order-2 lg:order-1">
             {/* Post composer - hide when viewing saved posts */}
             {userEmail && !showSavedOnly && (
               <div className="bg-white border border-gray-200 rounded-2xl p-5">
@@ -2528,16 +2524,16 @@ function CommunityFeedContent() {
                           <div className={`mt-3 grid gap-2 ${
                             post.images.length === 1 ? 'grid-cols-1' : 
                             post.images.length === 2 ? 'grid-cols-2' : 
-                            post.images.length === 3 ? 'grid-cols-3' :
+                            post.images.length === 3 ? 'grid-cols-2 sm:grid-cols-3' :
                             post.images.length === 4 ? 'grid-cols-2' :
-                            'grid-cols-3'
+                            'grid-cols-2 sm:grid-cols-3'
                           }`}>
                             {post.images.slice(0, 6).map((image, index) => (
                               <div 
                                 key={index} 
                                 className={`relative ${
                                   post.images!.length === 1 ? '' : 
-                                  post.images!.length === 3 && index === 0 ? 'col-span-3' :
+                                  post.images!.length === 3 && index === 0 ? 'col-span-2 sm:col-span-3' :
                                   ''
                                 }`}
                               >
@@ -2679,7 +2675,7 @@ function CommunityFeedContent() {
                                   {/* 3 dots menu - only visible on hover */}
                                   <div className="w-6 flex-shrink-0">
                                     {userId === comment.user?.id && editingCommentId !== comment.id && (
-                                      <div className="relative opacity-0 group-hover:opacity-100 transition-opacity" dir="ltr">
+                                      <div className="relative" dir="ltr">
                                         <button
                                           onClick={() => setCommentMenuOpenId(commentMenuOpenId === comment.id ? null : comment.id)}
                                           className="p-1 text-[#52525B] rounded-full hover:bg-gray-100 transition"
@@ -2864,7 +2860,34 @@ function CommunityFeedContent() {
           </div>
 
           {/* RIGHT: Sidebar with online members, rules, events, top members */}
-          <div className="space-y-4">
+          <div className="order-1 lg:order-2">
+            {/* Mobile: collapsible toggle */}
+            <button
+              onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+              className="lg:hidden w-full flex items-center justify-between bg-gray-100 border border-gray-300 rounded-2xl p-4 mb-2"
+            >
+              <span className="font-semibold text-black" style={{ fontSize: '16px' }}>מידע על הקהילה</span>
+              <svg
+                width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                className={`transform transition-transform duration-200 ${mobileSidebarOpen ? 'rotate-180' : ''}`}
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            {/* Desktop: always visible. Mobile: collapsible */}
+            <div className={`space-y-4 ${mobileSidebarOpen ? 'block' : 'hidden'} lg:block`}>
+            {/* Draft Status Banner - only for owner */}
+            {isOwner && community?.status === 'DRAFT' && (
+            <div className="rounded-2xl p-5" style={{ backgroundColor: '#D0F9C9' }}>
+              <h3 className="font-semibold text-black" style={{ fontSize: '18px' }}>
+                קהילה במצב טיוטה
+              </h3>
+              <p className="font-normal mt-1" style={{ fontSize: '16px', color: '#3F3F46' }}>
+                הקהילה לא זמינה לחברים עדיין. תוכלו להפעיל אותה בכל שלב מ<a href={`/communities/${communityId}/manage`} className="font-normal underline" style={{ color: '#3F3F46' }}>הגדרות הקהילה</a>.
+              </p>
+            </div>
+            )}
+
             {/* Online Members */}
             {community?.showOnlineMembers !== false && (
             <div className="bg-gray-100 border border-gray-400 rounded-2xl p-5">
@@ -3011,6 +3034,7 @@ function CommunityFeedContent() {
               </div>
             </div>
           </div>
+          </div>
         </div>
         </div>
       </section>
@@ -3124,6 +3148,48 @@ function CommunityFeedContent() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Welcome Popup for new community owners */}
+      {showWelcomePopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={handleCloseWelcome}>
+          <div
+            className="bg-white rounded-2xl shadow-xl relative text-center"
+            style={{ width: '500px', maxWidth: '90%', padding: '24px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
+            dir="rtl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={handleCloseWelcome}
+              className="absolute top-4 left-4 hover:opacity-70 transition-opacity"
+              style={{ color: '#1D1D20' }}
+              aria-label="סגור"
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+            <div className="flex justify-center mb-4">
+              <div className="w-11 h-11 rounded-full flex items-center justify-center" style={{ backgroundColor: '#D0F9C9' }}>
+                <MagicWandIcon className="w-5 h-5 text-black" />
+              </div>
+            </div>
+            <h2 className="font-semibold mb-3" style={{ fontSize: '21px', color: '#000000' }}>ברוכים הבאים לקהילה שלכם!</h2>
+            <p className="mb-0.5" style={{ fontSize: '18px', lineHeight: '1.6', color: '#1D1D20' }}>
+              הקהילה שלכם נוצרה במצב טיוטה, כדי שתוכלו להגדיר אותה בזמנכם לפני שהיא תהיה זמינה לכולם.
+            </p>
+            <p className="mb-5" style={{ fontSize: '18px', lineHeight: '1.6', color: '#1D1D20' }}>
+              תוכלו להפעיל אותה בכל שלב מ<span className="font-semibold">הגדרות הקהילה</span>.
+            </p>
+            <button
+              onClick={() => { handleCloseWelcome(); router.push(`/communities/${communityId}/manage`); }}
+              className="font-normal hover:opacity-90 transition cursor-pointer"
+              style={{ backgroundColor: '#A7EA7B', color: '#163300', fontSize: '1rem', fontWeight: 400, padding: '0.5rem 1.5rem', borderRadius: '12px' }}
+            >
+              בואו נתחיל!
+            </button>
           </div>
         </div>
       )}

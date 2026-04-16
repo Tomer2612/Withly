@@ -102,11 +102,11 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
     <>
     <header dir="rtl" className="flex items-center justify-between px-4 md:px-8 py-4 bg-white border-b h-[72px]" style={{ borderColor: '#E1E1E2' }}>
       {/* Right side: hamburger (mobile) + logo */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         {/* Mobile hamburger - on right side in RTL */}
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden p-2 rounded-lg hover:bg-gray-100 transition"
+          className="md:hidden p-1.5 rounded-lg hover:bg-gray-100 transition"
           aria-label="תפריט"
         >
           {mobileMenuOpen ? (
@@ -198,9 +198,15 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
           <div className="flex items-center gap-2">
             <Link
               href="/login"
-              className="border-2 border-black text-black px-4 py-1.5 rounded-lg font-semibold hover:bg-black hover:text-white transition text-sm"
+              className="border-2 border-black text-black px-3 py-1.5 rounded-lg font-semibold hover:bg-black hover:text-white transition text-sm"
             >
               כניסה
+            </Link>
+            <Link
+              href="/signup"
+              className="bg-black text-white px-3 py-1.5 rounded-lg font-semibold hover:opacity-90 transition border-2 border-black text-sm"
+            >
+              הרשמה
             </Link>
           </div>
         )}

@@ -558,7 +558,7 @@ function CourseViewerContent() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar - hidden on mobile unless toggled */}
-        <aside className={`${sidebarOpen ? 'block' : 'hidden'} lg:block w-full lg:w-80 border-l border-gray-200 bg-white flex-col overflow-hidden ${sidebarOpen ? 'absolute inset-0 top-auto z-30 h-[60vh] lg:relative lg:h-auto lg:z-auto' : ''} lg:flex`}>
+        <aside className={`${sidebarOpen ? 'block' : 'hidden'} lg:block w-full lg:w-80 border-l border-gray-200 bg-white flex-col overflow-hidden ${sidebarOpen ? 'relative z-30 max-h-[60vh] border-b lg:max-h-none lg:border-b-0' : ''} lg:flex`}>
           {/* Sidebar - scrollable as one unit */}
           <div className="flex-1 overflow-y-auto" dir="ltr">
             <div dir="rtl">
@@ -610,7 +610,7 @@ function CourseViewerContent() {
                 <div key={chapter.id}>
                   {/* Divider between chapters */}
                   {chapterIndex > 0 && <div className="h-px bg-[#D4D4D8]" />}
-                  <button onClick={() => toggleChapter(chapter.id)} className="w-full flex items-center justify-between hover:bg-gray-50 transition text-right" style={{ padding: '16px 32px' }}>
+                  <button onClick={() => toggleChapter(chapter.id)} className="w-full flex items-center justify-between hover:bg-gray-50 transition text-right px-4 sm:px-8 py-4">
                     <div className="flex-1">
                       <span className="font-semibold text-[#18181B]" style={{ fontSize: '18px' }}>{chapter.title}</span>
                     </div>
@@ -624,8 +624,8 @@ function CourseViewerContent() {
                         return (
                           <div 
                             key={lesson.id} 
-                            className="flex items-center"
-                            style={{ padding: '0 32px', marginTop: lessonIndex === 0 ? '0' : '20px' }}
+                            className="flex items-center px-3 sm:px-8"
+                            style={{ marginTop: lessonIndex === 0 ? '0' : '20px' }}
                           >
                             <div 
                               className={`flex items-center flex-1 rounded-lg ${isCurrent ? 'bg-gray-100' : 'hover:bg-gray-50'}`}

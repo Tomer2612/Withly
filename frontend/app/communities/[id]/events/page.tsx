@@ -416,6 +416,9 @@ function EventsPageContent() {
   const [deleteEventId, setDeleteEventId] = useState<string | null>(null);
   const [rsvpLoading, setRsvpLoading] = useState<string | null>(null);
   const [addEventDate, setAddEventDate] = useState<Date | null>(null);
+
+  // Double-tap detection for mobile (onDoubleClick doesn't work on touch)
+  const lastTapRef = useRef<{ time: number; day: number }>({ time: 0, day: 0 });
   const [showMonthDropdown, setShowMonthDropdown] = useState(false);
   const [showYearDropdown, setShowYearDropdown] = useState(false);
   const [showSidebarDatePicker, setShowSidebarDatePicker] = useState(false);
@@ -751,7 +754,7 @@ function EventsPageContent() {
     
     // Empty cells before first day
     for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="h-24 bg-gray-50"></div>);
+      days.push(<div key={`empty-${i}`} className="h-16 sm:h-24 bg-gray-50"></div>);
     }
 
     // Helper to get event style based on RSVP status
@@ -791,16 +794,29 @@ function EventsPageContent() {
       days.push(
         <div
           key={day}
-          onClick={() => setSelectedDate(date)}
+          onClick={() => {
+            setSelectedDate(date);
+            // Double-tap detection for mobile
+            const now = Date.now();
+            if (lastTapRef.current.day === day && now - lastTapRef.current.time < 400) {
+              if (isOwnerOrManager && !isPastDay) {
+                const eventDate = new Date(year, month, day, 12, 0, 0);
+                setAddEventDate(eventDate);
+                setShowAddModal(true);
+              }
+              lastTapRef.current = { time: 0, day: 0 };
+            } else {
+              lastTapRef.current = { time: now, day };
+            }
+          }}
           onDoubleClick={() => {
             if (isOwnerOrManager && !isPastDay) {
-              // Create date at noon to avoid timezone issues
               const eventDate = new Date(year, month, day, 12, 0, 0);
               setAddEventDate(eventDate);
               setShowAddModal(true);
             }
           }}
-          className={`h-24 p-1 transition ${isPastDay ? 'bg-gray-200 cursor-default' : 'cursor-pointer hover:bg-gray-50'} ${
+          className={`h-16 sm:h-24 p-1 transition ${isPastDay ? 'bg-gray-200 cursor-default' : 'cursor-pointer hover:bg-gray-50'} ${
             isSelected ? 'bg-gray-100 border border-gray-600' : isToday ? 'bg-gray-100' : 'border border-gray-100'
           }`}
         >
@@ -957,16 +973,16 @@ function EventsPageContent() {
               </div>
 
               {/* Day Headers */}
-              <div className="grid grid-cols-7 border-b border-gray-100 min-w-[320px]">
+              <div className="grid grid-cols-7 border-b border-gray-100">
                 {HEBREW_DAYS.map(day => (
-                  <div key={day} className="py-2 text-center text-sm font-medium text-gray-500">
+                  <div key={day} className="py-2 text-center text-xs sm:text-sm font-medium text-gray-500">
                     {day}
                   </div>
                 ))}
               </div>
 
               {/* Calendar Grid */}
-              <div className="grid grid-cols-7 min-w-[320px]">
+              <div className="grid grid-cols-7">
                 {renderCalendar()}
               </div>
             </div>

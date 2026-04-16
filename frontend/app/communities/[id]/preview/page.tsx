@@ -123,7 +123,7 @@ function CommunityGallery({ primaryImage, galleryImages, galleryVideos, communit
     <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
       <div className="relative aspect-video bg-black">
         {currentItem.type === 'video' ? (
-          <div onMouseEnter={() => setIsVideoPlaying(true)} onMouseLeave={() => setIsVideoPlaying(false)}>
+          <div onMouseEnter={() => setIsVideoPlaying(true)} onMouseLeave={() => setIsVideoPlaying(false)} onClick={() => setIsVideoPlaying((prev) => !prev)}>
             <VideoPlayer url={currentItem.src} className="rounded-none" />
           </div>
         ) : (

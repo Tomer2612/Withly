@@ -117,6 +117,7 @@ model Community {
   trialCancelled    Boolean           @default(false)
   trialStartDate   DateTime?
   showOnlineMembers Boolean          @default(true)
+  status            CommunityStatus  @default(DRAFT)
   slug             String?           @unique
   posts          Post[]
   owner          User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
@@ -448,6 +449,12 @@ enum NotificationType {
   NEW_POST
   MENTION
   COMMUNITY_JOIN
+}
+
+enum CommunityStatus {
+  DRAFT
+  PRIVATE
+  PUBLIC
 }
 
 enum MemberRole {

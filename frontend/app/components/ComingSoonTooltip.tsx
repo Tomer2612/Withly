@@ -16,6 +16,7 @@ export default function ComingSoonTooltip({ children, tailDirection }: ComingSoo
       className="relative w-fit"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onClick={() => setIsHovered((prev) => !prev)}
     >
       {children}
 

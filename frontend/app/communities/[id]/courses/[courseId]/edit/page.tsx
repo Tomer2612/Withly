@@ -905,11 +905,11 @@ export default function EditCoursePage() {
           {/* Course Details */}
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-white rounded-xl shadow-sm p-6">
-              <h2 className="font-semibold text-gray-800 mb-4" style={{ fontSize: '28px' }}>פרטי הקורס</h2>
+              <h2 className="font-semibold text-gray-800 mb-4 text-xl sm:text-[28px]">פרטי הקורס</h2>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block font-semibold text-gray-700 mb-1" style={{ fontSize: '18px' }}>
+                  <label className="block font-semibold text-gray-700 mb-1 text-base sm:text-lg">
                     שם הקורס <span style={{ color: '#B3261E' }}>*</span>
                   </label>
                   <input
@@ -938,7 +938,7 @@ export default function EditCoursePage() {
 
                 {/* Course Image */}
                 <div id="course-image-section">
-                  <label className="block font-semibold text-gray-700 mb-1" style={{ fontSize: '18px' }}>
+                  <label className="block font-semibold text-gray-700 mb-1 text-base sm:text-lg">
                     תמונת הקורס <span style={{ color: '#B3261E' }}>*</span>
                   </label>
                   
@@ -991,7 +991,7 @@ export default function EditCoursePage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-gray-700 mb-1" style={{ fontSize: '18px' }}>
+                  <label className="block font-semibold text-gray-700 mb-1 text-base sm:text-lg">
                     תיאור הקורס <span className="text-gray-400 text-xs font-normal">(אופציונלי)</span>
                   </label>
                   <textarea
@@ -1044,7 +1044,7 @@ export default function EditCoursePage() {
                   <div className="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
                     <VideoOffIcon size={24} color="black" />
                   </div>
-                  <p className="text-black font-normal" style={{ fontSize: '18px' }}>עדיין אין פרקים בקורס</p>
+                  <p className="text-black font-normal text-base sm:text-lg">עדיין אין פרקים בקורס</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -1580,7 +1580,7 @@ export default function EditCoursePage() {
                                                   alt={`תמונה ${imgIndex + 1}`}
                                                   className="w-full h-24 object-cover rounded-lg"
                                                 />
-                                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
+                                                <div className="absolute inset-0 bg-black/50 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
                                                   <button
                                                     type="button"
                                                     onClick={() => {
@@ -1609,7 +1609,7 @@ export default function EditCoursePage() {
                                                   alt={file.name}
                                                   className="w-full h-24 object-cover rounded-lg"
                                                 />
-                                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
+                                                <div className="absolute inset-0 bg-black/50 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
                                                   <button
                                                     type="button"
                                                     onClick={() => {
@@ -1988,7 +1988,7 @@ export default function EditCoursePage() {
           <div className="space-y-6">
             {/* Course Stats */}
             <div className="bg-white rounded-xl shadow-sm p-6 sticky top-24">
-              <h2 className="font-semibold text-gray-800 mb-4" style={{ fontSize: '18px' }}>סיכום</h2>
+              <h2 className="font-semibold text-gray-800 mb-4 text-base sm:text-lg">סיכום</h2>
               <div className="space-y-2" style={{ fontSize: '16px' }}>
                 <div className="flex justify-between">
                   <span className="text-gray-500 font-normal">מספר פרקים:</span>

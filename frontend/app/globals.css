@@ -13,8 +13,10 @@
   --color-gray-8: #3F3F46;
   --color-gray-9: #27272A;
   --color-gray-10: #1D1D20;
+  --color-green-lighter: #D0F9C9;
   --color-green-light: #A7EA7B;
   --color-green-dark: #163300;
+  --color-blue-lighter: #C7F1FA;
   --color-blue-light: #91DCED;
   --color-blue-dark: #003233;
   --color-error: #B3261E;
@@ -65,8 +67,10 @@ select:disabled,
 
 /* Design System Utility Classes */
 .bg-green-light { background-color: var(--color-green-light) !important; }
+.bg-green-lighter { background-color: var(--color-green-lighter) !important; }
 .text-green-dark { color: var(--color-green-dark) !important; }
 .bg-blue-light { background-color: var(--color-blue-light) !important; }
+.bg-blue-lighter { background-color: var(--color-blue-lighter) !important; }
 .text-blue-dark { color: var(--color-blue-dark) !important; }
 .bg-error { background-color: var(--color-error) !important; }
 .text-error { color: var(--color-error) !important; }
@@ -370,17 +374,11 @@ select option:checked {
   --line-height-relaxed: 1.7;
 
   /* Colors - Base */
-  --color-black: #000000;
-  --color-white: #ffffff;
   --color-text-primary: #000000;
   --color-text-secondary: #6b7280;
   --color-text-tertiary: #9ca3af;
 
-  /* Colors - Accent */
-  --color-blue-light: #a7d4ff;
-  --color-blue-lighter: #e8f3ff;
-  --color-green-light: #bceccb;
-  --color-green-lighter: #d9f2e0;
+  /* Colors - Accent (kept from main :root) */
   --color-purple: #a78bfa;
   --color-mint: #6ee7b7;
 

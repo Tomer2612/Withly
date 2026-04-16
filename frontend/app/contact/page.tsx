@@ -126,7 +126,7 @@ export default function ContactPage() {
 
       {/* Contact Form */}
       <section className="max-w-2xl mx-auto px-4 pb-16">
-        <div className="bg-white rounded-2xl p-8" style={{ border: '1px solid #A1A1AA' }}>
+        <div className="bg-white rounded-2xl p-5 sm:p-8" style={{ border: '1px solid #A1A1AA' }}>
           {formSubmitted ? (
             <div className="text-center py-8">
               <div className="w-10 h-10 mx-auto mb-4">

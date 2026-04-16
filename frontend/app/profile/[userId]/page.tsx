@@ -616,7 +616,7 @@ export default function MemberProfilePage() {
                         className={`flex items-center justify-center transition ${
                           createdPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-[#3F3F46] hover:text-black'
                         }`}
-                        style={{ width: 32, height: 32 }}
+                        style={{ width: 40, height: 40 }}
                       >
                         <ChevronRightIcon className="w-5 h-5" />
                       </button>
@@ -629,7 +629,7 @@ export default function MemberProfilePage() {
                               ? 'bg-[#71717A] text-white'
                               : 'bg-white text-[#71717A] hover:bg-gray-50'
                           }`}
-                          style={{ width: 32, height: 32, borderRadius: '50%' }}
+                          style={{ width: 40, height: 40, borderRadius: '50%' }}
                         >
                           {page}
                         </button>
@@ -640,7 +640,7 @@ export default function MemberProfilePage() {
                         className={`flex items-center justify-center transition ${
                           createdPage >= totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-[#3F3F46] hover:text-black'
                         }`}
-                        style={{ width: 32, height: 32 }}
+                        style={{ width: 40, height: 40 }}
                       >
                         <ChevronLeftIcon className="w-5 h-5" />
                       </button>
@@ -752,7 +752,7 @@ export default function MemberProfilePage() {
                         className={`flex items-center justify-center transition ${
                           memberPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-[#3F3F46] hover:text-black'
                         }`}
-                        style={{ width: 32, height: 32 }}
+                        style={{ width: 40, height: 40 }}
                       >
                         <ChevronRightIcon className="w-5 h-5" />
                       </button>
@@ -765,7 +765,7 @@ export default function MemberProfilePage() {
                               ? 'bg-[#71717A] text-white'
                               : 'bg-white text-[#71717A] hover:bg-gray-50'
                           }`}
-                          style={{ width: 32, height: 32, borderRadius: '50%' }}
+                          style={{ width: 40, height: 40, borderRadius: '50%' }}
                         >
                           {page}
                         </button>
@@ -776,7 +776,7 @@ export default function MemberProfilePage() {
                         className={`flex items-center justify-center transition ${
                           memberPage >= totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-[#3F3F46] hover:text-black'
                         }`}
-                        style={{ width: 32, height: 32 }}
+                        style={{ width: 40, height: 40 }}
                       >
                         <ChevronLeftIcon className="w-5 h-5" />
                       </button>

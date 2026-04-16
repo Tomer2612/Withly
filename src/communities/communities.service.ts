@@ -63,6 +63,9 @@ export class CommunitiesService {
   async findAll() {
     try {
       const communities = await this.prisma.community.findMany({
+        where: {
+          status: 'PUBLIC',
+        },
         orderBy: {
           createdAt: 'desc',
         },
@@ -151,6 +154,7 @@ export class CommunitiesService {
     cardLastFour?: string | null,
     cardBrand?: string | null,
     showOnlineMembers?: boolean,
+    status?: string,
   ) {
     try {
       const id = await this.resolveId(idOrSlug);
@@ -220,6 +224,9 @@ export class CommunitiesService {
       }
       if (showOnlineMembers !== undefined) {
         updateData.showOnlineMembers = showOnlineMembers;
+      }
+      if (status !== undefined) {
+        updateData.status = status;
       }
 
       return await this.prisma.community.update({

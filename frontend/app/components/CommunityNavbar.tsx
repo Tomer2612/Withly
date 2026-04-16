@@ -121,7 +121,7 @@ export default function CommunityNavbar({
     <>
     <header dir="rtl" className="sticky top-0 z-40 flex items-center justify-between px-4 md:px-8 py-4 bg-white border-b border-gray-200 h-[72px]">
       {/* Right side: Hamburger (mobile) + Withly Logo + Community name */}
-      <div className="flex items-center min-w-0 flex-shrink-0 max-w-[280px] gap-2 md:gap-3">
+      <div className="flex items-center min-w-0 flex-shrink gap-2 md:gap-3">
         {/* Mobile hamburger - visible below xl, BEFORE logo in RTL */}
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -170,7 +170,7 @@ export default function CommunityNavbar({
                 <UsersIcon className="w-4 h-4 md:w-5 md:h-5 text-gray-400" />
               </div>
             )}
-            <span className="font-medium text-black truncate max-w-[120px] md:max-w-[200px]" style={{ fontSize: '16px' }}>{community?.name}</span>
+            <span className="font-medium text-black truncate max-w-[150px] sm:max-w-[200px] md:max-w-[250px]" style={{ fontSize: '16px' }}>{community?.name}</span>
             
             {showCommunityDropdown && (
               <svg 

@@ -124,7 +124,13 @@ export function middleware(request: NextRequest) {
   }
   
   // No valid token on protected route - redirect to login
+  // Exception: community pages redirect to preview instead
   if (!effectiveToken) {
+    const communityMatch = pathname.match(/^\/communities\/([^/]+)/);
+    if (communityMatch) {
+      const communityId = communityMatch[1];
+      return clearCookie(NextResponse.redirect(new URL(`/communities/${communityId}/preview`, request.url)));
+    }
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
     return clearCookie(NextResponse.redirect(loginUrl));

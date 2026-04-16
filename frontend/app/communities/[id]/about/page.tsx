@@ -106,7 +106,7 @@ function CommunityGallery({ primaryImage, galleryImages, galleryVideos, communit
       {/* Main Image/Video with Navigation */}
       <div className="relative aspect-video bg-black">
         {currentItem.type === 'video' ? (
-          <div onMouseEnter={() => setIsVideoPlaying(true)} onMouseLeave={() => setIsVideoPlaying(false)}>
+          <div onMouseEnter={() => setIsVideoPlaying(true)} onMouseLeave={() => setIsVideoPlaying(false)} onClick={() => setIsVideoPlaying((prev) => !prev)}>
             <VideoPlayer url={currentItem.src} className="rounded-none" />
           </div>
         ) : (
@@ -174,7 +174,7 @@ export default function CommunityAboutPage() {
   const router = useRouter();
   const params = useParams();
   const communityId = params.id as string;
-  const { userEmail, userId, userProfile, userRole } = useCommunityContext();
+  const { userEmail, userId, userProfile, userRole, isMember, loading: contextLoading } = useCommunityContext();
 
   const [community, setCommunity] = useState<Community | null>(null);
   const [ownerData, setOwnerData] = useState<{ id: string; name: string; profileImage?: string | null; coverImage?: string | null; bio?: string | null } | null>(null);
@@ -231,22 +231,11 @@ export default function CommunityAboutPage() {
       try {
         setLoading(true);
         
-        // Check membership and role - redirect non-members to preview page
-        if (token) {
-          const membershipRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/membership`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (membershipRes.ok) {
-            const membershipData = await membershipRes.json();
-            if (!membershipData.role) {
-              // Not a member, redirect to preview page
-              router.push(`/communities/${communityId}/preview`);
-              return;
-            }
-            // userRole comes from context now
-          }
-        } else {
-          // Not logged in, redirect to preview page
+        // Wait for context to finish loading
+        if (contextLoading) return;
+        
+        // Redirect non-members to preview page (using context)
+        if (isMember === false) {
           router.push(`/communities/${communityId}/preview`);
           return;
         }
@@ -291,7 +280,7 @@ export default function CommunityAboutPage() {
     };
 
     fetchCommunity();
-  }, [communityId, router]);
+  }, [communityId, router, contextLoading, isMember]);
 
   // Show loading skeleton instead of "not found" message while loading
   if (!community && loading) {

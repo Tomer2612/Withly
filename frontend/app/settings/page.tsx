@@ -639,7 +639,7 @@ export default function SettingsPage() {
       <SiteHeader />
 
       {/* Mobile Tab Bar */}
-      <div className="md:hidden flex overflow-x-auto bg-white px-3 py-2 gap-1 border-b" style={{ borderColor: '#E1E1E2' }}>
+      <div className="md:hidden flex overflow-x-auto bg-white px-3 py-2 gap-1 border-b scrollbar-hide" style={{ borderColor: '#E1E1E2', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}>
         {[
           { key: 'profile' as const, label: 'פרטי פרופיל' },
           { key: 'security' as const, label: 'אבטחה' },
@@ -666,8 +666,8 @@ export default function SettingsPage() {
         {/* Right Sidebar - Settings Tabs (hidden on mobile) */}
         <aside className="hidden md:block w-64 bg-white border-l p-6 flex-shrink-0" style={{ borderColor: '#E1E1E2' }}>
           <div className="flex items-center gap-2 mb-6">
-            <HiOutlineCog6Tooth className="w-5 h-5" style={{ color: '#52525B' }} />
-            <h2 className="text-base font-semibold" style={{ color: '#1D1D20' }}>הגדרות</h2>
+            <HiOutlineCog6Tooth className="w-5 h-5" style={{ color: '#000000' }} />
+            <h2 className="font-semibold" style={{ color: '#1D1D20', fontSize: '21px' }}>הגדרות</h2>
           </div>
           
           <nav className="space-y-1">
@@ -814,7 +814,7 @@ export default function SettingsPage() {
                 <div className="flex items-start gap-8">
                   <div className="w-32 flex-shrink-0">
                     <h3 className="text-sm font-medium" style={{ color: '#1D1D20' }}>תיאור</h3>
-                    <p className="text-xs" style={{ color: '#71717A' }}>ספרו על עצמכם</p>
+                    <p className="text-sm" style={{ color: '#71717A' }}>ספרו על עצמכם</p>
                   </div>
                   <div className="flex-1 min-w-0 relative">
                     <textarea
@@ -847,7 +847,7 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-sm font-medium" style={{ color: '#1D1D20' }}>הסטטוס שלי</h3>
-                    <p className="text-xs" style={{ color: '#71717A' }}>כרגע מוצג כמחובר לכל חברי הקהילות</p>
+                    <p className="text-sm" style={{ color: '#71717A' }}>כרגע מוצג כמחובר לכל חברי הקהילות</p>
                   </div>
                   <button
                     type="button"
@@ -896,7 +896,7 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-8 mb-4">
                     <div className="w-40 flex-shrink-0">
                       <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>סיסמא נוכחית</h4>
-                      <p className="text-xs" style={{ color: '#71717A' }}>הזינו את הסיסמא הנוכחית</p>
+                      <p className="text-sm" style={{ color: '#71717A' }}>הזינו את הסיסמא הנוכחית</p>
                     </div>
                     <div className="relative flex-1">
                       <input
@@ -923,7 +923,7 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-8 mb-4">
                     <div className="w-40 flex-shrink-0">
                       <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>סיסמא חדשה</h4>
-                      <p className="text-xs" style={{ color: '#71717A' }}>הזינו את הסיסמא החדשה</p>
+                      <p className="text-sm" style={{ color: '#71717A' }}>הזינו את הסיסמא החדשה</p>
                     </div>
                     <div className="relative flex-1">
                       <input
@@ -950,7 +950,7 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-8 mb-4">
                     <div className="w-40 flex-shrink-0">
                       <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>אישור סיסמא חדשה</h4>
-                      <p className="text-xs" style={{ color: '#71717A' }}>הזינו שוב את הסיסמא החדשה</p>
+                      <p className="text-sm" style={{ color: '#71717A' }}>הזינו שוב את הסיסמא החדשה</p>
                     </div>
                     <div className="relative flex-1">
                       <input
@@ -991,10 +991,10 @@ export default function SettingsPage() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>מחיקת חשבון</h4>
-                      <p className="text-xs mt-1" style={{ color: '#71717A' }}>
+                      <p className="text-sm mt-1" style={{ color: '#71717A' }}>
                         מחיקת החשבון היא פעולה בלתי הפיכה. כל הנתונים שלך יימחקו לצמיתות, כולל:
                       </p>
-                      <ul className="text-xs mt-2 space-y-1 list-disc list-inside" style={{ color: '#71717A' }}>
+                      <ul className="text-sm mt-2 space-y-1 list-disc list-inside" style={{ color: '#71717A' }}>
                         <li>כל הפוסטים שפרסמת</li>
                         <li>הקהילות שאתה הבעלים שלהן</li>
                         <li>כל התגובות שכתבת</li>
@@ -1022,7 +1022,7 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>לייקים</h4>
-                      <p className="text-xs" style={{ color: '#71717A' }}>קבל התראה כשמישהו אוהב את הפוסט שלך</p>
+                      <p className="text-sm" style={{ color: '#71717A' }}>קבל התראה כשמישהו אוהב את הפוסט שלך</p>
                     </div>
                     <button
                       type="button"
@@ -1043,7 +1043,7 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>תגובות</h4>
-                      <p className="text-xs" style={{ color: '#71717A' }}>קבל התראה כשמישהו מגיב על הפוסט שלך</p>
+                      <p className="text-sm" style={{ color: '#71717A' }}>קבל התראה כשמישהו מגיב על הפוסט שלך</p>
                     </div>
                     <button
                       type="button"
@@ -1064,7 +1064,7 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>עוקבים חדשים</h4>
-                      <p className="text-xs" style={{ color: '#71717A' }}>קבל התראה כשמישהו מתחיל לעקוב אחריך</p>
+                      <p className="text-sm" style={{ color: '#71717A' }}>קבל התראה כשמישהו מתחיל לעקוב אחריך</p>
                     </div>
                     <button
                       type="button"
@@ -1085,7 +1085,7 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>פוסטים חדשים</h4>
-                      <p className="text-xs" style={{ color: '#71717A' }}>קבל התראה כשמישהו שאתה עוקב אחריו מפרסם</p>
+                      <p className="text-sm" style={{ color: '#71717A' }}>קבל התראה כשמישהו שאתה עוקב אחריו מפרסם</p>
                     </div>
                     <button
                       type="button"
@@ -1106,7 +1106,7 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>אזכורים</h4>
-                      <p className="text-xs" style={{ color: '#71717A' }}>קבל התראה כשמישהו מזכיר אותך בתגובה</p>
+                      <p className="text-sm" style={{ color: '#71717A' }}>קבל התראה כשמישהו מזכיר אותך בתגובה</p>
                     </div>
                     <button
                       type="button"
@@ -1127,7 +1127,7 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>הצטרפות לקהילה</h4>
-                      <p className="text-xs" style={{ color: '#71717A' }}>קבל התראה כשמישהו מצטרף לקהילה שלך</p>
+                      <p className="text-sm" style={{ color: '#71717A' }}>קבל התראה כשמישהו מצטרף לקהילה שלך</p>
                     </div>
                     <button
                       type="button"
@@ -1148,7 +1148,7 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>הודעות פרטיות</h4>
-                      <p className="text-xs" style={{ color: '#71717A' }}>קבל התראה כשמישהו שולח לך הודעה</p>
+                      <p className="text-sm" style={{ color: '#71717A' }}>קבל התראה כשמישהו שולח לך הודעה</p>
                     </div>
                     <button
                       type="button"
