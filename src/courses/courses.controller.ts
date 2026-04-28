@@ -17,10 +17,10 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import * as jwt from 'jsonwebtoken';
 import { CoursesService } from './courses.service';
 import { StorageService } from '../common/storage.service';
 import { ERROR_MESSAGES } from '../common/messages';
+import { getUserIdFromAuthHeader } from '../common/jwt.helper';
 
 // Image file filter - only allow image files
 const imageFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
@@ -39,18 +39,6 @@ const videoFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
 
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB
 const storage = memoryStorage();
-
-// Helper to extract userId from optional JWT token
-function getUserIdFromToken(authHeader?: string): string | undefined {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return undefined;
-  try {
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as any;
-    return decoded.sub || decoded.userId;
-  } catch {
-    return undefined;
-  }
-}
 
 @Controller('courses')
 export class CoursesController {
@@ -86,7 +74,7 @@ export class CoursesController {
     @Param('communityId') communityId: string,
     @Headers('authorization') authHeader?: string,
   ) {
-    const userId = getUserIdFromToken(authHeader);
+    const userId = getUserIdFromAuthHeader(authHeader);
     return this.coursesService.getCoursesByCommunity(communityId, userId);
   }
 
@@ -103,7 +91,7 @@ export class CoursesController {
     @Param('courseId') courseId: string,
     @Headers('authorization') authHeader?: string,
   ) {
-    const userId = getUserIdFromToken(authHeader);
+    const userId = getUserIdFromAuthHeader(authHeader);
     return this.coursesService.getCourseById(courseId, userId);
   }
 
@@ -219,7 +207,7 @@ export class CoursesController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file) {
-      throw new Error('No file uploaded');
+      throw new BadRequestException('No file uploaded');
     }
     const url = await this.storageService.uploadFile(file, 'lessons');
     return { url };
@@ -239,7 +227,7 @@ export class CoursesController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file) {
-      throw new Error('No file uploaded');
+      throw new BadRequestException('No file uploaded');
     }
     const url = await this.storageService.uploadFile(file, 'lessons');
     return { url };
@@ -251,7 +239,7 @@ export class CoursesController {
     @Param('lessonId') lessonId: string,
     @Headers('authorization') authHeader?: string,
   ) {
-    const userId = getUserIdFromToken(authHeader);
+    const userId = getUserIdFromAuthHeader(authHeader);
     return this.coursesService.getLessonById(lessonId, userId);
   }
 

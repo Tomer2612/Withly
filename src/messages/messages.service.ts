@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 
 @Injectable()
@@ -163,7 +163,7 @@ export class MessagesService {
     });
 
     if (!conversation) {
-      throw new Error('Conversation not found or access denied');
+      throw new NotFoundException('Conversation not found or access denied');
     }
 
     const messages = await this.prisma.message.findMany({
