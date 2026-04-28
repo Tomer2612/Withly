@@ -105,3 +105,4 @@ generated/prisma
 
 # Uploads (user-generated content)
 uploads/
+.claude/settings.local.json
