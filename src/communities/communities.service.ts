@@ -1,4 +1,5 @@
-import { Injectable, InternalServerErrorException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Prisma, CommunityStatus } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 
 @Injectable()
@@ -23,9 +24,9 @@ export class CommunitiesService {
     try {
       // Create community
       const community = await this.prisma.community.create({
-        data: { 
-          name, 
-          description, 
+        data: {
+          name,
+          description,
           ownerId,
           image: image || null,
           logo: logo || null,
@@ -39,7 +40,7 @@ export class CommunitiesService {
           galleryImages: galleryImages || [],
           galleryVideos: galleryVideos || [],
           trialStartDate: new Date(),
-        } as any,
+        },
       });
       
       // Add owner as member with OWNER role
@@ -210,7 +211,7 @@ export class CommunitiesService {
         throw new ForbiddenException('Only owners and managers can update the community');
       }
 
-      const updateData: any = {};
+      const updateData: Prisma.CommunityUpdateInput = {};
       if (name !== undefined) {
         updateData.name = name;
       }
@@ -260,7 +261,12 @@ export class CommunitiesService {
         updateData.showOnlineMembers = showOnlineMembers;
       }
       if (status !== undefined) {
-        updateData.status = status;
+        // Validate against the enum so bad input surfaces as 400 instead of
+        // a Prisma type error at query time (proper DTO validation lands with S10).
+        if (!Object.values(CommunityStatus).includes(status as CommunityStatus)) {
+          throw new BadRequestException(`Invalid status: ${status}`);
+        }
+        updateData.status = status as CommunityStatus;
       }
 
       return await this.prisma.community.update({
@@ -268,7 +274,11 @@ export class CommunitiesService {
         data: updateData,
       });
     } catch (err) {
-      if (err instanceof NotFoundException) {
+      if (
+        err instanceof NotFoundException
+        || err instanceof ForbiddenException
+        || err instanceof BadRequestException
+      ) {
         throw err;
       }
       throw new InternalServerErrorException('Could not update community');

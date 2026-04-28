@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { ERROR_MESSAGES } from '../common/messages';
@@ -104,7 +105,7 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const data: any = {};
+    const data: Prisma.UserUpdateInput = {};
     if (name) data.name = name;
     if (profileImage) data.profileImage = profileImage;
     if (coverImage) data.coverImage = coverImage;

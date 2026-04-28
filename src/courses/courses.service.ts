@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { CommunitiesService } from '../communities/communities.service';
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../common/messages';
@@ -72,7 +73,7 @@ export class CoursesService {
     const communityId = await this.communitiesService.resolveId(communityIdOrSlug);
     
     // Build where clause - if user is logged in, show their unpublished courses too
-    const whereClause: any = {
+    const whereClause: Prisma.CourseWhereInput = {
       communityId,
     };
 
