@@ -12,8 +12,8 @@ export class ActivityMiddleware implements NestMiddleware {
       const authHeader = req.headers.authorization;
       if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.substring(7);
-        const decoded = jwt.decode(token) as { sub?: string };
-        
+        const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { sub?: string };
+
         if (decoded?.sub) {
           // Update lastActiveAt in background (don't await to not slow down request)
           this.prisma.user.update({
@@ -25,9 +25,9 @@ export class ActivityMiddleware implements NestMiddleware {
         }
       }
     } catch {
-      // Ignore any errors in middleware
+      // Invalid/expired token — skip the activity update silently
     }
-    
+
     next();
   }
 }

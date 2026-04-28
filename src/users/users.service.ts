@@ -27,10 +27,6 @@ export class UsersService {
     });
   }
 
-  async getAllUsers() {
-    return this.prisma.user.findMany();
-  }
-
   async findById(id: string) {
     // Try to find by ID first, then by email (for legacy tokens)
     let user = await this.prisma.user.findUnique({
