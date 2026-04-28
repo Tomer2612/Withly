@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { CORS_ORIGINS } from './common/cors';
 
 async function bootstrap() {
   if (!process.env.JWT_SECRET) {
@@ -12,7 +13,7 @@ async function bootstrap() {
 
   // Enable CORS first (before static assets)
   app.enableCors({
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'https://withly.co.il', 'https://www.withly.co.il'],
+    origin: CORS_ORIGINS,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

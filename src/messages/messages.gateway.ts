@@ -11,6 +11,7 @@ import { Server, Socket } from 'socket.io';
 import { ConfigService } from '@nestjs/config';
 import * as jwt from 'jsonwebtoken';
 import { MessagesService } from './messages.service';
+import { CORS_ORIGINS } from '../common/cors';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -18,7 +19,7 @@ interface AuthenticatedSocket extends Socket {
 
 @WebSocketGateway({
   cors: {
-    origin: ['http://localhost:3000', 'https://withly.co.il', 'https://www.withly.co.il'],
+    origin: CORS_ORIGINS,
     credentials: true,
   },
   namespace: '/',
