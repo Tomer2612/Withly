@@ -277,10 +277,10 @@ export class CommunitiesController {
   }
 
   @UseGuards(AuthGuard('jwt'))
-  @Delete(':id/banned/:bannedUserId')
-  liftBan(@Param('id') id: string, @Param('bannedUserId') bannedUserId: string, @Req() req) {
+  @Delete(':id/banned/:banId')
+  liftBan(@Param('id') id: string, @Param('banId') banId: string, @Req() req) {
     const userId = req.user.userId;
-    return this.communitiesService.liftBan(id, bannedUserId, userId);
+    return this.communitiesService.liftBan(id, banId, userId);
   }
 
   @Get(':id/managers')
