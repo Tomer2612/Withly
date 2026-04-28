@@ -1,4 +1,5 @@
 import { Injectable, InternalServerErrorException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { CommunitiesService } from '../communities/communities.service';
 
@@ -113,8 +114,8 @@ export class PostsService {
           question: post.poll.question,
           expiresAt: post.poll.expiresAt,
           totalVotes,
-          userVotedOptionId: userId 
-            ? post.poll.options.find(opt => (opt.votes as any[])?.length > 0)?.id || null 
+          userVotedOptionId: userId
+            ? post.poll.options.find(opt => Array.isArray(opt.votes) && opt.votes.length > 0)?.id || null
             : null,
           options: post.poll.options.map(opt => ({
             id: opt.id,
@@ -127,8 +128,8 @@ export class PostsService {
 
       return {
         ...post,
-        isLiked: userId ? (post.likes as any[])?.length > 0 : false,
-        isSaved: userId ? (post.savedBy as any[])?.length > 0 : false,
+        isLiked: userId ? Array.isArray(post.likes) && post.likes.length > 0 : false,
+        isSaved: userId ? Array.isArray(post.savedBy) && post.savedBy.length > 0 : false,
         likes: undefined,
         savedBy: undefined,
         poll: pollData,
@@ -166,7 +167,7 @@ export class PostsService {
       throw new ForbiddenException('You can only edit your own posts');
     }
 
-    const updateData: any = { content, title };
+    const updateData: Prisma.PostUpdateInput = { content, title };
     
     // Handle images - add new ones and remove specified
     if (images || imagesToRemove) {
@@ -353,9 +354,9 @@ export class PostsService {
         
         return { liked: true, post };
       }
-    } catch (err: any) {
+    } catch (err) {
       // If there was a race condition and like already exists, treat as success
-      if (err.code === 'P2002') {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         return { liked: true, post: null };
       }
       throw err;
@@ -464,8 +465,8 @@ export class PostsService {
         });
         return { saved: true };
       }
-    } catch (err: any) {
-      if (err.code === 'P2002') {
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         return { saved: true };
       }
       throw err;
@@ -571,9 +572,9 @@ export class PostsService {
         description: description || null,
         image: image || null,
       };
-    } catch (err: any) {
-      // Silently handle abort errors (expected for slow sites)
-      // Return basic fallback without logging
+    } catch {
+      // Silently handle abort errors (expected for slow sites).
+      // Return basic fallback without logging.
       try {
         const urlObj = new URL(url);
         return {
