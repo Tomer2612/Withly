@@ -21,6 +21,7 @@ import { RsvpStatus } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { StorageService } from '../common/storage.service';
 import { ERROR_MESSAGES } from '../common/messages';
+import { getUserIdFromAuthHeader } from '../common/jwt.helper';
 
 // Image file filter - only allow image files
 const imageFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
@@ -124,20 +125,9 @@ export class EventsController {
     @Query('month') month: string,
     @Req() req,
   ) {
-    // Extract userId from JWT token if present (without requiring auth)
-    let userId: string | undefined;
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      try {
-        const token = authHeader.split(' ')[1];
-        const jwt = require('jsonwebtoken');
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        userId = decoded.sub || decoded.userId;
-      } catch (e) {
-        // Token invalid or expired, continue without user
-      }
-    }
-    
+    // Optional auth: get userId if a valid token is provided, otherwise undefined.
+    const userId = getUserIdFromAuthHeader(req.headers.authorization);
+
     // Check if user is manager
     let isManager = false;
     if (userId) {

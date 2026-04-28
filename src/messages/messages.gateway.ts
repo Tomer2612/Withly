@@ -8,10 +8,10 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { ConfigService } from '@nestjs/config';
 import * as jwt from 'jsonwebtoken';
 import { MessagesService } from './messages.service';
 import { CORS_ORIGINS } from '../common/cors';
+import { getJwtSecret } from '../common/jwt.helper';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -31,10 +31,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
   // Map userId to socket ids (a user can have multiple tabs open)
   private userSockets: Map<string, Set<string>> = new Map();
 
-  constructor(
-    private configService: ConfigService,
-    private messagesService: MessagesService,
-  ) {}
+  constructor(private messagesService: MessagesService) {}
 
   async handleConnection(socket: AuthenticatedSocket) {
     try {
@@ -47,8 +44,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       }
 
       // Verify JWT using jsonwebtoken directly
-      const secret = this.configService.get<string>('JWT_SECRET') as string;
-      const payload = jwt.verify(token as string, secret) as { sub: string };
+      const payload = jwt.verify(token as string, getJwtSecret()) as { sub: string };
       const userId = payload.sub as string;
       socket.userId = userId;
 

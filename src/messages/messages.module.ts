@@ -1,15 +1,11 @@
 import { Module, forwardRef } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
 import { MessagesController } from './messages.controller';
 import { MessagesService } from './messages.service';
 import { MessagesGateway } from './messages.gateway';
 import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [
-    ConfigModule,
-    forwardRef(() => NotificationsModule),
-  ],
+  imports: [forwardRef(() => NotificationsModule)],
   controllers: [MessagesController],
   providers: [MessagesService, MessagesGateway],
   exports: [MessagesService, MessagesGateway],

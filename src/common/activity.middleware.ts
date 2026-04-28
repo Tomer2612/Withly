@@ -2,6 +2,7 @@ import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import { PrismaService } from './prisma.service';
 import * as jwt from 'jsonwebtoken';
+import { getJwtSecret } from './jwt.helper';
 
 // Skip the DB write if we already updated lastActiveAt for this user
 // within the throttle window. Users on multiple tabs can fire dozens
@@ -20,7 +21,7 @@ export class ActivityMiddleware implements NestMiddleware {
       const authHeader = req.headers.authorization;
       if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.substring(7);
-        const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { sub?: string };
+        const decoded = jwt.verify(token, getJwtSecret()) as { sub?: string };
 
         if (decoded?.sub) {
           const userId = decoded.sub;
