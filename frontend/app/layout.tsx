@@ -1,8 +1,7 @@
-// @ts-ignore
 import './globals.css';
 import type { Metadata } from 'next';
 import { Noto_Serif_Hebrew, Assistant } from 'next/font/google';
-import { ClientProviders } from './ClientProviders';
+import { ClientProviders } from './components/ClientProviders';
 
 const notoSerifHebrew = Noto_Serif_Hebrew({
   subsets: ['hebrew'],

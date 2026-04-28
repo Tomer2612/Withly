@@ -20,11 +20,12 @@ import { EventsService } from './events.service';
 import { RsvpStatus } from '@prisma/client';
 import { PrismaService } from '../users/prisma.service';
 import { StorageService } from '../common/storage.service';
+import { ERROR_MESSAGES } from '../common/messages';
 
 // Image file filter - only allow image files
 const imageFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
   if (!file.mimetype.startsWith('image/')) {
-    return cb(new BadRequestException('אפשר להעלות רק קבצי תמונה'), false);
+    return cb(new BadRequestException(ERROR_MESSAGES.UPLOAD_IMAGE_ONLY), false);
   }
   cb(null, true);
 };

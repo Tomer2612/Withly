@@ -49,13 +49,11 @@ export class EventsService {
 
     // If recurring, create multiple event instances (unlimited until user edits)
     if (data.isRecurring && data.recurringType) {
-      console.log('Creating recurring event:', { isRecurring: data.isRecurring, recurringType: data.recurringType });
       const events: Array<{ id: string; title: string; [key: string]: unknown }> = [];
       const baseDate = new Date(data.date);
       // Practical occurrences: daily: 30 (1 month), weekly: 12 (3 months), monthly: 12 (1 year)
       const occurrences = data.recurringType === 'daily' ? 30 : data.recurringType === 'weekly' ? 12 : 12;
-      console.log(`Creating ${occurrences} recurring events of type ${data.recurringType}`);
-      
+
       for (let i = 0; i < occurrences; i++) {
         const eventDate = new Date(baseDate);
         
@@ -74,23 +72,17 @@ export class EventsService {
           createdById,
         };
         
-        try {
-          const event = await this.prisma.event.create({
-            data: eventData,
-            include: {
-              _count: {
-                select: { rsvps: true },
-              },
+        const event = await this.prisma.event.create({
+          data: eventData,
+          include: {
+            _count: {
+              select: { rsvps: true },
             },
-          });
-          events.push(event);
-        } catch (error) {
-          console.error(`Error creating event ${i + 1}:`, error);
-          throw error;
-        }
+          },
+        });
+        events.push(event);
       }
-      
-      console.log(`Successfully created ${events.length} recurring events`);
+
       return events[0]; // Return the first event
     }
 

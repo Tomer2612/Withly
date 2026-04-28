@@ -284,16 +284,12 @@ export class NotificationsService {
     // Match @username pattern (Hebrew and English characters, numbers, underscores, spaces)
     const mentionRegex = /@([\w\u0590-\u05FF][\w\u0590-\u05FF\s]*)/g;
     const mentions = content.match(mentionRegex);
-    
-    console.log('Processing mentions in:', content);
-    console.log('Found mentions:', mentions);
-    
+
     if (!mentions || mentions.length === 0) return [];
 
     // Extract usernames (remove @ symbol and trim)
     const usernames = mentions.map(m => m.slice(1).trim());
-    console.log('Usernames to find:', usernames);
-    
+
     // Find users by name (case-insensitive, partial match)
     const users = await this.prisma.user.findMany({
       where: {
@@ -304,8 +300,6 @@ export class NotificationsService {
       },
       select: { id: true, name: true },
     });
-    
-    console.log('Found users:', users);
 
     // Create notifications for each mentioned user
     const notifications = await Promise.all(

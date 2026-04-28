@@ -41,7 +41,6 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       const token = socket.handshake.auth?.token || socket.handshake.query?.token;
       
       if (!token) {
-        console.log('WebSocket connection rejected: No token');
         socket.disconnect();
         return;
       }
@@ -60,10 +59,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
 
       // Join a room with user's ID for targeted messages
       socket.join(`user:${userId}`);
-
-      console.log(`User ${userId} connected via WebSocket (${socket.id})`);
-    } catch (err: any) {
-      console.log('WebSocket auth failed:', err.message);
+    } catch {
       socket.disconnect();
     }
   }
@@ -77,7 +73,6 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
           this.userSockets.delete(socket.userId);
         }
       }
-      console.log(`User ${socket.userId} disconnected (${socket.id})`);
     }
   }
 
@@ -105,8 +100,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       this.server.to(`user:${socket.userId}`).emit('messageSent', message);
 
       return { success: true, message };
-    } catch (err) {
-      console.error('Send message error:', err);
+    } catch (err: any) {
       return { error: err.message };
     }
   }

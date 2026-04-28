@@ -29,17 +29,15 @@ export class AuthService {
         },
       });
 
-      // Send verification email
+      // Send verification email - don't fail signup if email fails
       try {
         await this.emailService.sendVerificationEmail(email, name, verificationToken);
-      } catch (emailError) {
-        console.error('Failed to send verification email:', emailError);
-        // Continue with signup even if email fails
+      } catch {
+        // Email send failed, continue with signup
       }
 
       return this.signToken(user.id, user.email);
-    } catch (error) {
-      console.error('Signup error:', error);
+    } catch {
       throw new InternalServerErrorException('Signup failed');
     }
   }
@@ -99,8 +97,8 @@ export class AuthService {
         },
       });
 
-      // Send welcome email (non-blocking)
-      this.emailService.sendWelcomeEmail(user.email, user.name).catch(console.error);
+      // Send welcome email (non-blocking, fire and forget)
+      this.emailService.sendWelcomeEmail(user.email, user.name).catch(() => {});
     }
 
     const payload = { email: user.email, sub: user.id };
@@ -226,12 +224,10 @@ export class AuthService {
   async sendContactForm(name: string, email: string, subject: string, message: string) {
     try {
       await this.emailService.sendContactEmail(name, email, subject, message);
-      return { message: 'Contact form submitted successfully' };
-    } catch (error) {
-      console.error('Failed to send contact email:', error);
-      // Still return success to user - we don't want to expose email issues
-      return { message: 'Contact form submitted successfully' };
+    } catch {
+      // Don't expose email issues to user
     }
+    return { message: 'Contact form submitted successfully' };
   }
 
   private signToken(userId: string, email: string) {

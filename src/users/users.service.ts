@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import * as bcrypt from 'bcrypt';
+import { ERROR_MESSAGES } from '../common/messages';
 
 @Injectable()
 export class UsersService {
@@ -423,7 +424,7 @@ export class UsersService {
     });
     
     if (count <= 1) {
-      throw new BadRequestException('לא ניתן למחוק את אמצעי התשלום האחרון');
+      throw new BadRequestException(ERROR_MESSAGES.CANNOT_DELETE_LAST_PAYMENT_METHOD);
     }
     
     return this.prisma.userPaymentMethod.deleteMany({

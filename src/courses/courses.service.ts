@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../users/prisma.service';
 import { CommunitiesService } from '../communities/communities.service';
+import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../common/messages';
 
 @Injectable()
 export class CoursesService {
@@ -35,14 +36,14 @@ export class CoursesService {
     });
 
     if (!community) {
-      throw new NotFoundException('קהילה לא נמצאה');
+      throw new NotFoundException(ERROR_MESSAGES.COMMUNITY_NOT_FOUND);
     }
 
     const isOwner = community.ownerId === data.authorId;
     const isManager = membership?.role === 'MANAGER';
 
     if (!isOwner && !isManager) {
-      throw new ForbiddenException('אין לך הרשאה ליצור קורסים בקהילה זו');
+      throw new ForbiddenException(ERROR_MESSAGES.NO_PERMISSION_CREATE_COURSE);
     }
 
     return this.prisma.course.create({
@@ -215,7 +216,7 @@ export class CoursesService {
     });
 
     if (!course) {
-      throw new NotFoundException('קורס לא נמצא');
+      throw new NotFoundException(ERROR_MESSAGES.COURSE_NOT_FOUND);
     }
 
     // Get user's enrollment and lesson progress if logged in
@@ -278,7 +279,7 @@ export class CoursesService {
     });
 
     if (!course) {
-      throw new NotFoundException('קורס לא נמצא');
+      throw new NotFoundException(ERROR_MESSAGES.COURSE_NOT_FOUND);
     }
 
     // Use upsert with try-catch to handle race conditions
@@ -315,7 +316,7 @@ export class CoursesService {
     });
 
     if (!enrollment) {
-      throw new NotFoundException('לא רשום לקורס זה');
+      throw new NotFoundException(ERROR_MESSAGES.NOT_ENROLLED_IN_COURSE);
     }
 
     // Delete lesson progress for this user and course
@@ -352,7 +353,7 @@ export class CoursesService {
     });
 
     if (!lesson) {
-      throw new NotFoundException('שיעור לא נמצא');
+      throw new NotFoundException(ERROR_MESSAGES.LESSON_NOT_FOUND);
     }
 
     // Create or update lesson progress
@@ -392,7 +393,7 @@ export class CoursesService {
     });
 
     if (!lesson) {
-      throw new NotFoundException('שיעור לא נמצא');
+      throw new NotFoundException(ERROR_MESSAGES.LESSON_NOT_FOUND);
     }
 
     // Update lesson progress to incomplete
@@ -474,11 +475,11 @@ export class CoursesService {
     });
 
     if (!course) {
-      throw new NotFoundException('קורס לא נמצא');
+      throw new NotFoundException(ERROR_MESSAGES.COURSE_NOT_FOUND);
     }
 
     if (course.authorId !== userId) {
-      throw new ForbiddenException('אין לך הרשאה לערוך קורס זה');
+      throw new ForbiddenException(ERROR_MESSAGES.NO_PERMISSION_EDIT_COURSE);
     }
 
     // Get max order
@@ -531,11 +532,11 @@ export class CoursesService {
     });
 
     if (!chapter) {
-      throw new NotFoundException('פרק לא נמצא');
+      throw new NotFoundException(ERROR_MESSAGES.CHAPTER_NOT_FOUND);
     }
 
     if (chapter.course.authorId !== userId) {
-      throw new ForbiddenException('אין לך הרשאה לערוך קורס זה');
+      throw new ForbiddenException(ERROR_MESSAGES.NO_PERMISSION_EDIT_COURSE);
     }
 
     // Get max order
@@ -633,12 +634,12 @@ export class CoursesService {
     });
 
     if (!course) {
-      throw new NotFoundException('קורס לא נמצא');
+      throw new NotFoundException(ERROR_MESSAGES.COURSE_NOT_FOUND);
     }
 
     // Only the course author can edit
     if (course.authorId !== userId) {
-      throw new ForbiddenException('אין לך הרשאה לערוך קורס זה');
+      throw new ForbiddenException(ERROR_MESSAGES.NO_PERMISSION_EDIT_COURSE);
     }
 
     return this.prisma.course.update({
@@ -671,11 +672,11 @@ export class CoursesService {
     });
 
     if (!chapter) {
-      throw new NotFoundException('פרק לא נמצא');
+      throw new NotFoundException(ERROR_MESSAGES.CHAPTER_NOT_FOUND);
     }
 
     if (chapter.course.authorId !== userId) {
-      throw new ForbiddenException('אין לך הרשאה לערוך קורס זה');
+      throw new ForbiddenException(ERROR_MESSAGES.NO_PERMISSION_EDIT_COURSE);
     }
 
     return this.prisma.chapter.update({
@@ -727,11 +728,11 @@ export class CoursesService {
     });
 
     if (!lesson) {
-      throw new NotFoundException('שיעור לא נמצא');
+      throw new NotFoundException(ERROR_MESSAGES.LESSON_NOT_FOUND);
     }
 
     if (lesson.chapter.course.authorId !== userId) {
-      throw new ForbiddenException('אין לך הרשאה לערוך קורס זה');
+      throw new ForbiddenException(ERROR_MESSAGES.NO_PERMISSION_EDIT_COURSE);
     }
 
     // Handle quiz update separately
@@ -816,21 +817,21 @@ export class CoursesService {
     });
 
     if (!course) {
-      throw new NotFoundException('קורס לא נמצא');
+      throw new NotFoundException(ERROR_MESSAGES.COURSE_NOT_FOUND);
     }
 
     const isOwner = course.community.ownerId === userId;
     const isAuthor = course.authorId === userId;
 
     if (!isOwner && !isAuthor) {
-      throw new ForbiddenException('אין לך הרשאה למחוק קורס זה');
+      throw new ForbiddenException(ERROR_MESSAGES.NO_PERMISSION_DELETE_COURSE);
     }
 
     await this.prisma.course.delete({
       where: { id: courseId },
     });
 
-    return { message: 'הקורס נמחק בהצלחה' };
+    return { message: SUCCESS_MESSAGES.COURSE_DELETED };
   }
 
   // Delete chapter
@@ -841,18 +842,18 @@ export class CoursesService {
     });
 
     if (!chapter) {
-      throw new NotFoundException('פרק לא נמצא');
+      throw new NotFoundException(ERROR_MESSAGES.CHAPTER_NOT_FOUND);
     }
 
     if (chapter.course.authorId !== userId) {
-      throw new ForbiddenException('אין לך הרשאה לערוך קורס זה');
+      throw new ForbiddenException(ERROR_MESSAGES.NO_PERMISSION_EDIT_COURSE);
     }
 
     await this.prisma.chapter.delete({
       where: { id: chapterId },
     });
 
-    return { message: 'הפרק נמחק בהצלחה' };
+    return { message: SUCCESS_MESSAGES.CHAPTER_DELETED };
   }
 
   // Delete lesson
@@ -867,11 +868,11 @@ export class CoursesService {
     });
 
     if (!lesson) {
-      throw new NotFoundException('שיעור לא נמצא');
+      throw new NotFoundException(ERROR_MESSAGES.LESSON_NOT_FOUND);
     }
 
     if (lesson.chapter.course.authorId !== userId) {
-      throw new ForbiddenException('אין לך הרשאה לערוך קורס זה');
+      throw new ForbiddenException(ERROR_MESSAGES.NO_PERMISSION_EDIT_COURSE);
     }
 
     await this.prisma.lesson.delete({
@@ -881,7 +882,7 @@ export class CoursesService {
     // Update course duration
     await this.updateCourseDuration(lesson.chapter.courseId);
 
-    return { message: 'השיעור נמחק בהצלחה' };
+    return { message: SUCCESS_MESSAGES.LESSON_DELETED };
   }
 
   // Get lesson by ID
@@ -900,7 +901,7 @@ export class CoursesService {
     });
 
     if (!lesson) {
-      throw new NotFoundException('שיעור לא נמצא');
+      throw new NotFoundException(ERROR_MESSAGES.LESSON_NOT_FOUND);
     }
 
     let progress: {

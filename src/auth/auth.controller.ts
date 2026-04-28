@@ -20,7 +20,6 @@ export class AuthController {
   @Post('signup')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   signup(@Body() body: { email: string; name: string; password: string }) {
-    console.log('Received signup body:', body);
     return this.authService.signup(body.email, body.name, body.password);
   }
 
@@ -28,7 +27,6 @@ export class AuthController {
   @Post('login')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   login(@Body() body: { email: string; password: string }) {
-    console.log('Received login body:', body);
     return this.authService.login(body.email, body.password);
   }
 

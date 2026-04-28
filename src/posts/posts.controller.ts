@@ -9,6 +9,7 @@ import { PostsService } from './posts.service';
 import { AuthGuard } from '@nestjs/passport';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../common/storage.service';
+import { ERROR_MESSAGES } from '../common/messages';
 
 const storage = memoryStorage();
 
@@ -39,7 +40,7 @@ const postFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
   ) {
     cb(null, true);
   } else {
-    cb(new BadRequestException('סוג קובץ לא נתמך'), false);
+    cb(new BadRequestException(ERROR_MESSAGES.UPLOAD_FILE_TYPE_NOT_SUPPORTED), false);
   }
 };
 

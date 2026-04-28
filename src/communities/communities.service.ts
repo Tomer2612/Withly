@@ -21,8 +21,6 @@ export class CommunitiesService {
     price?: number | null,
   ) {
     try {
-      console.log('Creating community with:', { name, description, ownerId, image, logo, topic, youtubeUrl, whatsappUrl, facebookUrl, instagramUrl, galleryImages, galleryVideos, price });
-      
       // Create community
       const community = await this.prisma.community.create({
         data: { 
@@ -54,8 +52,7 @@ export class CommunitiesService {
       });
       
       return community;
-    } catch (err) {
-      console.error('Community creation failed:', err);
+    } catch {
       throw new InternalServerErrorException('Could not create community');
     }
   }
@@ -81,8 +78,7 @@ export class CommunitiesService {
         ...community,
         memberCount: community._count.members,
       }));
-    } catch (err) {
-      console.error('Failed to fetch communities:', err);
+    } catch {
       throw new InternalServerErrorException('Could not fetch communities');
     }
   }
@@ -130,7 +126,6 @@ export class CommunitiesService {
       if (err instanceof NotFoundException) {
         throw err;
       }
-      console.error('Failed to fetch community:', err);
       throw new InternalServerErrorException('Could not fetch community');
     }
   }
@@ -237,7 +232,6 @@ export class CommunitiesService {
       if (err instanceof NotFoundException) {
         throw err;
       }
-      console.error('Failed to update community:', err);
       throw new InternalServerErrorException('Could not update community');
     }
   }
@@ -245,14 +239,12 @@ export class CommunitiesService {
   async delete(idOrSlug: string, userId: string) {
     try {
       const id = await this.resolveId(idOrSlug);
-      console.log(`Delete request - Community ID: ${id}, User ID: ${userId}`);
-      
+
       const community = await this.prisma.community.findUnique({
         where: { id },
       });
 
       if (!community) {
-        console.error(`Community not found: ${id}`);
         throw new NotFoundException('Community not found');
       }
 
@@ -262,21 +254,16 @@ export class CommunitiesService {
       });
 
       if (!membership || membership.role !== 'OWNER') {
-        console.error(`Unauthorized delete attempt - User: ${userId} is not OWNER`);
         throw new ForbiddenException('Only community owner can delete');
       }
 
-      const deleted = await this.prisma.community.delete({
+      return await this.prisma.community.delete({
         where: { id },
       });
-      
-      console.log(`Community deleted successfully: ${id}`);
-      return deleted;
     } catch (err) {
       if (err instanceof NotFoundException || err instanceof ForbiddenException) {
         throw err;
       }
-      console.error('Failed to delete community:', err);
       throw new InternalServerErrorException('Could not delete community');
     }
   }
@@ -329,7 +316,6 @@ export class CommunitiesService {
       if (err instanceof ForbiddenException) {
         throw err;
       }
-      console.error('Failed to join community:', err);
       throw new InternalServerErrorException('Could not join community');
     }
   }
@@ -365,7 +351,6 @@ export class CommunitiesService {
       if (err instanceof InternalServerErrorException) {
         throw err;
       }
-      console.error('Failed to leave community:', err);
       throw new InternalServerErrorException('Could not leave community');
     }
   }
@@ -891,7 +876,6 @@ export class CommunitiesService {
       if (err instanceof NotFoundException || err instanceof ForbiddenException) {
         throw err;
       }
-      console.error('Failed to update community rules:', err);
       throw new InternalServerErrorException('Could not update community rules');
     }
   }

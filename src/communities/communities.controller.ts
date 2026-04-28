@@ -6,11 +6,12 @@ import { CommunitiesService } from './communities.service';
 import { AuthGuard } from '@nestjs/passport';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../common/storage.service';
+import { ERROR_MESSAGES } from '../common/messages';
 
 // Image file filter - only allow image files
 const imageFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
   if (!file.mimetype.startsWith('image/')) {
-    return cb(new BadRequestException('אפשר להעלות רק קבצי תמונה'), false);
+    return cb(new BadRequestException(ERROR_MESSAGES.UPLOAD_IMAGE_ONLY), false);
   }
   cb(null, true);
 };
@@ -18,7 +19,7 @@ const imageFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
 // Image + video file filter for gallery
 const mediaFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
   if (!file.mimetype.startsWith('image/') && !file.mimetype.startsWith('video/')) {
-    return cb(new BadRequestException('אפשר להעלות רק תמונות או סרטונים'), false);
+    return cb(new BadRequestException(ERROR_MESSAGES.UPLOAD_IMAGE_OR_VIDEO_ONLY), false);
   }
   cb(null, true);
 };
@@ -51,9 +52,7 @@ export class CommunitiesController {
     const imagePath = files?.image?.[0] ? await this.storageService.uploadFile(files.image[0], 'communities') : null;
     const logoPath = files?.logo?.[0] ? await this.storageService.uploadFile(files.logo[0], 'communities') : null;
     const galleryPaths = files?.galleryImages ? await this.storageService.uploadFiles(files.galleryImages, 'communities') : [];
-    
-    console.log('Create community - name:', name, 'description:', description, 'imagePath:', imagePath, 'logoPath:', logoPath);
-    
+
     return this.communitiesService.create(
       name, 
       description, 

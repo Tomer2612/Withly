@@ -20,18 +20,19 @@ import { memoryStorage } from 'multer';
 import * as jwt from 'jsonwebtoken';
 import { CoursesService } from './courses.service';
 import { StorageService } from '../common/storage.service';
+import { ERROR_MESSAGES } from '../common/messages';
 
 // Image file filter - only allow image files
 const imageFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
   if (!file.mimetype.startsWith('image/')) {
-    return cb(new BadRequestException('אפשר להעלות רק קבצי תמונה'), false);
+    return cb(new BadRequestException(ERROR_MESSAGES.UPLOAD_IMAGE_ONLY), false);
   }
   cb(null, true);
 };
 
 const videoFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
   if (!file.mimetype.startsWith('video/')) {
-    return cb(new BadRequestException('אפשר להעלות רק קבצי וידאו'), false);
+    return cb(new BadRequestException(ERROR_MESSAGES.UPLOAD_VIDEO_ONLY), false);
   }
   cb(null, true);
 };

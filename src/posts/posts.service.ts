@@ -45,8 +45,7 @@ export class PostsService {
           },
         },
       });
-    } catch (err) {
-      console.error('Post creation failed:', err);
+    } catch {
       throw new InternalServerErrorException('Could not create post');
     }
   }
@@ -354,8 +353,7 @@ export class PostsService {
         
         return { liked: true, post };
       }
-    } catch (err) {
-      console.error('Toggle like error:', err);
+    } catch (err: any) {
       // If there was a race condition and like already exists, treat as success
       if (err.code === 'P2002') {
         return { liked: true, post: null };
@@ -466,8 +464,7 @@ export class PostsService {
         });
         return { saved: true };
       }
-    } catch (err) {
-      console.error('Toggle save error:', err);
+    } catch (err: any) {
       if (err.code === 'P2002') {
         return { saved: true };
       }

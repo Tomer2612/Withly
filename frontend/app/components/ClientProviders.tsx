@@ -1,10 +1,10 @@
 'use client';
 
 import { Suspense, useEffect } from 'react';
-import { SocketProvider } from './lib/SocketContext';
-import ChatWidget from './components/ChatWidget';
-import RouteProgress from './components/RouteProgress';
-import { clearSessionAndRedirect } from './lib/auth';
+import { SocketProvider } from '../lib/SocketContext';
+import ChatWidget from './ChatWidget';
+import RouteProgress from './RouteProgress';
+import { clearSessionAndRedirect } from '../lib/auth';
 
 const AUTH_ENDPOINTS = ['/auth/login', '/auth/signup'];
 

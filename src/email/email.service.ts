@@ -326,11 +326,9 @@ export class EmailService {
       });
 
       if (error) {
-        console.error('Failed to send email:', error);
         throw error;
       }
     } catch (error: any) {
-      console.error('Failed to send email:', error);
       throw error;
     }
   }
