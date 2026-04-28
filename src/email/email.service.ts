@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
-import * as fs from 'fs';
+import { readFile } from 'fs/promises';
 import * as path from 'path';
 
 @Injectable()
@@ -9,15 +9,12 @@ export class EmailService {
   private resend: Resend;
   private fromEmail: string;
   private frontendUrl: string;
-  private markPng: Buffer;
-  private textPng: Buffer;
+  private inlineAttachmentsPromise: Promise<{ filename: string; content: Buffer; contentId: string }[]> | null = null;
 
   constructor(private configService: ConfigService) {
     this.resend = new Resend(this.configService.get<string>('RESEND_API_KEY'));
     this.fromEmail = this.configService.get<string>('EMAIL_FROM') || 'noreply@withly.co.il';
     this.frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
-    this.markPng = fs.readFileSync(path.join(__dirname, 'assets', 'WithlyLogo.png'));
-    this.textPng = fs.readFileSync(path.join(__dirname, 'assets', 'WithlyHeader.png'));
   }
 
   /** Shared email wrapper: thick green bar → logo+Withly text → thin divider → content → thin divider → footer */
@@ -307,28 +304,42 @@ export class EmailService {
     await this.sendEmail(email, `תזכורת: ${eventTitle} מתקרב!`, htmlBody, textBody);
   }
 
-  private get inlineAttachments() {
-    return [
-      { filename: 'WithlyLogo.png', content: this.markPng, contentId: 'WithlyLogo' },
-      { filename: 'WithlyHeader.png', content: this.textPng, contentId: 'WithlyHeader' },
-    ];
+  // Lazy-load + cache the inline image attachments. Reading on first send
+  // (instead of in the constructor) keeps boot off the filesystem and means
+  // a missing asset degrades gracefully (email goes out without the logo)
+  // rather than crashing module init.
+  private getInlineAttachments() {
+    if (!this.inlineAttachmentsPromise) {
+      this.inlineAttachmentsPromise = (async () => {
+        try {
+          const [markPng, textPng] = await Promise.all([
+            readFile(path.join(__dirname, 'assets', 'WithlyLogo.png')),
+            readFile(path.join(__dirname, 'assets', 'WithlyHeader.png')),
+          ]);
+          return [
+            { filename: 'WithlyLogo.png', content: markPng, contentId: 'WithlyLogo' },
+            { filename: 'WithlyHeader.png', content: textPng, contentId: 'WithlyHeader' },
+          ];
+        } catch {
+          return [];
+        }
+      })();
+    }
+    return this.inlineAttachmentsPromise;
   }
 
   private async sendEmail(to: string | string[], subject: string, htmlBody: string, textBody: string): Promise<void> {
-    try {
-      const { error } = await this.resend.emails.send({
-        from: this.fromEmail,
-        to: Array.isArray(to) ? to : [to],
-        subject: subject,
-        html: htmlBody,
-        text: textBody,
-        attachments: this.inlineAttachments,
-      });
+    const attachments = await this.getInlineAttachments();
+    const { error } = await this.resend.emails.send({
+      from: this.fromEmail,
+      to: Array.isArray(to) ? to : [to],
+      subject: subject,
+      html: htmlBody,
+      text: textBody,
+      attachments,
+    });
 
-      if (error) {
-        throw error;
-      }
-    } catch (error: any) {
+    if (error) {
       throw error;
     }
   }
