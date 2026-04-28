@@ -228,26 +228,32 @@ export class NotificationsService {
     });
   }
 
-  // Notify all followers of a user when they create a new post
+  // Notify all followers of a user when they create a new post.
+  // Batched so a user with thousands of followers doesn't saturate the
+  // connection pool by firing every notification concurrently.
   async notifyNewPost(authorId: string, postId: string, communityId: string) {
-    // Get all followers of the author
     const followers = await this.prisma.userFollow.findMany({
       where: { followingId: authorId },
       select: { followerId: true },
     });
 
-    // Create notifications for each follower (batch insert would be better for large followings)
-    const notifications = await Promise.all(
-      followers.map(f =>
-        this.create({
-          type: 'NEW_POST',
-          recipientId: f.followerId,
-          actorId: authorId,
-          postId,
-          communityId,
-        })
-      )
-    );
+    const BATCH_SIZE = 50;
+    const notifications: Array<unknown> = [];
+    for (let i = 0; i < followers.length; i += BATCH_SIZE) {
+      const chunk = followers.slice(i, i + BATCH_SIZE);
+      const chunkResults = await Promise.all(
+        chunk.map(f =>
+          this.create({
+            type: 'NEW_POST',
+            recipientId: f.followerId,
+            actorId: authorId,
+            postId,
+            communityId,
+          }),
+        ),
+      );
+      notifications.push(...chunkResults);
+    }
 
     return notifications.filter(Boolean);
   }
@@ -304,12 +310,19 @@ export class NotificationsService {
       select: { id: true, name: true },
     });
 
-    // Create notifications for each mentioned user
-    const notifications = await Promise.all(
-      users.map(user =>
-        this.notifyMention(user.id, actorId, postId, communityId, commentId)
-      )
-    );
+    // Create notifications for each mentioned user. Batched for the same
+    // reason as notifyNewPost - bounded concurrency on the connection pool.
+    const BATCH_SIZE = 50;
+    const notifications: Array<unknown> = [];
+    for (let i = 0; i < users.length; i += BATCH_SIZE) {
+      const chunk = users.slice(i, i + BATCH_SIZE);
+      const chunkResults = await Promise.all(
+        chunk.map(user =>
+          this.notifyMention(user.id, actorId, postId, communityId, commentId),
+        ),
+      );
+      notifications.push(...chunkResults);
+    }
 
     return notifications.filter(Boolean);
   }

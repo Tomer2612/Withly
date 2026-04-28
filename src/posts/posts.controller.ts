@@ -134,9 +134,10 @@ export class PostsController {
       videos.length > 0 ? videos : undefined
     );
     
-    // Notify followers about new post
-    await this.notificationsService.notifyNewPost(userId, post.id, communityId);
-    
+    // Notify followers about new post. Fire-and-forget: the post is already
+    // saved, and a 10k-follower fan-out shouldn't hold the response.
+    this.notificationsService.notifyNewPost(userId, post.id, communityId).catch(() => {});
+
     return post;
   }
 
@@ -330,14 +331,15 @@ export class PostsController {
         comment.id,
       );
       
-      // Process @mentions in the comment
-      await this.notificationsService.processMentions(
+      // Process @mentions in the comment. Fire-and-forget for the same
+      // reason as notifyNewPost above.
+      this.notificationsService.processMentions(
         body.content,
         userId,
         postId,
         comment.post.communityId,
         comment.id,
-      );
+      ).catch(() => {});
     }
     
     return comment;
