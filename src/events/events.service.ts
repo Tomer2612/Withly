@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
-import { RsvpStatus } from '@prisma/client';
+import { Prisma, RsvpStatus } from '@prisma/client';
 import { CommunitiesService } from '../communities/communities.service';
 
 @Injectable()
@@ -337,7 +337,7 @@ export class EventsService {
   }
 
   async getAttendees(eventId: string, status?: RsvpStatus) {
-    const where: any = { eventId };
+    const where: Prisma.EventRsvpWhereInput = { eventId };
     if (status) {
       where.status = status;
     }
@@ -380,7 +380,7 @@ export class EventsService {
     const endDate = new Date(year, month, 0, 23, 59, 59);
 
     // Build where clause
-    const whereClause: any = {
+    const whereClause: Prisma.EventWhereInput = {
       communityId,
       date: {
         gte: startDate,
@@ -403,18 +403,18 @@ export class EventsService {
       },
     });
 
-    return events.map((event: any) => {
+    return events.map(event => {
       // Calculate rsvpCounts for all events
       const rsvpCounts = {
-        going: event.rsvps.filter((r: any) => r.status === 'GOING').length,
-        maybe: event.rsvps.filter((r: any) => r.status === 'MAYBE').length,
-        notGoing: event.rsvps.filter((r: any) => r.status === 'NOT_GOING').length,
+        going: event.rsvps.filter(r => r.status === 'GOING').length,
+        maybe: event.rsvps.filter(r => r.status === 'MAYBE').length,
+        notGoing: event.rsvps.filter(r => r.status === 'NOT_GOING').length,
       };
-      
+
       return {
         ...event,
-        userRsvp: userId 
-          ? event.rsvps.find((r: any) => r.userId === userId)?.status || null
+        userRsvp: userId
+          ? event.rsvps.find(r => r.userId === userId)?.status || null
           : null,
         rsvpCounts,
         rsvps: undefined, // Don't expose full rsvps array
