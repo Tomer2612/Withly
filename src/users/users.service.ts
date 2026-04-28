@@ -29,8 +29,7 @@ export class UsersService {
   }
 
   async findById(id: string) {
-    // Try to find by ID first, then by email (for legacy tokens)
-    let user = await this.prisma.user.findUnique({
+    return this.prisma.user.findUnique({
       where: { id },
       select: {
         id: true,
@@ -43,31 +42,13 @@ export class UsersService {
         googleId: true,
       },
     });
-    
-    // If not found by ID, try by email (handles old tokens with email as sub)
-    if (!user && id.includes('@')) {
-      user = await this.prisma.user.findUnique({
-        where: { email: id },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          profileImage: true,
-          coverImage: true,
-          bio: true,
-          location: true,
-          googleId: true,
-        },
-      });
-    }
-    
-    return user;
   }
 
-  async findByIdOrEmail(idOrEmail: string) {
-    // First try by ID
-    let user = await this.prisma.user.findUnique({
-      where: { id: idOrEmail },
+  // Same as findById but includes password + showOnline; for paths that need to
+  // verify credentials or read mutable state, not the public profile.
+  async findByIdWithAuth(id: string) {
+    return this.prisma.user.findUnique({
+      where: { id },
       select: {
         id: true,
         email: true,
@@ -78,29 +59,10 @@ export class UsersService {
         showOnline: true,
       },
     });
-    
-    // If not found, try by email
-    if (!user && idOrEmail.includes('@')) {
-      user = await this.prisma.user.findUnique({
-        where: { email: idOrEmail },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          password: true,
-          profileImage: true,
-          googleId: true,
-          showOnline: true,
-        },
-      });
-    }
-    
-    return user;
   }
 
   async updateProfile(userId: string, name?: string, profileImage?: string, coverImage?: string, bio?: string, location?: string) {
-    // Find user by ID or email first
-    const user = await this.findByIdOrEmail(userId);
+    const user = await this.findByIdWithAuth(userId);
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -129,7 +91,7 @@ export class UsersService {
   }
 
   async toggleOnlineStatus(userId: string, showOnline: boolean) {
-    const user = await this.findByIdOrEmail(userId);
+    const user = await this.findByIdWithAuth(userId);
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -145,7 +107,7 @@ export class UsersService {
   }
 
   async getOnlineStatus(userId: string) {
-    const user = await this.findByIdOrEmail(userId);
+    const user = await this.findByIdWithAuth(userId);
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -154,13 +116,8 @@ export class UsersService {
   }
 
   async getNotificationPreferences(userId: string) {
-    const user = await this.prisma.user.findFirst({
-      where: {
-        OR: [
-          { id: userId },
-          { email: userId },
-        ],
-      },
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
       select: {
         notifyLikes: true,
         notifyComments: true,
@@ -188,7 +145,7 @@ export class UsersService {
     notifyCommunityJoins?: boolean;
     notifyMessages?: boolean;
   }) {
-    const user = await this.findByIdOrEmail(userId);
+    const user = await this.findByIdWithAuth(userId);
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -209,13 +166,8 @@ export class UsersService {
   }
 
   async changePassword(userId: string, currentPassword: string, newPassword: string) {
-    const user = await this.prisma.user.findFirst({
-      where: {
-        OR: [
-          { id: userId },
-          { email: userId },
-        ],
-      },
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
     });
 
     if (!user) {
@@ -238,7 +190,7 @@ export class UsersService {
   }
 
   async deleteAccount(userId: string) {
-    const user = await this.findByIdOrEmail(userId);
+    const user = await this.findByIdWithAuth(userId);
     if (!user) {
       throw new BadRequestException('User not found');
     }

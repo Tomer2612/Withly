@@ -144,27 +144,15 @@ export class CommunitiesService {
   private async canViewDraft(
     communityId: string,
     ownerId: string,
-    viewerUserIdOrEmail: string,
+    viewerUserId: string,
   ): Promise<boolean> {
-    // Legacy JWTs sometimes carry email as `sub` instead of user id; resolve to a
-    // real user id before checks. See users.service.findById.
-    let userId = viewerUserIdOrEmail;
-    if (viewerUserIdOrEmail.includes('@')) {
-      const user = await this.prisma.user.findUnique({
-        where: { email: viewerUserIdOrEmail },
-        select: { id: true },
-      });
-      if (!user) return false;
-      userId = user.id;
-    }
-
     // Owner via Community.ownerId — reliable even for older communities that
     // predate the OWNER row in community_members.
-    if (ownerId === userId) return true;
+    if (ownerId === viewerUserId) return true;
 
     // Manager role lives only in community_members.
     const membership = await this.prisma.communityMember.findUnique({
-      where: { userId_communityId: { userId, communityId } },
+      where: { userId_communityId: { userId: viewerUserId, communityId } },
       select: { role: true },
     });
     return membership?.role === 'MANAGER';
