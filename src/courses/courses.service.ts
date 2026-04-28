@@ -511,7 +511,7 @@ export class CoursesService {
     duration?: number;
     lessonType?: string;
     images?: string[];
-    files?: any[];
+    files?: { url: string; name: string }[];
     links?: string[];
     contentOrder?: string[];
     quiz?: {
@@ -700,7 +700,7 @@ export class CoursesService {
     order?: number;
     lessonType?: string;
     images?: string[];
-    files?: any[];
+    files?: { url: string; name: string }[];
     links?: string[];
     contentOrder?: string[];
     quiz?: {

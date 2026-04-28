@@ -162,17 +162,24 @@ export class CoursesController {
   @Post('chapters/:chapterId/lessons')
   async addLesson(
     @Param('chapterId') chapterId: string,
-    @Body() body: { 
-      title: string; 
-      content?: string; 
-      videoUrl?: string; 
+    @Body() body: {
+      title: string;
+      content?: string;
+      videoUrl?: string;
       duration?: number;
       lessonType?: string;
       images?: string[];
-      files?: any[];
+      files?: { url: string; name: string }[];
       links?: string[];
       contentOrder?: string[];
-      quiz?: any;
+      quiz?: {
+        questions: {
+          question: string;
+          questionType: string;
+          order: number;
+          options: { text: string; isCorrect: boolean; order: number }[];
+        }[];
+      };
     },
     @Req() req,
   ) {
@@ -233,18 +240,26 @@ export class CoursesController {
   @Patch('lessons/:lessonId')
   async updateLesson(
     @Param('lessonId') lessonId: string,
-    @Body() body: { 
-      title?: string; 
-      content?: string; 
-      videoUrl?: string; 
-      duration?: number; 
+    @Body() body: {
+      title?: string;
+      content?: string;
+      videoUrl?: string;
+      duration?: number;
       order?: number;
       lessonType?: string;
       images?: string[];
-      files?: any[];
+      files?: { url: string; name: string }[];
       links?: string[];
       contentOrder?: string[];
-      quiz?: any;
+      quiz?: {
+        questions: {
+          id?: string;
+          question: string;
+          questionType: string;
+          order: number;
+          options: { id?: string; text: string; isCorrect: boolean; order: number }[];
+        }[];
+      };
     },
     @Req() req,
   ) {
