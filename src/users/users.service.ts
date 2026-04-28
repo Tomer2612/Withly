@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { ERROR_MESSAGES } from '../common/messages';
@@ -101,7 +101,7 @@ export class UsersService {
     // Find user by ID or email first
     const user = await this.findByIdOrEmail(userId);
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     const data: any = {};
@@ -130,7 +130,7 @@ export class UsersService {
   async toggleOnlineStatus(userId: string, showOnline: boolean) {
     const user = await this.findByIdOrEmail(userId);
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     return this.prisma.user.update({
@@ -146,7 +146,7 @@ export class UsersService {
   async getOnlineStatus(userId: string) {
     const user = await this.findByIdOrEmail(userId);
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     return { showOnline: user.showOnline ?? true };
@@ -172,7 +172,7 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     return user;
@@ -189,7 +189,7 @@ export class UsersService {
   }) {
     const user = await this.findByIdOrEmail(userId);
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     return this.prisma.user.update({
@@ -346,7 +346,7 @@ export class UsersService {
       where: { id: followingId },
     });
     if (!userToFollow) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     // Create follow relationship
