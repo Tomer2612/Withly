@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import helmet from 'helmet';
 import { CORS_ORIGINS } from './common/cors';
 
 async function bootstrap() {
@@ -10,6 +11,14 @@ async function bootstrap() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.set('trust proxy', 1);
+
+  // Helmet sets security-hardening response headers (X-Frame-Options,
+  // X-Content-Type-Options, HSTS, default CSP, etc). Override the default
+  // Cross-Origin-Resource-Policy so /uploads/* served from the API origin
+  // can be loaded by the frontend at a different port/origin.
+  app.use(helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }));
 
   // Enable CORS first (before static assets)
   app.enableCors({
