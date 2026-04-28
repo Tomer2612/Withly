@@ -295,9 +295,9 @@ export class CoursesService {
           courseId,
         },
       });
-    } catch (error: any) {
+    } catch (error) {
       // Handle unique constraint violation (P2002) - enrollment already exists
-      if (error.code === 'P2002') {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         return await this.prisma.courseEnrollment.findUnique({
           where: {
             userId_courseId: { userId, courseId },

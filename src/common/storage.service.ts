@@ -96,8 +96,8 @@ export class StorageService {
       const localPath = `.${fileUrl}`;
       try {
         await unlink(localPath);
-      } catch (err: any) {
-        if (err.code !== 'ENOENT') throw err;
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') throw err;
       }
     }
   }

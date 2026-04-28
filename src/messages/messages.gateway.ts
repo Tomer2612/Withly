@@ -97,8 +97,8 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       this.server.to(`user:${socket.userId}`).emit('messageSent', message);
 
       return { success: true, message };
-    } catch (err: any) {
-      return { error: err.message };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : 'Failed to send message' };
     }
   }
 
