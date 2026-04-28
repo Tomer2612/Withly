@@ -16,7 +16,7 @@ export class NotificationsController {
   ) {
     return this.notificationsService.getNotifications(
       req.user.userId,
-      limit ? parseInt(limit, 10) : 50,
+      Math.min(limit ? parseInt(limit, 10) : 50, 50),
       offset ? parseInt(offset, 10) : 0,
     );
   }

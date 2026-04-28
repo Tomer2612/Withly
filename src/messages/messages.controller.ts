@@ -51,7 +51,7 @@ export class MessagesController {
     return this.messagesService.getMessages(
       conversationId,
       req.user.userId,
-      limit ? parseInt(limit) : 50,
+      Math.min(limit ? parseInt(limit) : 50, 100),
       offset ? parseInt(offset) : 0,
     );
   }

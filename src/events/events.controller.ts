@@ -113,7 +113,7 @@ export class EventsController {
     @Req() req,
   ) {
     const userId = req.user?.userId;
-    return this.eventsService.findUpcoming(communityId, limit ? parseInt(limit) : 5, userId);
+    return this.eventsService.findUpcoming(communityId, Math.min(limit ? parseInt(limit) : 5, 50), userId);
   }
 
   // Get events for specific month (for calendar view)
