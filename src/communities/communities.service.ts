@@ -330,7 +330,7 @@ export class CommunitiesService {
       });
 
       if (community && community.ownerId === userId) {
-        throw new InternalServerErrorException('Owner cannot leave their own community');
+        throw new ForbiddenException('Owner cannot leave their own community');
       }
 
       // Remove membership
@@ -348,7 +348,7 @@ export class CommunitiesService {
 
       return { message: 'Left community', isMember: false };
     } catch (err) {
-      if (err instanceof InternalServerErrorException) {
+      if (err instanceof ForbiddenException) {
         throw err;
       }
       throw new InternalServerErrorException('Could not leave community');
