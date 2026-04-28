@@ -5,7 +5,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
-import { PrismaService } from './common/prisma.service';
+import { PrismaModule } from './common/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { CommunitiesModule } from './communities/communities.module';
 import { PostsModule } from './posts/posts.module';
@@ -38,6 +38,7 @@ import { ActivityMiddleware } from './common/activity.middleware';
         limit: 500, // 500 requests per minute
       },
     ]),
+    PrismaModule,
     StorageModule,
     UsersModule,
     AuthModule,
@@ -51,7 +52,6 @@ import { ActivityMiddleware } from './common/activity.middleware';
   controllers: [AppController],
   providers: [
     AppService,
-    PrismaService,
     // Apply throttler globally
     {
       provide: APP_GUARD,

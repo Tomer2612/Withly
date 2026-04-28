@@ -3,7 +3,6 @@ import { ConfigModule } from '@nestjs/config';
 import { MessagesController } from './messages.controller';
 import { MessagesService } from './messages.service';
 import { MessagesGateway } from './messages.gateway';
-import { PrismaService } from '../common/prisma.service';
 import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
@@ -12,7 +11,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     forwardRef(() => NotificationsModule),
   ],
   controllers: [MessagesController],
-  providers: [MessagesService, MessagesGateway, PrismaService],
+  providers: [MessagesService, MessagesGateway],
   exports: [MessagesService, MessagesGateway],
 })
 export class MessagesModule {}
