@@ -49,7 +49,7 @@ export class UsersController {
   async updateProfile(
     @Req() req,
     @Body() body: { name?: string; bio?: string; location?: string },
-    @UploadedFiles() files?: { profileImage?: any[]; coverImage?: any[] },
+    @UploadedFiles() files?: { profileImage?: Express.Multer.File[]; coverImage?: Express.Multer.File[] },
   ) {
     const profileImage = files?.profileImage?.[0] ? await this.storageService.uploadFile(files.profileImage[0], 'profiles') : undefined;
     const coverImage = files?.coverImage?.[0] ? await this.storageService.uploadFile(files.coverImage[0], 'profiles') : undefined;

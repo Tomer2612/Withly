@@ -30,7 +30,7 @@ export class CommunitiesController {
   async create(
     @Req() req,
     @Body() body: any,
-    @UploadedFiles() files?: { image?: any[]; logo?: any[]; galleryImages?: any[] },
+    @UploadedFiles() files?: { image?: Express.Multer.File[]; logo?: Express.Multer.File[]; galleryImages?: Express.Multer.File[] },
   ) {
     const userId = req.user.userId;
     const { name, description, topic, youtubeUrl, whatsappUrl, facebookUrl, instagramUrl } = body;
@@ -105,7 +105,7 @@ export class CommunitiesController {
       showOnlineMembers?: string;
       status?: string;
     },
-    @UploadedFiles() files?: { image?: any[]; logo?: any[]; galleryImages?: any[]; galleryVideoFiles?: any[] },
+    @UploadedFiles() files?: { image?: Express.Multer.File[]; logo?: Express.Multer.File[]; galleryImages?: Express.Multer.File[]; galleryVideoFiles?: Express.Multer.File[] },
   ) {
     const userId = req.user.userId;
     let imagePath: string | null | undefined = undefined;
