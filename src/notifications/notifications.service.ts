@@ -290,11 +290,14 @@ export class NotificationsService {
     // Extract usernames (remove @ symbol and trim)
     const usernames = mentions.map(m => m.slice(1).trim());
 
-    // Find users by name (case-insensitive, partial match)
+    // Find users by name (exact match, case-insensitive). Substring match
+    // would notify lookalike names: @Yossi would also notify Yossi-Cohen,
+    // Yossifa, etc. The mention picker writes the full canonical name into
+    // the content, so equality is the right check here.
     const users = await this.prisma.user.findMany({
       where: {
         OR: usernames.map(username => ({
-          name: { contains: username, mode: 'insensitive' as const },
+          name: { equals: username, mode: 'insensitive' as const },
         })),
         id: { not: actorId }, // Don't notify yourself
       },
