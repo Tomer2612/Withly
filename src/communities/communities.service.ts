@@ -638,120 +638,108 @@ export class CommunitiesService {
     }));
   }
 
+  // Leaderboard. Point formula:
+  //   post=5, like=1, comment=3, course-enrollment=5, course-completion=+15,
+  //   event-RSVP-going=10.
+  // Non-members are excluded (the original implementation iterated activity
+  // and gated each row through a memberIds Set; this version delegates the
+  // counting to the database via groupBy and applies the same Set filter
+  // before scoring).
   async getTopMembers(communityIdOrSlug: string, limit: number = 3) {
     const communityId = await this.resolveId(communityIdOrSlug);
-    
-    // Get the community to find the owner
+
     const community = await this.prisma.community.findUnique({
       where: { id: communityId },
+      select: { ownerId: true },
     });
 
     if (!community) {
       throw new NotFoundException('Community not found');
     }
 
-    // Get all member IDs (owner + members)
     const memberships = await this.prisma.communityMember.findMany({
       where: { communityId },
       select: { userId: true },
     });
-    const memberIds = new Set([community.ownerId, ...memberships.map(m => m.userId)]);
+    const memberIds = new Set<string>([community.ownerId, ...memberships.map(m => m.userId)]);
 
-    // Initialize all members with 0 points
+    // Six independent aggregations — fan out concurrently.
+    const [
+      postCounts,
+      likeCounts,
+      commentCounts,
+      enrollmentCounts,
+      completionCounts,
+      rsvpCounts,
+    ] = await Promise.all([
+      this.prisma.post.groupBy({
+        by: ['authorId'],
+        where: { communityId },
+        _count: { _all: true },
+      }),
+      this.prisma.like.groupBy({
+        by: ['userId'],
+        where: { post: { communityId } },
+        _count: { _all: true },
+      }),
+      this.prisma.comment.groupBy({
+        by: ['userId'],
+        where: { post: { communityId } },
+        _count: { _all: true },
+      }),
+      this.prisma.courseEnrollment.groupBy({
+        by: ['userId'],
+        where: { course: { communityId } },
+        _count: { _all: true },
+      }),
+      this.prisma.courseEnrollment.groupBy({
+        by: ['userId'],
+        where: { course: { communityId }, completedAt: { not: null } },
+        _count: { _all: true },
+      }),
+      this.prisma.eventRsvp.groupBy({
+        by: ['userId'],
+        where: { status: 'GOING', event: { communityId } },
+        _count: { _all: true },
+      }),
+    ]);
+
     const pointsMap = new Map<string, number>();
-    for (const memberId of memberIds) {
-      pointsMap.set(memberId, 0);
+    for (const id of memberIds) pointsMap.set(id, 0);
+
+    // Posts use authorId, the rest use userId.
+    for (const row of postCounts) {
+      if (memberIds.has(row.authorId)) {
+        pointsMap.set(row.authorId, (pointsMap.get(row.authorId) ?? 0) + row._count._all * 5);
+      }
     }
 
-    // Get all posts in this community
-    const posts = await this.prisma.post.findMany({
-      where: { communityId },
-      select: {
-        authorId: true,
-        likes: { select: { userId: true } },
-        comments: { select: { userId: true } },
-      },
-    });
-
-    // Calculate points: post=5, comment=3, like=1, course=20, event RSVP=10
-    for (const post of posts) {
-      // 5 points for creating a post (only if member)
-      if (memberIds.has(post.authorId)) {
-        const currentPostPoints = pointsMap.get(post.authorId) || 0;
-        pointsMap.set(post.authorId, currentPostPoints + 5);
-      }
-
-      // 1 point for each like given (only if member)
-      for (const like of post.likes) {
-        if (memberIds.has(like.userId)) {
-          const currentLikePoints = pointsMap.get(like.userId) || 0;
-          pointsMap.set(like.userId, currentLikePoints + 1);
+    const addUserPoints = (
+      rows: Array<{ userId: string; _count: { _all: number } }>,
+      multiplier: number,
+    ) => {
+      for (const row of rows) {
+        if (memberIds.has(row.userId)) {
+          pointsMap.set(row.userId, (pointsMap.get(row.userId) ?? 0) + row._count._all * multiplier);
         }
       }
+    };
 
-      // 3 points for each comment (only if member)
-      for (const comment of post.comments) {
-        if (memberIds.has(comment.userId)) {
-          const currentCommentPoints = pointsMap.get(comment.userId) || 0;
-          pointsMap.set(comment.userId, currentCommentPoints + 3);
-        }
-      }
-    }
+    addUserPoints(likeCounts, 1);
+    addUserPoints(commentCounts, 3);
+    addUserPoints(enrollmentCounts, 5);
+    addUserPoints(completionCounts, 15);
+    addUserPoints(rsvpCounts, 10);
 
-    // 5 points for starting a course, 15 additional points for completing
-    const courseEnrollments = await this.prisma.courseEnrollment.findMany({
-      where: {
-        course: { communityId },
-      },
-      select: { userId: true, completedAt: true },
-    });
-
-    for (const enrollment of courseEnrollments) {
-      if (memberIds.has(enrollment.userId)) {
-        const currentPoints = pointsMap.get(enrollment.userId) || 0;
-        // 5 points for enrolling (starting)
-        let enrollmentPoints = 5;
-        // Additional 15 points if completed
-        if (enrollment.completedAt) {
-          enrollmentPoints += 15;
-        }
-        pointsMap.set(enrollment.userId, currentPoints + enrollmentPoints);
-      }
-    }
-
-    // 10 points for RSVP (GOING) to events in this community
-    const eventRsvps = await this.prisma.eventRsvp.findMany({
-      where: {
-        status: 'GOING',
-        event: { communityId },
-      },
-      select: { userId: true },
-    });
-
-    for (const rsvp of eventRsvps) {
-      if (memberIds.has(rsvp.userId)) {
-        const currentPoints = pointsMap.get(rsvp.userId) || 0;
-        pointsMap.set(rsvp.userId, currentPoints + 10);
-      }
-    }
-
-    // Sort all members by points and take top N
     const sortedMembers = Array.from(pointsMap.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, limit);
 
-    // Fetch user details
-    const userIds = sortedMembers.map(([userId]) => userId);
+    const userIds = sortedMembers.map(([id]) => id);
     const users = await this.prisma.user.findMany({
       where: { id: { in: userIds } },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        profileImage: true,
-      },
+      select: { id: true, name: true, email: true, profileImage: true },
     });
-
     const userMap = new Map(users.map(u => [u.id, u]));
 
     return sortedMembers.map(([userId, points], index) => {
