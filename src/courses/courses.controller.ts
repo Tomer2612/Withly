@@ -45,7 +45,7 @@ function getUserIdFromToken(authHeader?: string): string | undefined {
   if (!authHeader || !authHeader.startsWith('Bearer ')) return undefined;
   try {
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'supersecret') as any;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as any;
     return decoded.sub || decoded.userId;
   } catch {
     return undefined;

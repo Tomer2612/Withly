@@ -46,7 +46,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       }
 
       // Verify JWT using jsonwebtoken directly
-      const secret = this.configService.get<string>('JWT_SECRET') || 'supersecret';
+      const secret = this.configService.get<string>('JWT_SECRET') as string;
       const payload = jwt.verify(token as string, secret) as { sub: string };
       const userId = payload.sub as string;
       socket.userId = userId;
