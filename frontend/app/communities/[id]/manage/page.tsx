@@ -7,6 +7,7 @@ import { FaYoutube, FaWhatsapp, FaFacebook, FaInstagram } from 'react-icons/fa';
 import { compressImage, compressImages, MAX_IMAGE_SIZE_BYTES } from '../../../lib/imageCompression';
 import { isValidVideoUrl, getVideoProvider, getProviderLabel, MAX_VIDEO_SIZE_BYTES } from '../../../lib/videoUtils';
 import { useCommunityContext } from '../CommunityContext';
+import { authFetch } from '../../../lib/auth';
 import { VideoThumbnail } from '../../../components/VideoPlayer';
 import FormSelect from '../../../components/FormSelect';
 import PlusIcon from '../../../components/icons/PlusIcon';
@@ -273,7 +274,7 @@ export default function ManageCommunityPage() {
       if (!token) return;
       
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
+        const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
         if (!res.ok) throw new Error('Community not found');
         
         const data = await res.json();

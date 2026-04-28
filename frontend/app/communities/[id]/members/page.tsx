@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useCommunityContext } from '../CommunityContext';
+import { authFetch } from '../../../lib/auth';
 import { FaBan, FaUndo } from 'react-icons/fa';
 import SearchXIcon from '../../../components/icons/SearchXIcon';
 import UserRemoveIcon from '../../../components/icons/UserRemoveIcon';
@@ -85,7 +86,7 @@ export default function CommunityMembersPage() {
         setLoading(true);
 
         // Fetch community details
-        const communityRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
+        const communityRes = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
         if (communityRes.ok) {
           const communityData = await communityRes.json();
           

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Req, Param, Put, Patch, Delete, Query, UseInterceptors, UploadedFile, UploadedFiles, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Req, Param, Put, Patch, Delete, Query, UseInterceptors, UploadedFile, UploadedFiles, BadRequestException, Headers } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { Throttle } from '@nestjs/throttler';
@@ -7,6 +7,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../common/storage.service';
 import { ERROR_MESSAGES } from '../common/messages';
+import { getUserIdFromAuthHeader } from '../common/jwt.helper';
 
 // Image file filter - only allow image files
 const imageFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
@@ -80,8 +81,12 @@ export class CommunitiesController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.communitiesService.findById(id);
+  findOne(
+    @Param('id') id: string,
+    @Headers('authorization') authHeader?: string,
+  ) {
+    const viewerUserId = getUserIdFromAuthHeader(authHeader);
+    return this.communitiesService.findById(id, viewerUserId);
   }
 
   @UseGuards(AuthGuard('jwt'))

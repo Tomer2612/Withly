@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import PlayIcon from '../../../components/icons/PlayIcon';
 import { useCommunityContext } from '../CommunityContext';
+import { authFetch } from '../../../lib/auth';
 import SearchXIcon from '../../../components/icons/SearchXIcon';
 import BookIcon from '../../../components/icons/BookIcon';
 import StopwatchIcon from '../../../components/icons/StopwatchIcon';
@@ -113,7 +114,7 @@ export default function CoursesPage() {
 
   const fetchCommunity = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
+      const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
       if (res.ok) {
         const data = await res.json();
         

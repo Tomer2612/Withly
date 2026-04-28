@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { jwtDecode } from 'jwt-decode';
 import Link from 'next/link';
+import { authFetch } from '../../../lib/auth';
 import { FaYoutube, FaWhatsapp, FaFacebook, FaInstagram } from 'react-icons/fa';
 import SiteHeader from '../../../components/SiteHeader';
 import PlayIcon from '../../../components/icons/PlayIcon';
@@ -258,7 +259,7 @@ function CommunityPreviewContent() {
           }
         }
 
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
+        const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
         if (!res.ok) throw new Error('Failed to fetch community');
         const data = await res.json();
         

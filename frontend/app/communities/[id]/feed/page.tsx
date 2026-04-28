@@ -9,6 +9,7 @@ import { isValidVideoUrl, getVideoProvider, MAX_VIDEO_SIZE_BYTES } from '../../.
 import ImageIcon from '../../../components/icons/ImageIcon';
 import LinkIcon from '../../../components/icons/LinkIcon';
 import { useCommunityContext } from '../CommunityContext';
+import { authFetch } from '../../../lib/auth';
 import FormSelect from '../../../components/FormSelect';
 import FilterDropdown from '../../../components/FilterDropdown';
 import SearchXIcon from '../../../components/icons/SearchXIcon';
@@ -323,7 +324,7 @@ function CommunityFeedContent() {
         
         // Use membership from context - if not a member, just fetch community info
         if (isMember === false) {
-          const communityRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
+          const communityRes = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
           if (communityRes.ok) {
             setCommunity(await communityRes.json());
           }
@@ -331,9 +332,9 @@ function CommunityFeedContent() {
           setLoading(false);
           return;
         }
-        
+
         const [communityRes, postsRes] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`),
+          authFetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`),
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/posts/community/${communityId}${userId ? `?userId=${userId}` : ''}`),
         ]);
 

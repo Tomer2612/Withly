@@ -83,7 +83,7 @@ export class CommunitiesService {
     }
   }
 
-  async findById(idOrSlug: string) {
+  async findById(idOrSlug: string, viewerUserId?: string) {
     try {
       // First try to find by ID
       let community = await this.prisma.community.findUnique({
@@ -121,6 +121,16 @@ export class CommunitiesService {
         throw new NotFoundException('Community not found');
       }
 
+      // DRAFT communities are visible only to the owner and managers.
+      // Use 404 (not 403) so we don't leak that the community exists.
+      if (community.status === 'DRAFT') {
+        const isPrivileged = viewerUserId
+          && (await this.canViewDraft(community.id, community.ownerId, viewerUserId));
+        if (!isPrivileged) {
+          throw new NotFoundException('Community not found');
+        }
+      }
+
       return community;
     } catch (err) {
       if (err instanceof NotFoundException) {
@@ -128,6 +138,35 @@ export class CommunitiesService {
       }
       throw new InternalServerErrorException('Could not fetch community');
     }
+  }
+
+  private async canViewDraft(
+    communityId: string,
+    ownerId: string,
+    viewerUserIdOrEmail: string,
+  ): Promise<boolean> {
+    // Legacy JWTs sometimes carry email as `sub` instead of user id; resolve to a
+    // real user id before checks. See users.service.findById.
+    let userId = viewerUserIdOrEmail;
+    if (viewerUserIdOrEmail.includes('@')) {
+      const user = await this.prisma.user.findUnique({
+        where: { email: viewerUserIdOrEmail },
+        select: { id: true },
+      });
+      if (!user) return false;
+      userId = user.id;
+    }
+
+    // Owner via Community.ownerId — reliable even for older communities that
+    // predate the OWNER row in community_members.
+    if (ownerId === userId) return true;
+
+    // Manager role lives only in community_members.
+    const membership = await this.prisma.communityMember.findUnique({
+      where: { userId_communityId: { userId, communityId } },
+      select: { role: true },
+    });
+    return membership?.role === 'MANAGER';
   }
 
   async update(
@@ -271,7 +310,18 @@ export class CommunitiesService {
   async joinCommunity(communityIdOrSlug: string, userId: string) {
     try {
       const communityId = await this.resolveId(communityIdOrSlug);
-      
+
+      // Block joins on DRAFT communities. Owners/managers are already members
+      // by definition, so the early-return below catches them and they never
+      // reach this check via the join flow.
+      const community = await this.prisma.community.findUnique({
+        where: { id: communityId },
+        select: { status: true },
+      });
+      if (!community || community.status === 'DRAFT') {
+        throw new NotFoundException('Community not found');
+      }
+
       // Check if user is banned from this community
       const activeBan = await this.prisma.communityBan.findUnique({
         where: { userId_communityId: { userId, communityId } },
@@ -313,7 +363,7 @@ export class CommunitiesService {
 
       return { message: 'Joined community', isMember: true, role: membership.role };
     } catch (err) {
-      if (err instanceof ForbiddenException) {
+      if (err instanceof ForbiddenException || err instanceof NotFoundException) {
         throw err;
       }
       throw new InternalServerErrorException('Could not join community');

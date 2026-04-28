@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { compressImage, MAX_IMAGE_SIZE_BYTES } from '../../../lib/imageCompression';
 import { useCommunityContext } from '../CommunityContext';
+import { authFetch } from '../../../lib/auth';
 import FormSelect from '../../../components/FormSelect';
 import CalendarSelect from '../../../components/CalendarSelect';
 import DatePicker, { registerLocale } from 'react-datepicker';
@@ -453,7 +454,7 @@ function EventsPageContent() {
       
       try {
         // Fetch community
-        const communityRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
+        const communityRes = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
         if (communityRes.ok) {
           const communityData = await communityRes.json();
           

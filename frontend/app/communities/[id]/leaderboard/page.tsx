@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { FaStar } from 'react-icons/fa';
 import { useCommunityContext } from '../CommunityContext';
+import { authFetch } from '../../../lib/auth';
 import TrophyIcon from '../../../components/icons/TrophyIcon';
 import AwardIcon from '../../../components/icons/AwardIcon';
 import UsersIcon from '../../../components/icons/UsersIcon';
@@ -51,7 +52,7 @@ export default function LeaderboardPage() {
 
       try {
         // Fetch community details
-        const communityRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
+        const communityRes = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
         if (communityRes.ok) {
           const communityData = await communityRes.json();
           
