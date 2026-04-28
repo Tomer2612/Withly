@@ -156,15 +156,60 @@ export class EventsController {
   async update(
     @Param('eventId') eventId: string,
     @Req() req,
-    @Body() body: any,
+    @Body() body: {
+      title?: string;
+      description?: string;
+      date?: string;
+      endDate?: string;
+      duration?: string;
+      timezone?: string;
+      isRecurring?: string;
+      recurringType?: string;
+      locationType?: string;
+      locationName?: string;
+      locationUrl?: string;
+      category?: string;
+      capacity?: string;
+      sendReminders?: string;
+      reminderDays?: string;
+      attendeeType?: string;
+    },
     @UploadedFile() coverImage?: Express.Multer.File,
   ) {
     const userId = req.user.userId;
-    
-    const data: any = { ...body };
-    if (coverImage) {
-      data.coverImage = await this.storageService.uploadFile(coverImage, 'events');
-    }
+
+    // Multipart fields arrive as strings - convert dates/numbers/bools at the boundary.
+    const data: Partial<{
+      title: string;
+      description: string;
+      coverImage: string;
+      date: Date;
+      endDate: Date;
+      duration: number;
+      timezone: string;
+      isRecurring: boolean;
+      recurringType: string;
+      locationType: string;
+      locationName: string;
+      locationUrl: string;
+      category: string;
+      capacity: number;
+      sendReminders: boolean;
+      reminderDays: number;
+      attendeeType: string;
+    }> = {};
+
+    if (body.title !== undefined) data.title = body.title;
+    if (body.description !== undefined) data.description = body.description;
+    if (body.timezone !== undefined) data.timezone = body.timezone;
+    if (body.recurringType !== undefined) data.recurringType = body.recurringType;
+    if (body.locationType !== undefined) data.locationType = body.locationType;
+    if (body.locationName !== undefined) data.locationName = body.locationName;
+    if (body.locationUrl !== undefined) data.locationUrl = body.locationUrl;
+    if (body.category !== undefined) data.category = body.category;
+    if (body.attendeeType !== undefined) data.attendeeType = body.attendeeType;
+
+    if (coverImage) data.coverImage = await this.storageService.uploadFile(coverImage, 'events');
     if (body.date) data.date = new Date(body.date);
     if (body.endDate) data.endDate = new Date(body.endDate);
     if (body.duration) data.duration = parseInt(body.duration);

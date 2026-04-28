@@ -67,7 +67,7 @@ export class AuthService {
     return !!user;
   }
 
-  async loginWithGoogle(googleUser: any) {
+  async loginWithGoogle(googleUser: { email: string; name: string; picture: string | null; provider: string }) {
     // Check if user already exists with this email
     const existingUser = await this.prisma.user.findUnique({
       where: { email: googleUser.email },

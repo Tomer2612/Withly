@@ -29,7 +29,15 @@ export class CommunitiesController {
   ], { storage, fileFilter: imageFileFilter }))
   async create(
     @Req() req,
-    @Body() body: any,
+    @Body() body: {
+      name: string;
+      description: string;
+      topic?: string;
+      youtubeUrl?: string;
+      whatsappUrl?: string;
+      facebookUrl?: string;
+      instagramUrl?: string;
+    },
     @UploadedFiles() files?: { image?: Express.Multer.File[]; logo?: Express.Multer.File[]; galleryImages?: Express.Multer.File[] },
   ) {
     const userId = req.user.userId;

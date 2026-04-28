@@ -134,13 +134,15 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     });
   }
 
-  // Utility method to send a notification to a user (called from NotificationsService)
-  sendNotificationToUser(userId: string, notification: any) {
+  // Utility method to send a notification to a user (called from NotificationsService).
+  // Payload is passed straight through to socket.io which serializes to JSON, so
+  // unknown is the honest type — we don't look inside, callers do.
+  sendNotificationToUser(userId: string, notification: unknown) {
     this.server.to(`user:${userId}`).emit('newNotification', notification);
   }
 
-  // Utility method to send a message to a user (called from MessagesController)
-  sendMessageToUser(userId: string, message: any) {
+  // Utility method to send a message to a user (called from MessagesController).
+  sendMessageToUser(userId: string, message: unknown) {
     this.server.to(`user:${userId}`).emit('newMessage', message);
   }
 
