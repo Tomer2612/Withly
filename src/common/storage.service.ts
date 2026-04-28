@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { extname } from 'path';
-import { writeFileSync, mkdirSync, existsSync, unlinkSync } from 'fs';
+import { mkdir, writeFile, unlink } from 'fs/promises';
 import { randomBytes } from 'crypto';
 
 @Injectable()
@@ -60,10 +60,8 @@ export class StorageService {
 
     // Development: save to local disk
     const dir = `./uploads/${folder}`;
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
-    }
-    writeFileSync(`${dir}/${filename}`, file.buffer);
+    await mkdir(dir, { recursive: true });
+    await writeFile(`${dir}/${filename}`, file.buffer);
     return `/uploads/${folder}/${filename}`;
   }
 
@@ -93,10 +91,13 @@ export class StorageService {
         }),
       );
     } else if (fileUrl.startsWith('/uploads/')) {
-      // Local file
+      // Local file. Swallow ENOENT — deleting a missing file is a no-op
+      // semantically; any other error is unexpected and worth surfacing.
       const localPath = `.${fileUrl}`;
-      if (existsSync(localPath)) {
-        unlinkSync(localPath);
+      try {
+        await unlink(localPath);
+      } catch (err: any) {
+        if (err.code !== 'ENOENT') throw err;
       }
     }
   }
