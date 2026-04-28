@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Req, Param, Put, Patch, Delete, Query, UseInterceptors, UploadedFile, UploadedFiles, BadRequestException, Headers } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Req, Param, Put, Patch, Delete, Query, UseInterceptors, UploadedFile, UploadedFiles, Headers } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { Throttle } from '@nestjs/throttler';
@@ -6,24 +6,8 @@ import { CommunitiesService } from './communities.service';
 import { AuthGuard } from '@nestjs/passport';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../common/storage.service';
-import { ERROR_MESSAGES } from '../common/messages';
 import { getUserIdFromAuthHeader } from '../common/jwt.helper';
-
-// Image file filter - only allow image files
-const imageFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
-  if (!file.mimetype.startsWith('image/')) {
-    return cb(new BadRequestException(ERROR_MESSAGES.UPLOAD_IMAGE_ONLY), false);
-  }
-  cb(null, true);
-};
-
-// Image + video file filter for gallery
-const mediaFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
-  if (!file.mimetype.startsWith('image/') && !file.mimetype.startsWith('video/')) {
-    return cb(new BadRequestException(ERROR_MESSAGES.UPLOAD_IMAGE_OR_VIDEO_ONLY), false);
-  }
-  cb(null, true);
-};
+import { imageFileFilter, imageOrVideoFileFilter } from '../common/upload-filters';
 
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB
 const storage = memoryStorage();
@@ -96,7 +80,7 @@ export class CommunitiesController {
     { name: 'logo', maxCount: 1 },
     { name: 'galleryImages', maxCount: 10 },
     { name: 'galleryVideoFiles', maxCount: 5 },
-  ], { storage, fileFilter: mediaFileFilter, limits: { fileSize: MAX_VIDEO_SIZE } }))
+  ], { storage, fileFilter: imageOrVideoFileFilter, limits: { fileSize: MAX_VIDEO_SIZE } }))
   async update(
     @Param('id') id: string,
     @Req() req,

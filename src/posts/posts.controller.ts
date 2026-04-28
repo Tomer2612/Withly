@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Param, UseGuards, Req, Get, Delete, Patch, Query, UseInterceptors, UploadedFiles, Res, StreamableFile, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, Param, UseGuards, Req, Get, Delete, Patch, Query, UseInterceptors, UploadedFiles, Res, StreamableFile } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { join } from 'path';
@@ -9,11 +9,12 @@ import { PostsService } from './posts.service';
 import { AuthGuard } from '@nestjs/passport';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../common/storage.service';
-import { ERROR_MESSAGES } from '../common/messages';
+import { postContentFileFilter } from '../common/upload-filters';
 
 const storage = memoryStorage();
 
-// File filter to determine file type
+// Used when fanning out a single multipart upload across the post's
+// images / videos / files arrays.
 const getFileType = (mimetype: string): 'image' | 'video' | 'file' => {
   if (mimetype.startsWith('image/')) return 'image';
   if (mimetype.startsWith('video/')) return 'video';
@@ -21,28 +22,6 @@ const getFileType = (mimetype: string): 'image' | 'video' | 'file' => {
 };
 
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB
-
-// Only allow images, videos, and common document types
-const postFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
-  if (
-    file.mimetype.startsWith('image/') ||
-    file.mimetype.startsWith('video/') ||
-    file.mimetype === 'application/pdf' ||
-    file.mimetype === 'application/msword' ||
-    file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-    file.mimetype === 'application/vnd.ms-excel' ||
-    file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-    file.mimetype === 'application/vnd.ms-powerpoint' ||
-    file.mimetype === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
-    file.mimetype === 'text/plain' ||
-    file.mimetype === 'application/zip' ||
-    file.mimetype === 'application/x-rar-compressed'
-  ) {
-    cb(null, true);
-  } else {
-    cb(new BadRequestException(ERROR_MESSAGES.UPLOAD_FILE_TYPE_NOT_SUPPORTED), false);
-  }
-};
 
 @Controller('posts')
 export class PostsController {
@@ -65,7 +44,7 @@ export class PostsController {
   @UseGuards(AuthGuard('jwt'))
   @Post('community/:communityId')
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 posts per minute
-  @UseInterceptors(FilesInterceptor('files', 15, { storage, fileFilter: postFileFilter, limits: { fileSize: MAX_VIDEO_SIZE } }))
+  @UseInterceptors(FilesInterceptor('files', 15, { storage, fileFilter: postContentFileFilter, limits: { fileSize: MAX_VIDEO_SIZE } }))
   async createPost(
     @Param('communityId') communityId: string,
     @Req() req,
@@ -164,7 +143,7 @@ export class PostsController {
   // Update a post
   @UseGuards(AuthGuard('jwt'))
   @Patch(':postId')
-  @UseInterceptors(FilesInterceptor('files', 15, { storage, fileFilter: postFileFilter, limits: { fileSize: MAX_VIDEO_SIZE } }))
+  @UseInterceptors(FilesInterceptor('files', 15, { storage, fileFilter: postContentFileFilter, limits: { fileSize: MAX_VIDEO_SIZE } }))
   async updatePost(
     @Param('postId') postId: string,
     @Req() req,

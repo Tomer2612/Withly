@@ -11,7 +11,6 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
-  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -20,16 +19,8 @@ import { EventsService } from './events.service';
 import { RsvpStatus } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { StorageService } from '../common/storage.service';
-import { ERROR_MESSAGES } from '../common/messages';
 import { getUserIdFromAuthHeader } from '../common/jwt.helper';
-
-// Image file filter - only allow image files
-const imageFileFilter = (req: any, file: Express.Multer.File, cb: any) => {
-  if (!file.mimetype.startsWith('image/')) {
-    return cb(new BadRequestException(ERROR_MESSAGES.UPLOAD_IMAGE_ONLY), false);
-  }
-  cb(null, true);
-};
+import { imageFileFilter } from '../common/upload-filters';
 
 const storage = memoryStorage();
 
