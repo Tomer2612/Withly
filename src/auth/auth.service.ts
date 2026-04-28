@@ -1,5 +1,5 @@
 import { Injectable, UnauthorizedException, InternalServerErrorException, BadRequestException, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../users/prisma.service';
+import { PrismaService } from '../common/prisma.service';
 import { EmailService } from '../email/email.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';

@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { MulterModule } from '@nestjs/platform-express';
 import { CoursesController } from './courses.controller';
 import { CoursesService } from './courses.service';
-import { PrismaService } from '../users/prisma.service';
+import { PrismaService } from '../common/prisma.service';
 import { CommunitiesModule } from '../communities/communities.module';
 
 @Module({

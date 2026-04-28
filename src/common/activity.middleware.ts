@@ -1,6 +1,6 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
-import { PrismaService } from '../users/prisma.service';
+import { PrismaService } from './prisma.service';
 import * as jwt from 'jsonwebtoken';
 
 @Injectable()

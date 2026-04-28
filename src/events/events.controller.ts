@@ -18,7 +18,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { EventsService } from './events.service';
 import { RsvpStatus } from '@prisma/client';
-import { PrismaService } from '../users/prisma.service';
+import { PrismaService } from '../common/prisma.service';
 import { StorageService } from '../common/storage.service';
 import { ERROR_MESSAGES } from '../common/messages';
 
