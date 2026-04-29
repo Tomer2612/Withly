@@ -402,7 +402,7 @@ export default function CommunityMembersPage() {
                 {bannedUsers.map((ban) => (
                   <div
                     key={ban.id}
-                    className="flex items-center gap-4 p-4 bg-gray-50 hover:bg-[#F4F4F5] rounded-xl transition"
+                    className="flex items-center gap-4 p-4 hover:bg-[#F4F4F5] rounded-xl transition"
                   >
                     {/* Profile Image */}
                     <div className="relative flex-shrink-0">
