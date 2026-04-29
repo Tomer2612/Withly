@@ -47,41 +47,44 @@ export class EventsService {
       throw new ForbiddenException('Only community managers can create events');
     }
 
-    // If recurring, create multiple event instances (unlimited until user edits)
+    // If recurring, create multiple event instances (unlimited until user edits).
+    // Wrapped in a transaction so a failure mid-loop rolls everything back
+    // instead of leaving N orphans for the user to clean up.
     if (data.isRecurring && data.recurringType) {
-      const events: Array<{ id: string; title: string; [key: string]: unknown }> = [];
       const baseDate = new Date(data.date);
       // Practical occurrences: daily: 30 (1 month), weekly: 12 (3 months), monthly: 12 (1 year)
       const occurrences = data.recurringType === 'daily' ? 30 : data.recurringType === 'weekly' ? 12 : 12;
 
-      for (let i = 0; i < occurrences; i++) {
-        const eventDate = new Date(baseDate);
-        
-        if (data.recurringType === 'daily') {
-          eventDate.setDate(eventDate.getDate() + i);
-        } else if (data.recurringType === 'weekly') {
-          eventDate.setDate(eventDate.getDate() + (i * 7));
-        } else if (data.recurringType === 'monthly') {
-          eventDate.setMonth(eventDate.getMonth() + i);
-        }
-        
-        const eventData = {
-          ...data,
-          date: eventDate,
-          communityId,
-          createdById,
-        };
-        
-        const event = await this.prisma.event.create({
-          data: eventData,
-          include: {
-            _count: {
-              select: { rsvps: true },
+      const events = await this.prisma.$transaction(async (tx) => {
+        const created: Array<{ id: string; title: string; [key: string]: unknown }> = [];
+        for (let i = 0; i < occurrences; i++) {
+          const eventDate = new Date(baseDate);
+
+          if (data.recurringType === 'daily') {
+            eventDate.setDate(eventDate.getDate() + i);
+          } else if (data.recurringType === 'weekly') {
+            eventDate.setDate(eventDate.getDate() + (i * 7));
+          } else if (data.recurringType === 'monthly') {
+            eventDate.setMonth(eventDate.getMonth() + i);
+          }
+
+          const event = await tx.event.create({
+            data: {
+              ...data,
+              date: eventDate,
+              communityId,
+              createdById,
             },
-          },
-        });
-        events.push(event);
-      }
+            include: {
+              _count: {
+                select: { rsvps: true },
+              },
+            },
+          });
+          created.push(event);
+        }
+        return created;
+      }, { timeout: 30_000 });
 
       return events[0]; // Return the first event
     }
