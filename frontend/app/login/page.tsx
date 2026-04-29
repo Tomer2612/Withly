@@ -23,6 +23,8 @@ function LoginContent() {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [returnUrl, setReturnUrl] = useState<string | null>(null);
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resending, setResending] = useState(false);
 
   // Clear any expired tokens on mount
   useEffect(() => {
@@ -85,6 +87,7 @@ function LoginContent() {
     setMessage('');
     setEmailError('');
     setPasswordError('');
+    setNeedsVerification(false);
 
     // Validate fields before submitting
     if (!email.trim()) {
@@ -151,6 +154,10 @@ function LoginContent() {
         } else {
           router.push(returnUrl || '/');
         }
+      } else if (res.status === 403 && typeof data.message === 'string' && data.message.includes('not verified')) {
+        setNeedsVerification(true);
+        setMessage('כתובת המייל שלך לא אומתה. בדוק את תיבת הדואר או שלח את מייל האימות מחדש.');
+        setMessageType('error');
       } else {
         // Generic message — backend deliberately doesn't reveal whether the
         // email exists or the password was wrong, to prevent enumeration.
@@ -163,6 +170,31 @@ function LoginContent() {
       setMessageType('error');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!email.trim()) return;
+    setResending(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      if (res.ok) {
+        setMessage('מייל אימות נשלח. בדוק את תיבת הדואר שלך.');
+        setMessageType('info');
+        setNeedsVerification(false);
+      } else {
+        setMessage('שגיאה בשליחת מייל האימות. אנא נסה שוב.');
+        setMessageType('error');
+      }
+    } catch {
+      setMessage('שגיאה בשליחת מייל האימות. אנא נסה שוב.');
+      setMessageType('error');
+    } finally {
+      setResending(false);
     }
   };
 
@@ -277,13 +309,25 @@ function LoginContent() {
                 </button>
 
                 {message && (
-                  <div className="flex items-center gap-2 text-[14px] p-2 rounded-lg" style={{ 
+                  <div className="flex items-center gap-2 text-[14px] p-2 rounded-lg" style={{
                     color: messageType === 'error' ? '#B3261E' : '#003233',
                     backgroundColor: messageType === 'error' ? '#FEE2E2' : '#E0F2FE'
                   }}>
                     <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/><line x1="12" y1="8" x2="12" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="16.5" r="1" fill="currentColor"/></svg>
                     <p>{message}</p>
                   </div>
+                )}
+
+                {needsVerification && (
+                  <button
+                    type="button"
+                    onClick={handleResendVerification}
+                    disabled={resending}
+                    className="text-[14px] hover:underline self-center disabled:cursor-not-allowed"
+                    style={{ color: resending ? '#A1A1AA' : '#000000' }}
+                  >
+                    {resending ? 'שולח...' : 'שלח את מייל האימות מחדש'}
+                  </button>
                 )}
 
                 <p className="text-center text-[14px] mt-2">

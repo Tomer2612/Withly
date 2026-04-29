@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, InternalServerErrorException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ForbiddenException, InternalServerErrorException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { EmailService } from '../email/email.service';
 import * as bcrypt from 'bcrypt';
@@ -55,6 +55,13 @@ export class AuthService {
     const isMatch = await bcrypt.compare(password, hashToCompare);
     if (!user || !isMatch) {
       throw new UnauthorizedException('Invalid email or password');
+    }
+
+    // Block login until the email is verified. Safe to reveal at this point —
+    // the caller already proved they know the password, so we're not leaking
+    // existence to a random attacker.
+    if (!user.isEmailVerified) {
+      throw new ForbiddenException('Email not verified');
     }
 
     return this.signToken(user.id, user.email);
