@@ -6,6 +6,13 @@ import { UsersService } from './users.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../common/storage.service';
 import { imageFileFilter } from '../common/upload-filters';
+import {
+  UpdateProfileDto,
+  ToggleOnlineStatusDto,
+  UpdateNotificationPreferencesDto,
+  ChangePasswordDto,
+  AddPaymentMethodDto,
+} from './dto/users.dto';
 
 const storage = memoryStorage();
 
@@ -48,7 +55,7 @@ export class UsersController {
   ], { storage, fileFilter: imageFileFilter }))
   async updateProfile(
     @Req() req,
-    @Body() body: { name?: string; bio?: string; location?: string },
+    @Body() body: UpdateProfileDto,
     @UploadedFiles() files?: { profileImage?: Express.Multer.File[]; coverImage?: Express.Multer.File[] },
   ) {
     const profileImage = files?.profileImage?.[0] ? await this.storageService.uploadFile(files.profileImage[0], 'profiles') : undefined;
@@ -73,7 +80,7 @@ export class UsersController {
 
   @UseGuards(AuthGuard('jwt'))
   @Patch('me/online-status')
-  async toggleOnlineStatus(@Req() req, @Body() body: { showOnline: boolean }) {
+  async toggleOnlineStatus(@Req() req, @Body() body: ToggleOnlineStatusDto) {
     return this.usersService.toggleOnlineStatus(req.user.userId, body.showOnline);
   }
 
@@ -87,15 +94,7 @@ export class UsersController {
   @Patch('me/notification-preferences')
   async updateNotificationPreferences(
     @Req() req,
-    @Body() body: {
-      notifyLikes?: boolean;
-      notifyComments?: boolean;
-      notifyFollows?: boolean;
-      notifyNewPosts?: boolean;
-      notifyMentions?: boolean;
-      notifyCommunityJoins?: boolean;
-      notifyMessages?: boolean;
-    },
+    @Body() body: UpdateNotificationPreferencesDto,
   ) {
     return this.usersService.updateNotificationPreferences(req.user.userId, body);
   }
@@ -104,14 +103,9 @@ export class UsersController {
   @Patch('me/password')
   async changePassword(
     @Req() req,
-    @Body() body: { currentPassword: string; newPassword: string },
+    @Body() body: ChangePasswordDto,
   ) {
-    if (!body.currentPassword || !body.newPassword) {
-      throw new BadRequestException('Current and new password are required');
-    }
-    if (body.newPassword.length < 6) {
-      throw new BadRequestException('New password must be at least 6 characters');
-    }
+    // ValidationPipe already enforces presence + min length 6 on newPassword.
     await this.usersService.changePassword(req.user.userId, body.currentPassword, body.newPassword);
     return { message: 'Password changed successfully' };
   }
@@ -191,7 +185,7 @@ export class UsersController {
   @Post('me/payment-methods')
   async addPaymentMethod(
     @Req() req,
-    @Body() body: { cardLastFour: string; cardBrand?: string },
+    @Body() body: AddPaymentMethodDto,
   ) {
     return this.usersService.addPaymentMethod(
       req.user.userId,

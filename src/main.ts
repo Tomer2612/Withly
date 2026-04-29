@@ -1,4 +1,5 @@
 import { NestFactory, HttpAdapterHost } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
@@ -15,6 +16,19 @@ async function bootstrap() {
 
   // Single global exception filter so every error response shares one shape.
   app.useGlobalFilters(new AllExceptionsFilter(app.get(HttpAdapterHost)));
+
+  // Global validation: every @Body / @Query / @Param goes through this.
+  // - whitelist strips fields that aren't on the DTO (defense in depth)
+  // - forbidNonWhitelisted rejects requests that include unknown fields
+  // - transform applies @Type() conversions (e.g. multipart string -> number)
+  // - transformOptions.enableImplicitConversion casts primitive query
+  //   params (string '5' -> number 5) without an explicit @Type
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+    transformOptions: { enableImplicitConversion: true },
+  }));
 
   // Helmet sets security-hardening response headers (X-Frame-Options,
   // X-Content-Type-Options, HSTS, default CSP, etc). Override the default

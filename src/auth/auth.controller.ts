@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { AuthGuard } from '@nestjs/passport';
+import { SignupDto, LoginDto, EmailOnlyDto, ResetPasswordDto, ContactFormDto } from './dto/auth.dto';
 
 
 @Controller('auth')
@@ -19,14 +20,14 @@ export class AuthController {
   // Strict rate limit for signup: 5 per minute
   @Post('signup')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  signup(@Body() body: { email: string; name: string; password: string }) {
+  signup(@Body() body: SignupDto) {
     return this.authService.signup(body.email, body.name, body.password);
   }
 
   // Strict rate limit for login: 5 per minute to prevent brute force
   @Post('login')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  login(@Body() body: { email: string; password: string }) {
+  login(@Body() body: LoginDto) {
     return this.authService.login(body.email, body.password);
   }
 
@@ -70,27 +71,27 @@ export class AuthController {
   // Strict rate limit: 3 per minute
   @Post('resend-verification')
   @Throttle({ default: { limit: 3, ttl: 60000 } })
-  resendVerification(@Body() body: { email: string }) {
+  resendVerification(@Body() body: EmailOnlyDto) {
     return this.authService.resendVerificationEmail(body.email);
   }
 
   // Password reset - strict rate limit: 3 per minute
   @Post('forgot-password')
   @Throttle({ default: { limit: 3, ttl: 60000 } })
-  forgotPassword(@Body() body: { email: string }) {
+  forgotPassword(@Body() body: EmailOnlyDto) {
     return this.authService.forgotPassword(body.email);
   }
 
   @Post('reset-password')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  resetPassword(@Body() body: { token: string; password: string }) {
+  resetPassword(@Body() body: ResetPasswordDto) {
     return this.authService.resetPassword(body.token, body.password);
   }
 
   // Contact form - rate limit: 3 per minute
   @Post('contact')
   @Throttle({ default: { limit: 3, ttl: 60000 } })
-  contact(@Body() body: { name: string; email: string; subject: string; message: string }) {
+  contact(@Body() body: ContactFormDto) {
     return this.authService.sendContactForm(body.name, body.email, body.subject, body.message);
   }
 }
