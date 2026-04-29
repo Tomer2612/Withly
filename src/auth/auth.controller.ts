@@ -1,9 +1,11 @@
-import { Controller, Post, Body, Get, Req, Res, UseGuards, Param, Query } from '@nestjs/common';
+import { Controller, Post, Body, Get, Req, Res, UseGuards, Param, Query, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { AuthGuard } from '@nestjs/passport';
 import { SignupDto, LoginDto, EmailOnlyDto, ResetPasswordDto, ContactFormDto } from './dto/auth.dto';
+import { setAccessCookie, setRefreshCookie, clearAuthCookies, REFRESH_TOKEN_COOKIE } from './cookies.helper';
+import type { Request, Response } from 'express';
 
 
 @Controller('auth')
@@ -20,15 +22,48 @@ export class AuthController {
   // Strict rate limit for signup: 5 per minute
   @Post('signup')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  signup(@Body() body: SignupDto) {
-    return this.authService.signup(body.email, body.name, body.password);
+  async signup(@Body() body: SignupDto, @Res({ passthrough: true }) res: Response) {
+    const { accessToken, refreshToken } = await this.authService.signup(body.email, body.name, body.password);
+    setAccessCookie(res, accessToken);
+    setRefreshCookie(res, refreshToken);
+    // Phase 1: still return access_token in the body so the existing
+    // localStorage-based frontend keeps working. Phase 3 will drop this.
+    return { access_token: accessToken };
   }
 
   // Strict rate limit for login: 5 per minute to prevent brute force
   @Post('login')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  login(@Body() body: LoginDto) {
-    return this.authService.login(body.email, body.password);
+  async login(@Body() body: LoginDto, @Res({ passthrough: true }) res: Response) {
+    const { accessToken, refreshToken } = await this.authService.login(body.email, body.password);
+    setAccessCookie(res, accessToken);
+    setRefreshCookie(res, refreshToken);
+    return { access_token: accessToken };
+  }
+
+  // Exchange a valid refresh cookie for a new access + refresh pair.
+  // Refresh cookie is path-restricted to /auth so it's only sent here and
+  // on logout, not on every API request.
+  @Post('refresh')
+  @SkipThrottle()
+  async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const submitted = req.cookies?.[REFRESH_TOKEN_COOKIE];
+    if (!submitted) {
+      throw new UnauthorizedException('No refresh token');
+    }
+    const { accessToken, refreshToken } = await this.authService.refreshTokens(submitted);
+    setAccessCookie(res, accessToken);
+    setRefreshCookie(res, refreshToken);
+    return { access_token: accessToken };
+  }
+
+  @Post('logout')
+  @SkipThrottle()
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const submitted = req.cookies?.[REFRESH_TOKEN_COOKIE];
+    await this.authService.logout(submitted);
+    clearAuthCookies(res);
+    return { success: true };
   }
 
   @Get('check-email')
@@ -47,10 +82,15 @@ export class AuthController {
   @Get('google/redirect')
   @SkipThrottle()
   @UseGuards(AuthGuard('google'))
-  async googleAuthRedirect(@Req() req, @Res() res) {
+  async googleAuthRedirect(@Req() req, @Res() res: Response) {
     try {
-      const token = await this.authService.loginWithGoogle(req.user);
-      res.redirect(`${this.frontendUrl}/google-success?token=${token}`);
+      const { accessToken, refreshToken } = await this.authService.loginWithGoogle(req.user);
+      setAccessCookie(res, accessToken);
+      setRefreshCookie(res, refreshToken);
+      // Phase 1: still pass the access token via URL so the existing
+      // /google-success page can store it in localStorage. Phase 2 will
+      // drop the token query param and rely on the cookie alone.
+      res.redirect(`${this.frontendUrl}/google-success?token=${accessToken}`);
     } catch (error) {
       if (error.message === 'ACCOUNT_EXISTS_USE_PASSWORD') {
         // User exists with email/password, redirect to login with message

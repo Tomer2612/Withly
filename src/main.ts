@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
+import cookieParser = require('cookie-parser');
 import { CORS_ORIGINS } from './common/cors';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 
@@ -13,6 +14,10 @@ async function bootstrap() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.set('trust proxy', 1);
+
+  // Parse cookies into req.cookies so JwtStrategy can extract the access
+  // token and the auth controller can read the refresh token.
+  app.use(cookieParser());
 
   // Single global exception filter so every error response shares one shape.
   app.useGlobalFilters(new AllExceptionsFilter(app.get(HttpAdapterHost)));

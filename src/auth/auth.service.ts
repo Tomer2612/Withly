@@ -40,7 +40,7 @@ export class AuthService {
         // Email send failed, continue with signup
       }
 
-      return this.signToken(user.id, user.email);
+      return this.issueTokens(user.id, user.email);
     } catch {
       throw new InternalServerErrorException('Signup failed');
     }
@@ -64,7 +64,7 @@ export class AuthService {
       throw new ForbiddenException('Email not verified');
     }
 
-    return this.signToken(user.id, user.email);
+    return this.issueTokens(user.id, user.email);
   }
 
   async checkEmailExists(email: string): Promise<boolean> {
@@ -109,8 +109,7 @@ export class AuthService {
       this.emailService.sendWelcomeEmail(user.email, user.name).catch(() => {});
     }
 
-    const payload = { email: user.email, sub: user.id };
-    return this.jwtService.sign(payload);
+    return this.issueTokens(user.id, user.email);
   }
 
   // Verify email with token
@@ -238,11 +237,77 @@ export class AuthService {
     return { message: 'Contact form submitted successfully' };
   }
 
-  private signToken(userId: string, email: string) {
-    const payload = { sub: userId, email };
+  // Access tokens are stateless JWTs. Phase 1 keeps them at the 30-day module
+  // default so the unrefactored frontend (no /auth/refresh client yet)
+  // doesn't get bounced mid-session. Phase 3 will override to 15m once the
+  // frontend's refresh-on-401 loop ships.
+  private signAccessToken(userId: string, email: string): string {
+    return this.jwtService.sign({ sub: userId, email });
+  }
+
+  // Refresh tokens are random 32-byte values stored in DB by sha256 hash so
+  // a leaked DB doesn't yield usable tokens. sha256 (not bcrypt) because the
+  // input is already high-entropy random — slow hashing buys nothing.
+  private async createRefreshToken(userId: string): Promise<{ id: string; token: string }> {
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const row = await this.prisma.refreshToken.create({
+      data: { userId, tokenHash, expiresAt },
+    });
+    return { id: row.id, token };
+  }
+
+  async issueTokens(userId: string, email: string): Promise<{ accessToken: string; refreshToken: string }> {
+    const accessToken = this.signAccessToken(userId, email);
+    const { token: refreshToken } = await this.createRefreshToken(userId);
+    return { accessToken, refreshToken };
+  }
+
+  async refreshTokens(submitted: string): Promise<{ accessToken: string; refreshToken: string }> {
+    const tokenHash = crypto.createHash('sha256').update(submitted).digest('hex');
+    const row = await this.prisma.refreshToken.findUnique({
+      where: { tokenHash },
+      include: { user: { select: { id: true, email: true } } },
+    });
+
+    if (!row) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    // Replay defence: a token that's been replaced or revoked is being
+    // submitted by a stolen-token holder. Burn every active refresh token
+    // for this user so the attacker AND the legitimate session both lose.
+    if (row.revokedAt || row.replacedById) {
+      await this.prisma.refreshToken.updateMany({
+        where: { userId: row.userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      throw new UnauthorizedException('Refresh token reuse detected');
+    }
+
+    if (row.expiresAt < new Date()) {
+      throw new UnauthorizedException('Refresh token expired');
+    }
+
+    const { id: newId, token: newToken } = await this.createRefreshToken(row.userId);
+    await this.prisma.refreshToken.update({
+      where: { id: row.id },
+      data: { revokedAt: new Date(), replacedById: newId },
+    });
 
     return {
-      access_token: this.jwtService.sign(payload),
+      accessToken: this.signAccessToken(row.user.id, row.user.email),
+      refreshToken: newToken,
     };
+  }
+
+  async logout(submitted: string | undefined): Promise<void> {
+    if (!submitted) return;
+    const tokenHash = crypto.createHash('sha256').update(submitted).digest('hex');
+    await this.prisma.refreshToken.updateMany({
+      where: { tokenHash, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
   }
 }

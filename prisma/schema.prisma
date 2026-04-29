@@ -32,6 +32,7 @@ model User {
   notifyMentions           Boolean             @default(false)
   notifyNewPosts           Boolean             @default(false)
   notifyMessages           Boolean             @default(false)
+  refreshTokens            RefreshToken[]
   posts                    Post[]
   comments                 Comment[]
   communities              Community[]
@@ -53,6 +54,24 @@ model User {
   pollVotes                PollVote[]
 
   @@index([lastActiveAt])
+}
+
+model RefreshToken {
+  id           String    @id @default(cuid())
+  userId       String
+  tokenHash    String    @unique
+  expiresAt    DateTime
+  createdAt    DateTime  @default(now())
+  revokedAt    DateTime?
+  // Set when this token is rotated; points to the new token's id.
+  // Lets us detect refresh-token reuse (replay) by checking whether a
+  // submitted token has already been replaced.
+  replacedById String?
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
 }
 
 model UserPaymentMethod {
