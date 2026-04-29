@@ -34,6 +34,14 @@ export function setRefreshCookie(res: Response, token: string) {
 }
 
 export function clearAuthCookies(res: Response) {
-  res.clearCookie(ACCESS_TOKEN_COOKIE, { path: '/' });
-  res.clearCookie(REFRESH_TOKEN_COOKIE, { path: '/auth' });
+  // Pass the same attribute shape we set the cookie with — strict browsers
+  // (Chrome with SameSite enforcement) sometimes refuse the clear if the
+  // SameSite/Secure on the clear don't match the original.
+  const clearOptions = {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: 'lax' as const,
+  };
+  res.clearCookie(ACCESS_TOKEN_COOKIE, { ...clearOptions, path: '/' });
+  res.clearCookie(REFRESH_TOKEN_COOKIE, { ...clearOptions, path: '/auth' });
 }

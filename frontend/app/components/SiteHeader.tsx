@@ -2,19 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { jwtDecode } from 'jwt-decode';
+import { usePathname } from 'next/navigation';
 import WithlyLogo from './icons/WithlyLogo';
 import NotificationBell from './NotificationBell';
 import { MessagesBell } from './ChatWidget';
 import UserProfileDropdown from './UserProfileDropdown';
-import { clearSessionAndRedirect } from '../lib/auth';
 
-interface JwtPayload {
-  email: string;
-  sub: string;
-  iat: number;
-  exp: number;
-}
+// Pages where the user is by definition not logged in — skip the /users/me
+// probe (and its refresh-on-401 fallback) entirely instead of burning two
+// round-trips on every visit.
+const AUTH_FORM_PATHS = ['/login', '/signup', '/forgot-password', '/reset-password', '/verify-email', '/access-gate', '/google-success'];
 
 interface SiteHeaderProps {
   // Optional: override the default nav links
@@ -24,6 +21,7 @@ interface SiteHeaderProps {
 }
 
 export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = false }: SiteHeaderProps) {
+  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -33,63 +31,41 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
   useEffect(() => {
     setMounted(true);
 
-    const clearSession = () => {
-      setUserEmail(null);
-      setUserId(null);
-      setUserProfile(null);
-      clearSessionAndRedirect();
-    };
-
-    const token = localStorage.getItem('token');
-
-    // Self-heal a state-mismatch where the auth cookie is alive but localStorage
-    // was cleared — without this, middleware would redirect login/signup clicks
-    // back to / while the header still shows the auth buttons.
-    if (!token && document.cookie.includes('auth-token=')) {
-      document.cookie = 'auth-token=; path=/; max-age=0';
+    // Skip the auth probe on the auth-form pages — the user is definitely
+    // not logged in there, and middleware already redirects them away if
+    // they are. Saves a guaranteed-failing /users/me + /auth/refresh pair.
+    if (AUTH_FORM_PATHS.some(p => pathname === p || pathname.startsWith(`${p}/`))) {
+      return;
     }
 
-    if (token && token.split('.').length === 3) {
-      try {
-        const decoded = jwtDecode<JwtPayload>(token);
+    // Auth state lives in httpOnly cookies — JS can't read them, so we
+    // probe /users/me. 200 means logged in (and gives us the profile);
+    // 401 means logged out. The global fetch interceptor already adds
+    // credentials and runs the refresh-on-401 retry, so a single failure
+    // here is the genuine signal.
+    const cached = localStorage.getItem('userProfileCache');
+    if (cached) {
+      try { setUserProfile(JSON.parse(cached)); } catch {}
+    }
 
-        // Check if token is expired — redirect to login
-        if (decoded.exp && decoded.exp * 1000 < Date.now()) {
-          clearSession();
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`)
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (!data) {
+          setUserEmail(null);
+          setUserId(null);
+          setUserProfile(null);
+          localStorage.removeItem('userProfileCache');
           return;
         }
-
-        setUserEmail(decoded.email);
-        setUserId(decoded.sub);
-
-        // Read cached profile immediately
-        const cached = localStorage.getItem('userProfileCache');
-        if (cached) {
-          try { setUserProfile(JSON.parse(cached)); } catch {}
-        }
-
-        // Fetch fresh user profile and validate token server-side
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-          .then((res) => res.ok ? res.json() : null)
-          .then((data) => {
-            if (data) {
-              const profile = { name: data.name, profileImage: data.profileImage };
-              setUserProfile(profile);
-              localStorage.setItem('userProfileCache', JSON.stringify(profile));
-            }
-          })
-          .catch(console.error);
-      } catch (e) {
-        console.error('Invalid token:', e);
-        clearSession();
-      }
-    } else if (token) {
-      // Malformed token
-      clearSession();
-    }
-  }, []);
+        setUserEmail(data.email);
+        setUserId(data.userId);
+        const profile = { name: data.name, profileImage: data.profileImage };
+        setUserProfile(profile);
+        localStorage.setItem('userProfileCache', JSON.stringify(profile));
+      })
+      .catch(console.error);
+  }, [pathname]);
 
   // Close mobile menu on route change / resize past breakpoint
   useEffect(() => {
