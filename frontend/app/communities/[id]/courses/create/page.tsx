@@ -628,13 +628,6 @@ export default function CreateCoursePage() {
       <section className="min-h-[calc(100vh-80px)] px-4 py-10">
         <div className="w-full max-w-5xl mx-auto">
 
-          {error && (
-          <div className="mb-4 p-4 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#FDECEA', color: '#B3261E' }}>
-            <span>⚠️</span>
-            {error}
-          </div>
-        )}
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Course Details */}
           <div className="lg:col-span-2 space-y-6">
@@ -1722,21 +1715,31 @@ export default function CreateCoursePage() {
         </div>
 
           {/* Action Buttons */}
-          <div className="flex justify-center gap-4 mt-8">
-            <Link
-              href={`/communities/${communityId}/courses`}
-              className="px-6 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors"
-            >
-              ביטול
-            </Link>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="px-6 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors flex items-center gap-2"
-            >
-              {saving ? 'יוצר...' : 'שמור קורס'}
-              <FaSave className="w-4 h-4" />
-            </button>
+          <div className="mt-8">
+            {error && (
+              <div
+                className="mb-4 px-6 py-3 rounded-lg"
+                style={{ backgroundColor: '#FEE2E2', color: 'var(--color-error)' }}
+              >
+                <span>{error}</span>
+              </div>
+            )}
+            <div className="flex justify-center gap-4">
+              <Link
+                href={`/communities/${communityId}/courses`}
+                className="px-6 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+              >
+                ביטול
+              </Link>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="px-6 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors flex items-center gap-2"
+              >
+                {saving ? 'יוצר...' : 'שמור קורס'}
+                <FaSave className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       </section>
