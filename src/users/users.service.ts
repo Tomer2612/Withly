@@ -226,7 +226,7 @@ export class UsersService {
 
   // Get communities created by user
   async getCreatedCommunities(userId: string) {
-    return this.prisma.community.findMany({
+    const communities = await this.prisma.community.findMany({
       where: { ownerId: userId },
       select: {
         id: true,
@@ -234,12 +234,13 @@ export class UsersService {
         description: true,
         image: true,
         logo: true,
-        memberCount: true,
         price: true,
         topic: true,
+        _count: { select: { members: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
+    return communities.map(({ _count, ...c }) => ({ ...c, memberCount: _count.members }));
   }
 
   // Get communities user is a member of
@@ -254,16 +255,19 @@ export class UsersService {
             description: true,
             image: true,
             logo: true,
-            memberCount: true,
             price: true,
             topic: true,
+            _count: { select: { members: true } },
           },
         },
       },
       orderBy: { joinedAt: 'desc' },
     });
 
-    return memberships.map(m => m.community);
+    return memberships.map(m => {
+      const { _count, ...rest } = m.community;
+      return { ...rest, memberCount: _count.members };
+    });
   }
 
   // Get user stats (followers, following, total community members)
@@ -278,12 +282,11 @@ export class UsersService {
       where: { followerId: userId },
     });
 
-    // Get total members across all communities owned by this user
-    const communities = await this.prisma.community.findMany({
-      where: { ownerId: userId },
-      select: { memberCount: true },
+    // Get total members across all communities owned by this user.
+    // memberCount is no longer denormalized - count from membership rows.
+    const totalCommunityMembers = await this.prisma.communityMember.count({
+      where: { community: { ownerId: userId } },
     });
-    const totalCommunityMembers = communities.reduce((sum, c) => sum + (c.memberCount || 0), 0);
 
     return {
       followers: followersCount,

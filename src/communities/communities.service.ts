@@ -31,7 +31,6 @@ export class CommunitiesService {
           image: image || null,
           logo: logo || null,
           topic: topic || null,
-          memberCount: 1,
           price: price ?? 0,
           youtubeUrl: youtubeUrl || null,
           whatsappUrl: whatsappUrl || null,
@@ -86,35 +85,29 @@ export class CommunitiesService {
 
   async findById(idOrSlug: string, viewerUserId?: string) {
     try {
+      const include = {
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            profileImage: true,
+          },
+        },
+        _count: { select: { members: true } },
+      } as const;
+
       // First try to find by ID
       let community = await this.prisma.community.findUnique({
         where: { id: idOrSlug },
-        include: {
-          owner: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              profileImage: true,
-            },
-          },
-        },
+        include,
       });
 
       // If not found by ID, try by slug
       if (!community) {
         community = await this.prisma.community.findUnique({
           where: { slug: idOrSlug },
-          include: {
-            owner: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                profileImage: true,
-              },
-            },
-          },
+          include,
         });
       }
 
@@ -132,7 +125,9 @@ export class CommunitiesService {
         }
       }
 
-      return community;
+      // Surface a memberCount field derived from _count, keeping the same
+      // wire shape callers expect after the column was dropped.
+      return { ...community, memberCount: community._count.members };
     } catch (err) {
       if (err instanceof NotFoundException) {
         throw err;
@@ -361,12 +356,6 @@ export class CommunitiesService {
         data: { userId, communityId, role: 'USER' },
       });
 
-      // Update member count
-      await this.prisma.community.update({
-        where: { id: communityId },
-        data: { memberCount: { increment: 1 } },
-      });
-
       return { message: 'Joined community', isMember: true, role: membership.role };
     } catch (err) {
       if (err instanceof ForbiddenException || err instanceof NotFoundException) {
@@ -390,17 +379,9 @@ export class CommunitiesService {
       }
 
       // Remove membership
-      const deleted = await this.prisma.communityMember.deleteMany({
+      await this.prisma.communityMember.deleteMany({
         where: { userId, communityId },
       });
-
-      if (deleted.count > 0) {
-        // Update member count
-        await this.prisma.community.update({
-          where: { id: communityId },
-          data: { memberCount: { decrement: 1 } },
-        });
-      }
 
       return { message: 'Left community', isMember: false };
     } catch (err) {
@@ -547,12 +528,6 @@ export class CommunitiesService {
         expiresAt: null,
         reason: 'Removed by community management',
       },
-    });
-
-    // Update member count
-    await this.prisma.community.update({
-      where: { id: communityId },
-      data: { memberCount: { decrement: 1 } },
     });
 
     return { message: 'Member removed and banned' };
