@@ -50,6 +50,8 @@ model User {
   following                UserFollow[]        @relation("UserFollowing")
   followers                UserFollow[]        @relation("UserFollowers")
   paymentMethods           UserPaymentMethod[]
+
+  @@index([lastActiveAt])
 }
 
 model UserPaymentMethod {
@@ -72,6 +74,7 @@ model UserFollow {
   following   User     @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
 
   @@unique([followerId, followingId])
+  @@index([followingId])
   @@map("user_follows")
 }
 
@@ -91,6 +94,7 @@ model Notification {
 
   @@index([recipientId, isRead])
   @@index([recipientId, createdAt])
+  @@index([actorId])
   @@map("notifications")
 }
 
@@ -139,6 +143,7 @@ model CommunityMember {
   user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, communityId])
+  @@index([communityId])
   @@map("community_members")
 }
 
@@ -155,6 +160,7 @@ model CommunityBan {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, communityId])
+  @@index([communityId, expiresAt])
   @@map("community_bans")
 }
 
@@ -178,6 +184,9 @@ model Post {
   likes       Like[]
   poll        Poll?
   savedBy     SavedPost[]
+
+  @@index([communityId, createdAt])
+  @@index([authorId])
 }
 
 model Poll {
@@ -222,6 +231,7 @@ model Like {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, postId])
+  @@index([postId])
   @@map("likes")
 }
 
@@ -234,6 +244,7 @@ model Comment {
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([postId])
   @@map("comments")
 }
 
@@ -246,6 +257,7 @@ model SavedPost {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, postId])
+  @@index([postId])
   @@map("saved_posts")
 }
 
@@ -289,6 +301,7 @@ model EventRsvp {
   event     Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@unique([eventId, userId])
+  @@index([userId])
   @@map("event_rsvps")
 }
 
