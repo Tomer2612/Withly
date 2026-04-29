@@ -50,6 +50,7 @@ model User {
   following                UserFollow[]        @relation("UserFollowing")
   followers                UserFollow[]        @relation("UserFollowers")
   paymentMethods           UserPaymentMethod[]
+  pollVotes                PollVote[]
 
   @@index([lastActiveAt])
 }
@@ -214,11 +215,12 @@ model PollOption {
 model PollVote {
   id        String     @id @default(cuid())
   optionId  String
-  oderId    String
+  userId    String
   createdAt DateTime   @default(now())
   option    PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([optionId, oderId])
+  @@unique([optionId, userId])
   @@map("poll_votes")
 }
 

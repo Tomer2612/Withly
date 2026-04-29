@@ -86,7 +86,7 @@ export class PostsService {
                   select: { votes: true },
                 },
                 votes: userId ? {
-                  where: { oderId: userId },
+                  where: { userId: userId },
                   select: { id: true },
                 } : false,
               },
@@ -675,7 +675,7 @@ export class PostsService {
     // Check if user already voted on this poll
     const existingVote = await this.prisma.pollVote.findFirst({
       where: {
-        oderId: userId,
+        userId: userId,
         option: {
           pollId: pollId,
         },
@@ -693,7 +693,7 @@ export class PostsService {
     await this.prisma.pollVote.create({
       data: {
         optionId,
-        oderId: userId,
+        userId: userId,
       },
     });
 
@@ -708,7 +708,7 @@ export class PostsService {
               select: { votes: true },
             },
             votes: {
-              where: { oderId: userId },
+              where: { userId: userId },
               select: { id: true },
             },
           },
@@ -747,7 +747,7 @@ export class PostsService {
     // Find and delete user's vote
     const existingVote = await this.prisma.pollVote.findFirst({
       where: {
-        oderId: userId,
+        userId: userId,
         option: {
           pollId: pollId,
         },
