@@ -64,11 +64,15 @@ export function middleware(request: NextRequest) {
   }
   // ============================================
 
-  const token = request.cookies.get('auth-token')?.value;
+  // Read the httpOnly access cookie set by the backend on login/refresh.
+  // Middleware runs server-side so it CAN read httpOnly cookies — that's
+  // why this works without client-side mirroring.
+  const token = request.cookies.get('access_token')?.value;
 
-  // Validate token expiry by decoding the JWT payload
+  // Validate token expiry by decoding the JWT payload (no signature check
+  // here — the backend verifies on every request; middleware only gates
+  // routing and treats a syntactically-broken or expired token as absent).
   let isTokenValid = false;
-  let needsCookieClear = false;
   if (token) {
     try {
       const payloadBase64 = token.split('.')[1];
@@ -79,20 +83,9 @@ export function middleware(request: NextRequest) {
     } catch {
       isTokenValid = false;
     }
-    if (!isTokenValid) {
-      needsCookieClear = true; // Will delete the stale cookie on the response
-    }
   }
 
   const effectiveToken = isTokenValid ? token : undefined;
-
-  // Helper: attach cookie-deletion header to any response we return
-  const clearCookie = (res: NextResponse) => {
-    if (needsCookieClear) {
-      res.cookies.set('auth-token', '', { path: '/', maxAge: 0 });
-    }
-    return res;
-  };
   
   // Check if it's a public route
   const isPublicRoute = publicRoutes.some(route => 
@@ -111,31 +104,31 @@ export function middleware(request: NextRequest) {
   
   // If public or has exception, allow through
   if (isPublicRoute || hasPublicException) {
-    return clearCookie(NextResponse.next());
+    return NextResponse.next();
   }
-  
+
   // Check if it's a protected route
-  const isProtectedRoute = protectedRoutes.some(route => 
+  const isProtectedRoute = protectedRoutes.some(route =>
     pathname.startsWith(route)
   );
-  
+
   if (!isProtectedRoute) {
-    return clearCookie(NextResponse.next());
+    return NextResponse.next();
   }
-  
+
   // No valid token on protected route - redirect to login
   // Exception: community pages redirect to preview instead
   if (!effectiveToken) {
     const communityMatch = pathname.match(/^\/communities\/([^/]+)/);
     if (communityMatch) {
       const communityId = communityMatch[1];
-      return clearCookie(NextResponse.redirect(new URL(`/communities/${communityId}/preview`, request.url)));
+      return NextResponse.redirect(new URL(`/communities/${communityId}/preview`, request.url));
     }
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
-    return clearCookie(NextResponse.redirect(loginUrl));
+    return NextResponse.redirect(loginUrl);
   }
-  
+
   // Valid token exists - allow through
   return NextResponse.next();
 }

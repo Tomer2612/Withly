@@ -25,12 +25,10 @@ export default function UserProfileDropdown({
   const [isOpen, setIsOpen] = useState(false);
 
   const handleLogout = async () => {
-    // Tell the backend first so the refresh token gets revoked and the new
-    // httpOnly cookies are cleared by Set-Cookie. Local cleanup runs after.
+    // Backend revokes the refresh token and clears the httpOnly cookies
+    // via Set-Cookie. Locally we just need to drop the profile cache.
     await serverLogout();
-    localStorage.removeItem('token');
     localStorage.removeItem('userProfileCache');
-    document.cookie = 'auth-token=; path=/; max-age=0';
     window.location.href = '/';
   };
 

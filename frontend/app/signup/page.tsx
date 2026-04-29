@@ -12,7 +12,6 @@ import KeyIcon from '../components/icons/KeyIcon';
 import CheckIcon from '../components/icons/CheckIcon';
 import CloseIcon from '../components/icons/CloseIcon';
 import UserIcon from '../components/icons/UserIcon';
-import { clearSessionData } from '../lib/auth';
 
 // Checkmark Icon component
 const CheckmarkIcon = ({ className = "w-3 h-2.5" }: { className?: string }) => (
@@ -64,18 +63,6 @@ function SignupContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Clear any expired tokens on mount
-  useEffect(() => {
-    try {
-      const token = localStorage.getItem('token');
-      if (token) {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        if (!payload.exp || payload.exp * 1000 < Date.now()) {
-          clearSessionData();
-        }
-      }
-    } catch { clearSessionData(); }
-  }, []);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -238,10 +225,9 @@ function SignupContent() {
         return;
       }
 
-      localStorage.setItem('token', data.access_token);
-      // Set cookie for middleware auth
-      document.cookie = `auth-token=${data.access_token}; path=/; max-age=2592000; SameSite=Lax`;
-      
+      // Auth state lives in httpOnly cookies set by the backend's Set-Cookie
+      // header — no client-side token storage needed.
+
       // Check if user was creating a community - skip email verification and go straight to pricing
       const isCreatingCommunity = searchParams.get('createCommunity') === 'true';
       if (isCreatingCommunity) {

@@ -9,7 +9,6 @@ import SiteHeader from '../components/SiteHeader';
 import GoogleIcon from '../components/icons/GoogleIcon';
 import MailIcon from '../components/icons/MailIcon';
 import KeyIcon from '../components/icons/KeyIcon';
-import { clearSessionData } from '../lib/auth';
 
 function LoginContent() {
   const router = useRouter();
@@ -25,19 +24,6 @@ function LoginContent() {
   const [returnUrl, setReturnUrl] = useState<string | null>(null);
   const [needsVerification, setNeedsVerification] = useState(false);
   const [resending, setResending] = useState(false);
-
-  // Clear any expired tokens on mount
-  useEffect(() => {
-    try {
-      const token = localStorage.getItem('token');
-      if (token) {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        if (!payload.exp || payload.exp * 1000 < Date.now()) {
-          clearSessionData();
-        }
-      }
-    } catch { clearSessionData(); }
-  }, []);
 
   useEffect(() => {
     // Check for Google auth error
@@ -123,10 +109,9 @@ function LoginContent() {
       const data = await res.json();
 
       if (res.ok && data.access_token) {
-        localStorage.setItem('token', data.access_token);
-        // Set cookie for middleware auth (30 days to match JWT expiry)
-        document.cookie = `auth-token=${data.access_token}; path=/; max-age=2592000; SameSite=Lax`;
-        
+        // Auth state lives in httpOnly cookies set by the backend's Set-Cookie
+        // header — no client-side token storage needed.
+
         // Check for pending community join
         const pendingJoinCommunity = localStorage.getItem('pendingJoinCommunity');
         if (pendingJoinCommunity) {

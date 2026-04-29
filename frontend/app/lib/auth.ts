@@ -1,5 +1,10 @@
 /**
  * Shared auth helpers for token management and 401 handling.
+ *
+ * Auth lives in two httpOnly cookies set by the backend (access_token,
+ * refresh_token). They're invisible to JS. Browsers send them automatically
+ * on every API request as long as `credentials: 'include'` is set, which
+ * the global fetch interceptor in ClientProviders does for us.
  */
 
 /**
@@ -18,37 +23,31 @@ export async function serverLogout(): Promise<void> {
   }
 }
 
-/** Clear all auth state and redirect to login (unless already on login/signup) */
+/**
+ * Clear local auth-derived caches and redirect to login (unless already
+ * on login/signup). The cookies themselves are httpOnly and only the
+ * server can clear them — the global 401 interceptor calls this after a
+ * failed refresh, and the logout button calls serverLogout first.
+ */
 export function clearSessionAndRedirect() {
-  localStorage.removeItem('token');
   localStorage.removeItem('userProfileCache');
-  document.cookie = 'auth-token=; path=/; max-age=0';
   const path = window.location.pathname;
   if (path !== '/login' && path !== '/signup') {
     window.location.href = '/login?expired=true';
   }
 }
 
-/** Clear token and cookie without redirecting (for use on login/signup pages). */
+/** Clear local auth-derived caches without redirecting. */
 export function clearSessionData() {
-  localStorage.removeItem('token');
   localStorage.removeItem('userProfileCache');
-  document.cookie = 'auth-token=; path=/; max-age=0';
 }
 
 /**
- * Wrapper around fetch that automatically injects the auth token.
- * 401 responses are handled globally by the interceptor in ClientProviders.
+ * Wrapper around fetch for API calls. Cookies are sent automatically by
+ * the global fetch interceptor — this wrapper exists mostly so call sites
+ * can keep using the same import name and so future auth concerns have a
+ * single place to live.
  */
 export async function authFetch(url: string, options?: RequestInit): Promise<Response> {
-  const token = localStorage.getItem('token');
-  const headers: Record<string, string> = {
-    ...(options?.headers as Record<string, string>),
-  };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  return fetch(url, { ...options, headers });
+  return fetch(url, { ...(options ?? {}), credentials: 'include' });
 }
