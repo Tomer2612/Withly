@@ -132,17 +132,20 @@ export class UsersController {
     return profile;
   }
 
+  @UseGuards(AuthGuard('jwt'))
   @Get(':userId/communities/created')
   async getCreatedCommunities(@Param('userId') userId: string) {
     return this.usersService.getCreatedCommunities(userId);
   }
 
+  @UseGuards(AuthGuard('jwt'))
   @Get(':userId/communities/member')
   async getMemberCommunities(@Param('userId') userId: string) {
     return this.usersService.getMemberCommunities(userId);
   }
 
   // Get user profile stats (followers, following, community members)
+  @UseGuards(AuthGuard('jwt'))
   @Get(':userId/stats')
   async getUserStats(@Param('userId') userId: string) {
     return this.usersService.getUserStats(userId);

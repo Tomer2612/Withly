@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { authFetch } from '../../lib/auth';
 import { FaMapMarkerAlt, FaSignInAlt } from 'react-icons/fa';
 import SiteHeader from '../../components/SiteHeader';
 import ChevronLeftIcon from '../../components/icons/ChevronLeftIcon';
@@ -138,9 +139,9 @@ export default function MemberProfilePage() {
         // Fetch all data in parallel for faster loading
         const [profileRes, createdRes, memberRes, statsRes, isFollowingRes, hasConversationRes] = await Promise.all([
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${userId}`),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${userId}/communities/created`),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${userId}/communities/member`),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${userId}/stats`),
+          authFetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${userId}/communities/created`),
+          authFetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${userId}/communities/member`),
+          authFetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${userId}/stats`),
           token 
             ? fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${userId}/is-following`, {
                 headers: { Authorization: `Bearer ${token}` },
