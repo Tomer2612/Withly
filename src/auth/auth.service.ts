@@ -7,6 +7,10 @@ import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
+  // Real bcrypt hash compared against on no-user logins to keep response
+  // time consistent — prevents existence enumeration via timing.
+  private readonly dummyHashPromise = bcrypt.hash('login-timing-equalizer', 10);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -47,13 +51,10 @@ export class AuthService {
       where: { email },
     });
 
-    if (!user) {
-      throw new UnauthorizedException('User not found');
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      throw new UnauthorizedException('Incorrect password');
+    const hashToCompare = user?.password ?? (await this.dummyHashPromise);
+    const isMatch = await bcrypt.compare(password, hashToCompare);
+    if (!user || !isMatch) {
+      throw new UnauthorizedException('Invalid email or password');
     }
 
     return this.signToken(user.id, user.email);

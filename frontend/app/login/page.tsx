@@ -152,18 +152,10 @@ function LoginContent() {
           router.push(returnUrl || '/');
         }
       } else {
-        // Parse specific error messages and show inline
-        const errorMsg = data.message || '';
-        if (errorMsg.includes('User not found') || errorMsg.includes('not found')) {
-          setEmailError('לא נמצא חשבון עם כתובת אימייל זו');
-          scrollToField('login-email');
-        } else if (errorMsg.includes('Incorrect password') || errorMsg.includes('password')) {
-          setPasswordError('הסיסמה שגויה');
-          scrollToField('login-password');
-        } else {
-          setMessage('ההתחברות נכשלה. אנא בדוק את הפרטים ונסה שוב');
-          setMessageType('error');
-        }
+        // Generic message — backend deliberately doesn't reveal whether the
+        // email exists or the password was wrong, to prevent enumeration.
+        setMessage('כתובת המייל או הסיסמה שגויות');
+        setMessageType('error');
       }
     } catch (err) {
       console.error('Login error:', err);
