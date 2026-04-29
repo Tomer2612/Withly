@@ -232,13 +232,20 @@ export class CommunitiesController {
 
   @UseGuards(AuthGuard('jwt'))
   @Delete(':id/members/:memberId')
-  removeMember(
+  async removeMember(
     @Param('id') id: string,
     @Param('memberId') memberId: string,
     @Req() req,
   ) {
     const userId = req.user.userId;
-    return this.communitiesService.removeMember(id, memberId, userId);
+    const result = await this.communitiesService.removeMember(id, memberId, userId);
+    // Notify the banned user. Fire-and-forget — the ban itself succeeded
+    // and a downstream notification glitch shouldn't fail the response.
+    const community = await this.communitiesService.findById(id, userId).catch(() => null);
+    if (community) {
+      this.notificationsService.notifyCommunityBan(memberId, userId, community.id).catch(() => {});
+    }
+    return result;
   }
 
   @UseGuards(AuthGuard('jwt'))
@@ -270,9 +277,16 @@ export class CommunitiesController {
 
   @UseGuards(AuthGuard('jwt'))
   @Delete(':id/banned/:banId')
-  liftBan(@Param('id') id: string, @Param('banId') banId: string, @Req() req) {
+  async liftBan(@Param('id') id: string, @Param('banId') banId: string, @Req() req) {
     const userId = req.user.userId;
-    return this.communitiesService.liftBan(id, banId, userId);
+    const result = await this.communitiesService.liftBan(id, banId, userId);
+    // Notify the unbanned user. Fire-and-forget.
+    this.notificationsService.notifyCommunityBanLifted(
+      result.unbannedUserId,
+      userId,
+      result.communityId,
+    ).catch(() => {});
+    return { message: result.message };
   }
 
   @Get(':id/managers')

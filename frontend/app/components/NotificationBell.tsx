@@ -8,7 +8,7 @@ import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface Notification {
   id: string;
-  type: 'LIKE' | 'COMMENT' | 'FOLLOW' | 'NEW_POST' | 'MENTION' | 'COMMUNITY_JOIN';
+  type: 'LIKE' | 'COMMENT' | 'FOLLOW' | 'NEW_POST' | 'MENTION' | 'COMMUNITY_JOIN' | 'COMMUNITY_BAN' | 'COMMUNITY_BAN_LIFTED';
   message?: string;
   isRead: boolean;
   createdAt: string;
@@ -35,7 +35,7 @@ interface Notification {
 
 interface GroupedNotification {
   key: string;
-  type: 'LIKE' | 'COMMENT' | 'FOLLOW' | 'NEW_POST' | 'MENTION' | 'COMMUNITY_JOIN';
+  type: 'LIKE' | 'COMMENT' | 'FOLLOW' | 'NEW_POST' | 'MENTION' | 'COMMUNITY_JOIN' | 'COMMUNITY_BAN' | 'COMMUNITY_BAN_LIFTED';
   notifications: Notification[];
   latestAt: string;
   isRead: boolean;
@@ -111,6 +111,10 @@ const getGroupedNotificationText = (group: GroupedNotification) => {
       return `${firstActor} הזכיר/ה אותך בתגובה`;
     case 'COMMUNITY_JOIN':
       return `${firstActor} הצטרף/ה לקהילה ${group.community?.name || ''}`;
+    case 'COMMUNITY_BAN':
+      return `${firstActor} השעה אותך מ${group.community?.name || 'הקהילה'}`;
+    case 'COMMUNITY_BAN_LIFTED':
+      return `${firstActor} ביטל את ההשעיה שלך מ${group.community?.name || 'הקהילה'}`;
     default:
       return 'התראה חדשה';
   }
@@ -146,6 +150,16 @@ const getGroupedNotificationLink = (group: GroupedNotification): string | null =
       const communityId = group.communityId || group.community?.id;
       if (communityId) {
         return `/communities/${communityId}/feed`;
+      }
+      return null;
+    }
+    case 'COMMUNITY_BAN':
+    case 'COMMUNITY_BAN_LIFTED': {
+      // Both go to /preview: banned users see the banner, lifted users
+      // are no longer members and need to rejoin from there.
+      const communityId = group.communityId || group.community?.id;
+      if (communityId) {
+        return `/communities/${communityId}/preview`;
       }
       return null;
     }

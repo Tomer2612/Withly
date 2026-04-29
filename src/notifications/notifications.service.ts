@@ -39,9 +39,12 @@ export class NotificationsService {
       },
     });
 
-    // If user has disabled this notification type, don't create it
+    // If user has disabled this notification type, don't create it.
+    // Moderation events (COMMUNITY_BAN, COMMUNITY_BAN_LIFTED) deliberately
+    // skip this map - they go through createUnconditional and never hit
+    // this method.
     if (user) {
-      const preferenceMap: Record<NotificationType, boolean> = {
+      const preferenceMap: Partial<Record<NotificationType, boolean>> = {
         'LIKE': user.notifyLikes,
         'COMMENT': user.notifyComments,
         'FOLLOW': user.notifyFollows,
@@ -49,7 +52,7 @@ export class NotificationsService {
         'MENTION': user.notifyMentions,
         'COMMUNITY_JOIN': user.notifyCommunityJoins,
       };
-      
+
       if (preferenceMap[data.type] === false) {
         return null;
       }
@@ -256,6 +259,54 @@ export class NotificationsService {
     }
 
     return notifications.filter(Boolean);
+  }
+
+  // Notify a user that they were banned (suspended) from a community.
+  // Bypasses the per-user notification preference check by going through
+  // a direct create — moderation actions shouldn't be silenceable by the
+  // recipient.
+  async notifyCommunityBan(bannedUserId: string, actorId: string, communityId: string) {
+    return this.createUnconditional({
+      type: 'COMMUNITY_BAN',
+      recipientId: bannedUserId,
+      actorId,
+      communityId,
+    });
+  }
+
+  // Notify a user that their ban was lifted.
+  async notifyCommunityBanLifted(unbannedUserId: string, actorId: string, communityId: string) {
+    return this.createUnconditional({
+      type: 'COMMUNITY_BAN_LIFTED',
+      recipientId: unbannedUserId,
+      actorId,
+      communityId,
+    });
+  }
+
+  // Internal: create + emit without checking the user's preference flags.
+  // Used for moderation events the recipient cannot opt out of.
+  private async createUnconditional(data: {
+    type: NotificationType;
+    recipientId: string;
+    actorId?: string;
+    communityId?: string;
+  }) {
+    if (data.actorId && data.actorId === data.recipientId) {
+      return null;
+    }
+    const notification = await this.prisma.notification.create({
+      data,
+      include: {
+        actor: {
+          select: { id: true, name: true, profileImage: true },
+        },
+      },
+    });
+    if (notification && this.messagesGateway) {
+      this.messagesGateway.sendNotificationToUser(data.recipientId, notification);
+    }
+    return notification;
   }
 
   async notifyCommunityJoin(communityOwnerId: string, actorId: string, communityId: string) {

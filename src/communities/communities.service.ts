@@ -845,7 +845,8 @@ export class CommunitiesService {
       where: { id: banId },
     });
 
-    return { message: 'Ban lifted successfully' };
+    // Return the unbanned userId so the caller can fire a notification.
+    return { message: 'Ban lifted successfully', unbannedUserId: ban.userId, communityId };
   }
 
   async getCommunityManagers(communityIdOrSlug: string) {

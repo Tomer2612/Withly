@@ -451,6 +451,8 @@ enum NotificationType {
   NEW_POST
   MENTION
   COMMUNITY_JOIN
+  COMMUNITY_BAN
+  COMMUNITY_BAN_LIFTED
 }
 
 enum CommunityStatus {
