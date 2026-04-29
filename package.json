@@ -9,7 +9,7 @@
     "start:dev": "nest start --watch",
     "prestart:debug": "kill-port 4000",
     "start:debug": "nest start --debug --watch",
-    "build": "rm -f tsconfig.tsbuildinfo && tsc -p tsconfig.build.json",
+    "build": "node -e \"require('fs').rmSync('tsconfig.tsbuildinfo',{force:true})\" && tsc -p tsconfig.build.json",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "postinstall": "prisma generate"
   },
