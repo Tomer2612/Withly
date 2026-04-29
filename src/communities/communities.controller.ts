@@ -8,6 +8,13 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../common/storage.service';
 import { getUserIdFromAuthHeader } from '../common/jwt.helper';
 import { imageFileFilter, imageOrVideoFileFilter } from '../common/upload-filters';
+import {
+  CreateCommunityDto,
+  UpdateCommunityDto,
+  UpdateMemberRoleDto,
+  UpdateRulesDto,
+  UpdateSlugDto,
+} from './dto/communities.dto';
 
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB
 const storage = memoryStorage();
@@ -29,15 +36,7 @@ export class CommunitiesController {
   ], { storage, fileFilter: imageFileFilter }))
   async create(
     @Req() req,
-    @Body() body: {
-      name: string;
-      description: string;
-      topic?: string;
-      youtubeUrl?: string;
-      whatsappUrl?: string;
-      facebookUrl?: string;
-      instagramUrl?: string;
-    },
+    @Body() body: CreateCommunityDto,
     @UploadedFiles() files?: { image?: Express.Multer.File[]; logo?: Express.Multer.File[]; galleryImages?: Express.Multer.File[] },
   ) {
     const userId = req.user.userId;
@@ -92,27 +91,7 @@ export class CommunitiesController {
   async update(
     @Param('id') id: string,
     @Req() req,
-    @Body() body: { 
-      name?: string; 
-      description?: string; 
-      topic?: string | null; 
-      removeImage?: string;
-      removeLogo?: string;
-      youtubeUrl?: string;
-      whatsappUrl?: string;
-      facebookUrl?: string;
-      instagramUrl?: string;
-      existingGalleryImages?: string;
-      existingGalleryVideos?: string;
-      existingPrimaryImage?: string;
-      existingLogo?: string;
-      price?: string;
-      trialCancelled?: boolean;
-      cardLastFour?: string;
-      cardBrand?: string;
-      showOnlineMembers?: string;
-      status?: string;
-    },
+    @Body() body: UpdateCommunityDto,
     @UploadedFiles() files?: { image?: Express.Multer.File[]; logo?: Express.Multer.File[]; galleryImages?: Express.Multer.File[]; galleryVideoFiles?: Express.Multer.File[] },
   ) {
     const userId = req.user.userId;
@@ -223,7 +202,7 @@ export class CommunitiesController {
   updateMemberRole(
     @Param('id') id: string,
     @Param('memberId') memberId: string,
-    @Body() body: { role: 'MANAGER' | 'USER' },
+    @Body() body: UpdateMemberRoleDto,
     @Req() req,
   ) {
     const userId = req.user.userId;
@@ -315,7 +294,7 @@ export class CommunitiesController {
   @Patch(':id/rules')
   updateRules(
     @Param('id') id: string,
-    @Body() body: { rules: string[] },
+    @Body() body: UpdateRulesDto,
     @Req() req,
   ) {
     const userId = req.user.userId;
@@ -326,7 +305,7 @@ export class CommunitiesController {
   @Patch(':id/slug')
   updateSlug(
     @Param('id') id: string,
-    @Body() body: { slug: string },
+    @Body() body: UpdateSlugDto,
   ) {
     return this.communitiesService.updateSlug(id, body.slug);
   }

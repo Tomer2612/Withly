@@ -10,6 +10,14 @@ import { AuthGuard } from '@nestjs/passport';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../common/storage.service';
 import { postContentFileFilter } from '../common/upload-filters';
+import {
+  CreatePostDto,
+  UpdatePostDto,
+  CreateCommentDto,
+  EditCommentDto,
+  CreatePollDto,
+  VotePollDto,
+} from './dto/posts.dto';
 
 const storage = memoryStorage();
 
@@ -48,7 +56,7 @@ export class PostsController {
   async createPost(
     @Param('communityId') communityId: string,
     @Req() req,
-    @Body() body: { content: string; title?: string; links?: string; category?: string; videoUrls?: string },
+    @Body() body: CreatePostDto,
     @UploadedFiles() files?: Express.Multer.File[]
   ) {
     const userId = req.user.userId;
@@ -134,7 +142,7 @@ export class PostsController {
   editComment(
     @Param('commentId') commentId: string,
     @Req() req,
-    @Body() body: { content: string }
+    @Body() body: EditCommentDto,
   ) {
     const userId = req.user.userId;
     return this.postsService.editComment(commentId, userId, body.content);
@@ -147,20 +155,7 @@ export class PostsController {
   async updatePost(
     @Param('postId') postId: string,
     @Req() req,
-    @Body() body: { 
-      content: string; 
-      title?: string; 
-      links?: string;
-      imagesToRemove?: string;
-      filesToRemove?: string;
-      linksToRemove?: string;
-      videosToRemove?: string;
-      videoUrls?: string;
-      pollQuestion?: string;
-      pollOptions?: string;
-      newPollQuestion?: string;
-      newPollOptions?: string;
-    },
+    @Body() body: UpdatePostDto,
     @UploadedFiles() files?: Express.Multer.File[]
   ) {
     const userId = req.user.userId;
@@ -295,7 +290,7 @@ export class PostsController {
   async createComment(
     @Param('postId') postId: string,
     @Req() req,
-    @Body() body: { content: string }
+    @Body() body: CreateCommentDto,
   ) {
     const userId = req.user.userId;
     const comment = await this.postsService.createComment(postId, userId, body.content);
@@ -337,7 +332,7 @@ export class PostsController {
   createPoll(
     @Param('postId') postId: string,
     @Req() req,
-    @Body() body: { question: string; options: string[]; expiresAt?: string }
+    @Body() body: CreatePollDto,
   ) {
     const userId = req.user.userId;
     const expiresAt = body.expiresAt ? new Date(body.expiresAt) : undefined;
@@ -350,7 +345,7 @@ export class PostsController {
   votePoll(
     @Param('pollId') pollId: string,
     @Req() req,
-    @Body() body: { optionId: string }
+    @Body() body: VotePollDto,
   ) {
     const userId = req.user.userId;
     return this.postsService.votePoll(pollId, body.optionId, userId);

@@ -21,6 +21,7 @@ import { PrismaService } from '../common/prisma.service';
 import { StorageService } from '../common/storage.service';
 import { getUserIdFromAuthHeader } from '../common/jwt.helper';
 import { imageFileFilter } from '../common/upload-filters';
+import { CreateEventDto, UpdateEventDto, RsvpEventDto } from './dto/events.dto';
 
 const storage = memoryStorage();
 
@@ -44,24 +45,7 @@ export class EventsController {
   async create(
     @Param('communityId') communityId: string,
     @Req() req,
-    @Body() body: {
-      title: string;
-      description?: string;
-      date: string;
-      endDate?: string;
-      duration?: string;
-      timezone?: string;
-      isRecurring?: string;
-      recurringType?: string;
-      locationType?: string;
-      locationName?: string;
-      locationUrl?: string;
-      category?: string;
-      capacity?: string;
-      sendReminders?: string;
-      reminderDays?: string;
-      attendeeType?: string;
-    },
+    @Body() body: CreateEventDto,
     @UploadedFile() coverImage?: Express.Multer.File,
   ) {
     const userId = req.user.userId;
@@ -156,24 +140,7 @@ export class EventsController {
   async update(
     @Param('eventId') eventId: string,
     @Req() req,
-    @Body() body: {
-      title?: string;
-      description?: string;
-      date?: string;
-      endDate?: string;
-      duration?: string;
-      timezone?: string;
-      isRecurring?: string;
-      recurringType?: string;
-      locationType?: string;
-      locationName?: string;
-      locationUrl?: string;
-      category?: string;
-      capacity?: string;
-      sendReminders?: string;
-      reminderDays?: string;
-      attendeeType?: string;
-    },
+    @Body() body: UpdateEventDto,
     @UploadedFile() coverImage?: Express.Multer.File,
   ) {
     const userId = req.user.userId;
@@ -235,7 +202,7 @@ export class EventsController {
   async rsvp(
     @Param('eventId') eventId: string,
     @Req() req,
-    @Body() body: { status: RsvpStatus },
+    @Body() body: RsvpEventDto,
   ) {
     const userId = req.user.userId;
     return this.eventsService.rsvp(eventId, userId, body.status);

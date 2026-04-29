@@ -21,6 +21,14 @@ import { CoursesService } from './courses.service';
 import { StorageService } from '../common/storage.service';
 import { getUserIdFromAuthHeader } from '../common/jwt.helper';
 import { imageFileFilter, videoFileFilter } from '../common/upload-filters';
+import {
+  CreateCourseDto,
+  UpdateCourseDto,
+  AddChapterDto,
+  UpdateChapterDto,
+  AddLessonDto,
+  UpdateLessonDto,
+} from './dto/courses.dto';
 
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB
 const storage = memoryStorage();
@@ -43,7 +51,7 @@ export class CoursesController {
   )
   async createCourse(
     @Req() req,
-    @Body() body: { title: string; description: string; communityId: string },
+    @Body() body: CreateCourseDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
     return this.coursesService.createCourse({
@@ -106,7 +114,7 @@ export class CoursesController {
   async updateCourse(
     @Param('courseId') courseId: string,
     @Req() req,
-    @Body() body: { title?: string; description?: string; isPublished?: string | boolean },
+    @Body() body: UpdateCourseDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
     const updateData: { title?: string; description?: string; isPublished?: boolean; image?: string } = {};
@@ -133,7 +141,7 @@ export class CoursesController {
   @Post(':courseId/chapters')
   async addChapter(
     @Param('courseId') courseId: string,
-    @Body() body: { title: string },
+    @Body() body: AddChapterDto,
     @Req() req,
   ) {
     return this.coursesService.addChapter(courseId, body.title, req.user.userId);
@@ -144,7 +152,7 @@ export class CoursesController {
   @Patch('chapters/:chapterId')
   async updateChapter(
     @Param('chapterId') chapterId: string,
-    @Body() body: { title?: string; order?: number },
+    @Body() body: UpdateChapterDto,
     @Req() req,
   ) {
     return this.coursesService.updateChapter(chapterId, body, req.user.userId);
@@ -162,25 +170,7 @@ export class CoursesController {
   @Post('chapters/:chapterId/lessons')
   async addLesson(
     @Param('chapterId') chapterId: string,
-    @Body() body: {
-      title: string;
-      content?: string;
-      videoUrl?: string;
-      duration?: number;
-      lessonType?: string;
-      images?: string[];
-      files?: { url: string; name: string }[];
-      links?: string[];
-      contentOrder?: string[];
-      quiz?: {
-        questions: {
-          question: string;
-          questionType: string;
-          order: number;
-          options: { text: string; isCorrect: boolean; order: number }[];
-        }[];
-      };
-    },
+    @Body() body: AddLessonDto,
     @Req() req,
   ) {
     return this.coursesService.addLesson(chapterId, body, req.user.userId);
@@ -240,27 +230,7 @@ export class CoursesController {
   @Patch('lessons/:lessonId')
   async updateLesson(
     @Param('lessonId') lessonId: string,
-    @Body() body: {
-      title?: string;
-      content?: string;
-      videoUrl?: string;
-      duration?: number;
-      order?: number;
-      lessonType?: string;
-      images?: string[];
-      files?: { url: string; name: string }[];
-      links?: string[];
-      contentOrder?: string[];
-      quiz?: {
-        questions: {
-          id?: string;
-          question: string;
-          questionType: string;
-          order: number;
-          options: { id?: string; text: string; isCorrect: boolean; order: number }[];
-        }[];
-      };
-    },
+    @Body() body: UpdateLessonDto,
     @Req() req,
   ) {
     return this.coursesService.updateLesson(lessonId, body, req.user.userId);

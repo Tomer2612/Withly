@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Param, Query, UseGuards, Req } from '@nest
 import { AuthGuard } from '@nestjs/passport';
 import { MessagesService } from './messages.service';
 import { MessagesGateway } from './messages.gateway';
+import { SendMessageDto } from './dto/messages.dto';
 
 @Controller('messages')
 export class MessagesController {
@@ -61,7 +62,7 @@ export class MessagesController {
   @Post('send')
   async sendMessage(
     @Req() req,
-    @Body() body: { recipientId: string; content: string },
+    @Body() body: SendMessageDto,
   ) {
     const message = await this.messagesService.sendMessage(req.user.userId, body.recipientId, body.content);
     

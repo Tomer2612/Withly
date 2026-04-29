@@ -507,7 +507,7 @@ export class CoursesService {
   async addLesson(chapterId: string, data: {
     title: string;
     content?: string;
-    videoUrl?: string;
+    videoUrl?: string | null;
     duration?: number;
     lessonType?: string;
     images?: string[];
@@ -695,7 +695,7 @@ export class CoursesService {
   async updateLesson(lessonId: string, data: {
     title?: string;
     content?: string;
-    videoUrl?: string;
+    videoUrl?: string | null;
     duration?: number;
     order?: number;
     lessonType?: string;
