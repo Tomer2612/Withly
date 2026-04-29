@@ -320,18 +320,26 @@ export class CommunitiesService {
         throw new NotFoundException('Community not found');
       }
 
-      // Check if user is banned from this community
+      // Check if user is banned from this community.
+      // null expiresAt = indefinite ban; lifted only by liftBan deleting the row.
+      // Time-limited bans (legacy) are auto-cleaned once expired.
       const activeBan = await this.prisma.communityBan.findUnique({
         where: { userId_communityId: { userId, communityId } },
       });
 
-      if (activeBan && activeBan.expiresAt > new Date()) {
-        const daysLeft = Math.ceil((activeBan.expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-        throw new ForbiddenException(`You are banned from this community. Ban expires in ${daysLeft} day(s).`);
-      }
+      if (activeBan) {
+        const isIndefinite = activeBan.expiresAt === null;
+        const isStillActive = isIndefinite || activeBan.expiresAt! > new Date();
 
-      // If ban has expired, delete it
-      if (activeBan && activeBan.expiresAt <= new Date()) {
+        if (isStillActive) {
+          if (isIndefinite) {
+            throw new ForbiddenException('You are banned from this community.');
+          }
+          const daysLeft = Math.ceil((activeBan.expiresAt!.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+          throw new ForbiddenException(`You are banned from this community. Ban expires in ${daysLeft} day(s).`);
+        }
+
+        // Expired time-limited ban — clean it up.
         await this.prisma.communityBan.delete({
           where: { userId_communityId: { userId, communityId } },
         });
@@ -405,33 +413,45 @@ export class CommunitiesService {
 
   async checkMembership(communityIdOrSlug: string, userId: string) {
     const communityId = await this.resolveId(communityIdOrSlug);
-    
+
     const membership = await this.prisma.communityMember.findUnique({
       where: {
         userId_communityId: { userId, communityId },
       },
     });
 
+    // Surface ban state too — the frontend needs to know before showing
+    // a Join / Payment flow that the user can't actually rejoin.
+    const ban = await this.prisma.communityBan.findUnique({
+      where: { userId_communityId: { userId, communityId } },
+      select: { expiresAt: true, reason: true },
+    });
+    const isBanned = !!ban && (ban.expiresAt === null || ban.expiresAt > new Date());
+
     if (membership) {
-      return { 
-        isMember: true, 
+      return {
+        isMember: true,
         role: membership.role,
         isOwner: membership.role === 'OWNER',
         isManager: membership.role === 'MANAGER',
         canEdit: membership.role === 'OWNER' || membership.role === 'MANAGER',
         canDelete: membership.role === 'OWNER',
         canManageRoles: membership.role === 'OWNER',
+        isBanned: false,
+        banReason: null,
       };
     }
 
-    return { 
-      isMember: false, 
+    return {
+      isMember: false,
       role: null,
-      isOwner: false, 
+      isOwner: false,
       isManager: false,
       canEdit: false,
       canDelete: false,
       canManageRoles: false,
+      isBanned,
+      banReason: isBanned ? ban?.reason ?? null : null,
     };
   }
 
@@ -475,9 +495,11 @@ export class CommunitiesService {
     return { message: 'Role updated', member: updated };
   }
 
-  async removeMember(communityIdOrSlug: string, targetUserId: string, requesterId: string, banDays: number = 7) {
+  // Remove a member and create an indefinite ban. The member can rejoin only
+  // after an owner/manager calls liftBan (which deletes the ban row).
+  async removeMember(communityIdOrSlug: string, targetUserId: string, requesterId: string) {
     const communityId = await this.resolveId(communityIdOrSlug);
-    
+
     // Check if requester is owner or manager
     const requesterMembership = await this.prisma.communityMember.findUnique({
       where: { userId_communityId: { userId: requesterId, communityId } },
@@ -511,21 +533,18 @@ export class CommunitiesService {
       where: { userId_communityId: { userId: targetUserId, communityId } },
     });
 
-    // Create a ban record (default 7 days)
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + banDays);
-    
+    // Create an indefinite ban (expiresAt: null). Lifted manually via liftBan.
     await this.prisma.communityBan.upsert({
       where: { userId_communityId: { userId: targetUserId, communityId } },
       create: {
         userId: targetUserId,
         communityId,
-        expiresAt,
+        expiresAt: null,
         reason: 'Removed by community management',
       },
       update: {
         bannedAt: new Date(),
-        expiresAt,
+        expiresAt: null,
         reason: 'Removed by community management',
       },
     });
@@ -536,7 +555,7 @@ export class CommunitiesService {
       data: { memberCount: { decrement: 1 } },
     });
 
-    return { message: 'Member removed and banned for ' + banDays + ' days' };
+    return { message: 'Member removed and banned' };
   }
 
   async getUserMemberships(userId: string) {
@@ -765,11 +784,14 @@ export class CommunitiesService {
       throw new ForbiddenException('Only owners and managers can view banned users');
     }
 
-    // Get all active bans
+    // Get all active bans — indefinite (expiresAt null) OR not-yet-expired.
     const bans = await this.prisma.communityBan.findMany({
-      where: { 
+      where: {
         communityId,
-        expiresAt: { gt: new Date() }, // Only active bans
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: new Date() } },
+        ],
       },
       include: {
         user: {
@@ -791,7 +813,9 @@ export class CommunitiesService {
       reason: ban.reason,
       bannedAt: ban.bannedAt,
       expiresAt: ban.expiresAt,
-      daysLeft: Math.ceil((ban.expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
+      daysLeft: ban.expiresAt
+        ? Math.ceil((ban.expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        : null,
     }));
   }
 

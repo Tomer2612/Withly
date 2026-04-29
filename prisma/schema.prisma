@@ -147,7 +147,9 @@ model CommunityBan {
   userId      String
   communityId String
   bannedAt    DateTime  @default(now())
-  expiresAt   DateTime
+  // null expiresAt means indefinite — ban is active until liftBan deletes the row.
+  // Existing time-limited bans keep their expiresAt and auto-expire as before.
+  expiresAt   DateTime?
   reason      String?
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -176,11 +176,11 @@ export default function CommunityNavbar({
               <svg 
                 width="10" height="5" viewBox="0 0 10 5" fill="none" 
                 xmlns="http://www.w3.org/2000/svg"
-                className={`transform transition-transform duration-200 flex-shrink-0 ${isDropdownOpen ? 'rotate-180' : ''}`}
+                className={`transform transition-transform duration-200 flex-shrink-0 overflow-visible ${isDropdownOpen ? 'rotate-180' : ''}`}
               >
-                <path 
-                  d="M1 1L5 5L9 1" 
-                  stroke="#374151" 
+                <path
+                  d="M1 1L5 5L9 1"
+                  stroke="#374151"
                   strokeWidth="1.5" 
                   strokeLinecap="round" 
                   strokeLinejoin="round"

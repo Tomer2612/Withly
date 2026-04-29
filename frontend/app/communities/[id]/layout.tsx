@@ -120,7 +120,7 @@ export default function CommunityLayout({ children }: { children: ReactNode }) {
       if (token) headers['Authorization'] = `Bearer ${token}`;
       
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`, { headers });
-      
+
       if (res.ok) {
         const data = await res.json();
         setCommunity({
@@ -130,28 +130,49 @@ export default function CommunityLayout({ children }: { children: ReactNode }) {
           logo: data.logo,
           ownerId: data.ownerId,
         });
-        
-        // Check membership and role
-        if (userId && data.members) {
-          const membership = data.members.find((m: { userId: string }) => m.userId === userId);
-          if (membership) {
-            setIsMember(true);
-            setUserRole(membership.role);
-          } else if (data.ownerId === userId) {
-            setIsMember(true);
-            setUserRole('OWNER');
-          } else {
-            setIsMember(false);
-            setUserRole(null);
+
+        // Membership detection — important: don't flip isMember to a stale value
+        // while the JWT is still decoding. If a token exists in storage but
+        // userId hasn't been set yet, leave isMember alone and wait for the
+        // re-render after userId settles. Otherwise feed/page.tsx briefly sees
+        // isMember=false and bounces the user to /preview.
+        if (token && !userId) {
+          // userId not decoded yet — this effect will refire when it is.
+          // Don't mark initial-data-loaded yet so children don't paint
+          // until membership is actually known.
+          return;
+        } else if (token && userId) {
+          const membershipRes = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/membership`,
+            { headers },
+          );
+          if (membershipRes.ok) {
+            const m = await membershipRes.json();
+            setIsMember(!!m.isMember);
+            setUserRole(m.role ?? null);
+            // Non-members (banned or not) belong on /preview. Doing the
+            // redirect at the layout level — before children render —
+            // avoids the feed/about/etc page flashing into view first.
+            // Mark data loaded *before* navigating so the spinner clears
+            // once the new page mounts; layout's deps don't include
+            // pathname so it won't refire on the destination route.
+            if (!m.isMember && !pathname?.includes('/preview')) {
+              setLoading(false);
+              setInitialDataLoaded(true);
+              router.replace(`/communities/${communityId}/preview`);
+              return;
+            }
           }
-        } else if (userId && data.ownerId === userId) {
-          setIsMember(true);
-          setUserRole('OWNER');
+        } else {
+          // No token at all — anonymous viewer
+          setIsMember(false);
+          setUserRole(null);
         }
       }
+      setLoading(false);
+      setInitialDataLoaded(true);
     } catch (error) {
       console.error('Error fetching community:', error);
-    } finally {
       setLoading(false);
       setInitialDataLoaded(true);
     }
@@ -205,7 +226,14 @@ export default function CommunityLayout({ children }: { children: ReactNode }) {
           onSearchChange={setSearchQuery}
         />
       )}
-      {children}
+      {/* Hold child render until the first community + membership fetch is
+          done. Otherwise feed/about/etc paint briefly before the layout's
+          ban-redirect resolves, causing the visible "flash then bounce." */}
+      {initialDataLoaded ? children : (
+        <main className="min-h-screen flex items-center justify-center bg-gray-100">
+          <div className="w-8 h-8 border-2 border-gray-300 border-t-black rounded-full animate-spin" />
+        </main>
+      )}
     </CommunityLayoutContext.Provider>
   );
 }

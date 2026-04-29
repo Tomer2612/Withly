@@ -5,10 +5,8 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useCommunityContext } from '../CommunityContext';
 import { authFetch } from '../../../lib/auth';
-import { FaBan, FaUndo } from 'react-icons/fa';
 import SearchXIcon from '../../../components/icons/SearchXIcon';
 import UserRemoveIcon from '../../../components/icons/UserRemoveIcon';
-import CloseIcon from '../../../components/icons/CloseIcon';
 import CrownIcon from '../../../components/icons/CrownIcon';
 import { getImageUrl } from '@/app/lib/imageUrl';
 
@@ -35,8 +33,8 @@ interface BannedUser {
   };
   reason: string;
   bannedAt: string;
-  expiresAt: string;
-  daysLeft: number;
+  expiresAt: string | null;
+  daysLeft: number | null;
 }
 
 interface Community {
@@ -63,6 +61,7 @@ export default function CommunityMembersPage() {
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [removeModal, setRemoveModal] = useState<{ open: boolean; memberId: string | null; memberName: string }>({ open: false, memberId: null, memberName: '' });
+  const [liftBanModal, setLiftBanModal] = useState<{ open: boolean; banId: string | null; memberName: string }>({ open: false, banId: null, memberName: '' });
   
   const { userEmail, userId, userProfile, isOwnerOrManager, userRole } = useCommunityContext();
   const currentUserRole = userRole;
@@ -249,11 +248,7 @@ export default function CommunityMembersPage() {
     }
   };
 
-  const handleLiftBan = async (banId: string, userName: string) => {
-    if (!confirm(`האם אתה בטוח שברצונך להסיר את ההשעיה של ${userName}?`)) {
-      return;
-    }
-
+  const handleLiftBan = async (banId: string) => {
     const token = localStorage.getItem('token');
     if (!token) return;
 
@@ -267,6 +262,7 @@ export default function CommunityMembersPage() {
 
       if (res.ok) {
         setBannedUsers(prev => prev.filter(b => b.id !== banId));
+        setLiftBanModal({ open: false, banId: null, memberName: '' });
       } else {
         const error = await res.json();
         alert(error.message || 'שגיאה בהסרת ההשעיה');
@@ -363,7 +359,7 @@ export default function CommunityMembersPage() {
                       <button
                         onClick={() => setRemoveModal({ open: true, memberId: member.id, memberName: member.name || 'משתמש' })}
                         className="p-1.5 text-[#B3261E] hover:bg-[#F4F4F5] rounded-lg transition"
-                        title="הסר מהקהילה"
+                        title="השעה מהקהילה"
                       >
                         <UserRemoveIcon className="w-5 h-5" />
                       </button>
@@ -400,10 +396,15 @@ export default function CommunityMembersPage() {
               className="flex items-center justify-between w-full"
             >
               <div className="flex items-center gap-2">
-                <FaBan className="w-5 h-5 text-red-500" />
-                <h2 className="text-lg font-semibold text-black">משתמשים מושעים ({bannedUsers.length})</h2>
+                <h2 className="font-semibold text-black" style={{ fontSize: '21px' }}>משתמשים מושעים ({bannedUsers.length})</h2>
               </div>
-              <span className="text-gray-400">{showBanned ? '▲' : '▼'}</span>
+              <svg
+                width="14" height="7" viewBox="0 0 10 5" fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className={`transform transition-transform duration-200 text-black overflow-visible flex-shrink-0 ${showBanned ? 'rotate-180' : ''}`}
+              >
+                <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </button>
 
             {showBanned && (
@@ -411,7 +412,7 @@ export default function CommunityMembersPage() {
                 {bannedUsers.map((ban) => (
                   <div
                     key={ban.id}
-                    className="flex items-center gap-4 p-4 bg-red-50 rounded-xl"
+                    className="flex items-center gap-4 p-4 bg-gray-50 hover:bg-[#F4F4F5] rounded-xl transition"
                   >
                     {/* Profile Image */}
                     <div className="relative flex-shrink-0">
@@ -432,22 +433,22 @@ export default function CommunityMembersPage() {
                     <div className="flex-1 text-right">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-gray-700">{ban.user.name || 'משתמש'}</span>
-                        <span className="inline-flex items-center gap-1 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
-                          <FaBan className="w-3 h-3" />
+                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: '#B3261E', color: '#FFFFFF' }}>
+                          <UserRemoveIcon className="w-3 h-3" />
                           מושעה
                         </span>
                       </div>
                       <p className="text-sm text-gray-500">
-                        @{ban.user.email.split('@')[0]} · נותרו {ban.daysLeft} ימים
+                        @{ban.user.email.split('@')[0]} · {ban.daysLeft === null ? 'ללא הגבלה' : `נותרו ${ban.daysLeft} ימים`}
                       </p>
                     </div>
 
                     {/* Lift Ban Button */}
                     <button
-                      onClick={() => handleLiftBan(ban.id, ban.user.name || 'משתמש')}
-                      className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-green-100 text-green-700 hover:bg-green-200 rounded-lg transition"
+                      onClick={() => setLiftBanModal({ open: true, banId: ban.id, memberName: ban.user.name || 'משתמש' })}
+                      className="px-3 py-1.5 text-sm font-medium rounded-lg transition hover:opacity-90"
+                      style={{ backgroundColor: '#A7EA7B', color: '#163300' }}
                     >
-                      <FaUndo className="w-3 h-3" />
                       הסר השעיה
                     </button>
                   </div>
@@ -458,21 +459,15 @@ export default function CommunityMembersPage() {
         )}
       </section>
 
-      {/* Remove Member Modal */}
+      {/* Suspend Member Modal */}
       {removeModal.open && removeModal.memberId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50" onClick={() => setRemoveModal({ open: false, memberId: null, memberName: '' })} />
           <div className="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4" dir="rtl">
-            <button
-              onClick={() => setRemoveModal({ open: false, memberId: null, memberName: '' })}
-              className="absolute top-4 left-4 p-1 hover:bg-gray-100 rounded-full transition"
-            >
-              <CloseIcon className="w-5 h-5" />
-            </button>
             <div className="text-center">
-              <h3 className="text-xl font-bold text-black mb-2">הסר חבר קהילה</h3>
+              <h3 className="text-xl font-bold text-black mb-2">השעה חבר מהקהילה</h3>
               <p className="text-[#3F3F46] mb-6">
-                האם אתה בטוח שברצונך להסיר את <span className="font-semibold">{removeModal.memberName}</span> מהקהילה?
+                האם אתה בטוח שברצונך להשעות את <span className="font-semibold">{removeModal.memberName}</span> מהקהילה? הוא לא יוכל להצטרף שוב עד להסרת ההשעיה.
               </p>
               <div className="flex gap-3 justify-center">
                 <button
@@ -485,7 +480,37 @@ export default function CommunityMembersPage() {
                   onClick={() => handleRemoveMember(removeModal.memberId!, removeModal.memberName)}
                   className="px-6 py-2.5 bg-[#B3261E] text-white rounded-xl font-medium hover:bg-[#9C2019] transition"
                 >
-                  הסר
+                  השעה
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Lift Ban Modal */}
+      {liftBanModal.open && liftBanModal.banId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setLiftBanModal({ open: false, banId: null, memberName: '' })} />
+          <div className="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4" dir="rtl">
+            <div className="text-center">
+              <h3 className="text-xl font-bold text-black mb-2">הסר השעיה</h3>
+              <p className="text-[#3F3F46] mb-6">
+                האם אתה בטוח שברצונך להסיר את ההשעיה של <span className="font-semibold">{liftBanModal.memberName}</span>? הוא יוכל להצטרף שוב לקהילה.
+              </p>
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={() => setLiftBanModal({ open: false, banId: null, memberName: '' })}
+                  className="px-6 py-2.5 border border-black text-black rounded-xl font-medium hover:bg-gray-50 transition"
+                >
+                  ביטול
+                </button>
+                <button
+                  onClick={() => handleLiftBan(liftBanModal.banId!)}
+                  className="px-6 py-2.5 rounded-xl font-medium transition hover:opacity-90"
+                  style={{ backgroundColor: '#A7EA7B', color: '#163300' }}
+                >
+                  הסר השעיה
                 </button>
               </div>
             </div>

@@ -202,19 +202,21 @@ function CommunityPreviewContent() {
   const [managerCount, setManagerCount] = useState(0);
   const [joining, setJoining] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [isBanned, setIsBanned] = useState(false);
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvv, setCardCvv] = useState('');
   const [cardName, setCardName] = useState('');
 
-  // Check if we should show payment modal (coming back from signup)
+  // Check if we should show payment modal (coming back from signup).
+  // Banned users skip this - the banner replaces the join flow entirely.
   useEffect(() => {
-    if (searchParams.get('showPayment') === 'true' && community) {
+    if (searchParams.get('showPayment') === 'true' && community && !isBanned) {
       setShowPaymentModal(true);
       // Remove the query param from URL
       router.replace(`/communities/${communityId}/preview`);
     }
-  }, [searchParams, community, communityId, router]);
+  }, [searchParams, community, communityId, router, isBanned]);
 
   useEffect(() => {
     setMounted(true);
@@ -244,7 +246,7 @@ function CommunityPreviewContent() {
         setCommunity(null);
         setLoading(true);
         
-        // Check membership - if member, redirect to feed
+        // Check membership - if member, redirect to feed; if banned, surface that.
         if (token) {
           const membershipRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/membership`, {
             headers: { Authorization: `Bearer ${token}` },
@@ -252,9 +254,13 @@ function CommunityPreviewContent() {
           if (membershipRes.ok) {
             const membershipData = await membershipRes.json();
             if (membershipData.role) {
-              // User is a member, redirect to feed
-              router.push(`/communities/${communityId}/feed`);
+              // Already a member — hard navigate so the layout's membership
+              // cache can't lag behind and bounce us back here.
+              window.location.href = `/communities/${communityId}/feed`;
               return;
+            }
+            if (membershipData.isBanned) {
+              setIsBanned(true);
             }
           }
         }
@@ -314,6 +320,9 @@ function CommunityPreviewContent() {
   }, [communityId, router]);
 
   const handleJoinClick = () => {
+    // Banned users can't rejoin — bail before any signup/payment side trips.
+    if (isBanned) return;
+
     if (!userEmail) {
       // Save the community ID and payment intent for after registration
       localStorage.setItem('pendingJoinCommunity', communityId);
@@ -342,9 +351,12 @@ function CommunityPreviewContent() {
       });
       
       if (res.ok) {
-        // Redirect using slug if available
+        // Redirect using slug if available. Use a hard navigation (not
+        // router.push) so the community layout remounts with fresh
+        // membership state — otherwise the layout caches isMember=false
+        // from before we joined and feed bounces us back to preview.
         const redirectId = community?.slug || communityId;
-        router.push(`/communities/${redirectId}/feed`);
+        window.location.href = `/communities/${redirectId}/feed`;
       }
     } catch (err) {
       console.error('Failed to join community:', err);
@@ -477,27 +489,40 @@ function CommunityPreviewContent() {
                 )}
               </div>
 
-              {/* Join Button */}
+              {/* Join Button (or banned banner) */}
               <div className="px-5 pb-5">
-              <button
-                onClick={handleJoinClick}
-                disabled={joining}
-                className="w-full py-3 px-4 bg-black text-white rounded-xl font-bold text-lg hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {joining ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    מצטרף...
-                  </>
-                ) : community.price && community.price > 0 ? (
-                  `הצטרפות בתשלום`
-                ) : (
-                  `הצטרפות בחינם`
-                )}
-              </button>
-              {community.price && community.price > 0 ? (
-                <p className="text-xs text-gray-500 text-center mt-2">₪{community.price} לחודש • 3 חודשי ניסיון חינם</p>
-              ) : null}
+              {isBanned ? (
+                <div
+                  className="w-full py-3 px-4 rounded-xl font-medium text-center"
+                  style={{ backgroundColor: '#FCE8E6', color: '#B3261E' }}
+                >
+                  הושעית מהקהילה ולא ניתן להצטרף שוב.
+                  <br />
+                  צור קשר עם הבעלים או המנהלים להסרת ההשעיה.
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={handleJoinClick}
+                    disabled={joining}
+                    className="w-full py-3 px-4 bg-black text-white rounded-xl font-bold text-lg hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {joining ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        מצטרף...
+                      </>
+                    ) : community.price && community.price > 0 ? (
+                      `הצטרפות בתשלום`
+                    ) : (
+                      `הצטרפות בחינם`
+                    )}
+                  </button>
+                  {community.price && community.price > 0 ? (
+                    <p className="text-xs text-gray-500 text-center mt-2">₪{community.price} לחודש • 3 חודשי ניסיון חינם</p>
+                  ) : null}
+                </>
+              )}
               </div>
             </div>
 
