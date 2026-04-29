@@ -1,8 +1,9 @@
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, HttpAdapterHost } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { CORS_ORIGINS } from './common/cors';
+import { AllExceptionsFilter } from './common/all-exceptions.filter';
 
 async function bootstrap() {
   if (!process.env.JWT_SECRET) {
@@ -11,6 +12,9 @@ async function bootstrap() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.set('trust proxy', 1);
+
+  // Single global exception filter so every error response shares one shape.
+  app.useGlobalFilters(new AllExceptionsFilter(app.get(HttpAdapterHost)));
 
   // Helmet sets security-hardening response headers (X-Frame-Options,
   // X-Content-Type-Options, HSTS, default CSP, etc). Override the default
