@@ -343,7 +343,9 @@ export class UsersService {
   async getPaymentMethods(userId: string) {
     return this.prisma.userPaymentMethod.findMany({
       where: { userId },
-      orderBy: { createdAt: 'desc' },
+      // Primary first, then by recency. Real createdAt is preserved now
+      // (setPrimaryPaymentMethod no longer mutates it).
+      orderBy: [{ isPrimary: 'desc' }, { createdAt: 'desc' }],
     });
   }
 
@@ -352,16 +354,20 @@ export class UsersService {
     const existing = await this.prisma.userPaymentMethod.findFirst({
       where: { userId, cardLastFour },
     });
-    
+
     if (existing) {
       return existing; // Don't add duplicate
     }
-    
+
+    // First card a user adds becomes primary automatically.
+    const hasAny = await this.prisma.userPaymentMethod.count({ where: { userId } });
+
     return this.prisma.userPaymentMethod.create({
       data: {
         userId,
         cardLastFour,
         cardBrand,
+        isPrimary: hasAny === 0,
       },
     });
   }
@@ -371,21 +377,53 @@ export class UsersService {
     const count = await this.prisma.userPaymentMethod.count({
       where: { userId },
     });
-    
+
     if (count <= 1) {
       throw new BadRequestException(ERROR_MESSAGES.CANNOT_DELETE_LAST_PAYMENT_METHOD);
     }
-    
-    return this.prisma.userPaymentMethod.deleteMany({
-      where: { id: paymentMethodId, userId },
+
+    // If the card being deleted was primary, promote another to primary.
+    return this.prisma.$transaction(async (tx) => {
+      const target = await tx.userPaymentMethod.findFirst({
+        where: { id: paymentMethodId, userId },
+        select: { isPrimary: true },
+      });
+      if (!target) return { count: 0 };
+
+      const result = await tx.userPaymentMethod.deleteMany({
+        where: { id: paymentMethodId, userId },
+      });
+
+      if (target.isPrimary) {
+        const replacement = await tx.userPaymentMethod.findFirst({
+          where: { userId },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (replacement) {
+          await tx.userPaymentMethod.update({
+            where: { id: replacement.id },
+            data: { isPrimary: true },
+          });
+        }
+      }
+
+      return result;
     });
   }
 
   async setPrimaryPaymentMethod(userId: string, paymentMethodId: string) {
-    // Update the createdAt to now to make it the most recent (primary)
-    return this.prisma.userPaymentMethod.updateMany({
-      where: { id: paymentMethodId, userId },
-      data: { createdAt: new Date() },
+    // Atomically demote any current primary, promote the chosen one.
+    // The partial unique index in the DB enforces "at most one primary
+    // per user", so doing this in a single transaction prevents races.
+    return this.prisma.$transaction(async (tx) => {
+      await tx.userPaymentMethod.updateMany({
+        where: { userId, isPrimary: true },
+        data: { isPrimary: false },
+      });
+      return tx.userPaymentMethod.updateMany({
+        where: { id: paymentMethodId, userId },
+        data: { isPrimary: true },
+      });
     });
   }
 }

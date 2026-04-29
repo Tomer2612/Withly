@@ -1230,7 +1230,7 @@ export default function SettingsPage() {
                             ) : null}
                           </button>
                           <div>
-                            <span className="font-medium">{index === 0 ? 'כרטיס נוכחי:' : 'כרטיס שמור:'}</span>
+                            <span className="font-medium">{index === 0 ? 'כרטיס ראשי:' : 'כרטיס שמור:'}</span>
                             <span className="mr-2">{method.cardBrand || 'Visa'} ************{method.cardLastFour}</span>
                           </div>
                         </div>

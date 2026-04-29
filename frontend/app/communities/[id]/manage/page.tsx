@@ -1592,7 +1592,7 @@ export default function ManageCommunityPage() {
                     {cardLastFour && (
                       <p className="text-sm text-gray-600 mt-2 flex items-center gap-2">
                         <CreditCardIcon className="w-3.5 h-3.5 text-gray-400" />
-                        <span>כרטיס נוכחי: {cardBrand || 'Visa'} ************{cardLastFour}</span>
+                        <span>כרטיס ראשי: {cardBrand || 'Visa'} ************{cardLastFour}</span>
                       </p>
                     )}
                   </div>
@@ -1671,7 +1671,7 @@ export default function ManageCommunityPage() {
                 
                 {cardLastFour && (
                   <p className="text-center text-gray-600 mb-4">
-                    כרטיס נוכחי: <strong>{cardBrand || 'Visa'} ************{cardLastFour}</strong>
+                    כרטיס ראשי: <strong>{cardBrand || 'Visa'} ************{cardLastFour}</strong>
                   </p>
                 )}
                 

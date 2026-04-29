@@ -61,6 +61,7 @@ model UserPaymentMethod {
   cardLastFour String
   cardBrand    String   @default("Visa")
   createdAt    DateTime @default(now())
+  isPrimary    Boolean  @default(false)
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_payment_methods")
