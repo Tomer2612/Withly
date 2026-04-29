@@ -477,7 +477,6 @@ enum CommunityStatus {
 }
 
 enum MemberRole {
-  OWNER
   MANAGER
   USER
 }

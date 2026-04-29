@@ -240,7 +240,7 @@ export class UsersService {
       },
       orderBy: { createdAt: 'desc' },
     });
-    return communities.map(({ _count, ...c }) => ({ ...c, memberCount: _count.members }));
+    return communities.map(({ _count, ...c }) => ({ ...c, memberCount: _count.members + 1 }));
   }
 
   // Get communities user is a member of
@@ -266,7 +266,7 @@ export class UsersService {
 
     return memberships.map(m => {
       const { _count, ...rest } = m.community;
-      return { ...rest, memberCount: _count.members };
+      return { ...rest, memberCount: _count.members + 1 };
     });
   }
 
@@ -283,10 +283,15 @@ export class UsersService {
     });
 
     // Get total members across all communities owned by this user.
-    // memberCount is no longer denormalized - count from membership rows.
-    const totalCommunityMembers = await this.prisma.communityMember.count({
-      where: { community: { ownerId: userId } },
-    });
+    // After D2 the owner has no community_members row, so add the owned-
+    // community count to keep the owner counted once per community.
+    const [memberRows, ownedCount] = await Promise.all([
+      this.prisma.communityMember.count({
+        where: { community: { ownerId: userId } },
+      }),
+      this.prisma.community.count({ where: { ownerId: userId } }),
+    ]);
+    const totalCommunityMembers = memberRows + ownedCount;
 
     return {
       followers: followersCount,

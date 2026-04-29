@@ -21,6 +21,7 @@ import { PrismaService } from '../common/prisma.service';
 import { StorageService } from '../common/storage.service';
 import { getUserIdFromAuthHeader } from '../common/jwt.helper';
 import { imageFileFilter } from '../common/upload-filters';
+import { canManageCommunity, getEffectiveRole } from '../common/community-roles.helper';
 import { CreateEventDto, UpdateEventDto, RsvpEventDto } from './dto/events.dto';
 
 const storage = memoryStorage();
@@ -103,13 +104,10 @@ export class EventsController {
     // Optional auth: get userId if a valid token is provided, otherwise undefined.
     const userId = getUserIdFromAuthHeader(req.headers.authorization);
 
-    // Check if user is manager
+    // Check if user is manager (or owner)
     let isManager = false;
     if (userId) {
-      const membership = await this.prisma.communityMember.findUnique({
-        where: { userId_communityId: { userId, communityId } },
-      });
-      isManager = membership?.role === 'OWNER' || membership?.role === 'MANAGER';
+      isManager = canManageCommunity(await getEffectiveRole(this.prisma, communityId, userId));
     }
     
     return this.eventsService.getEventsForMonth(

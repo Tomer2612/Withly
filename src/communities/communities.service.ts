@@ -1,6 +1,7 @@
 import { Injectable, InternalServerErrorException, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { Prisma, CommunityStatus } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
+import { canManageCommunity, getEffectiveRole } from '../common/community-roles.helper';
 
 @Injectable()
 export class CommunitiesService {
@@ -41,16 +42,7 @@ export class CommunitiesService {
           trialStartDate: new Date(),
         },
       });
-      
-      // Add owner as member with OWNER role
-      await this.prisma.communityMember.create({
-        data: {
-          userId: ownerId,
-          communityId: community.id,
-          role: 'OWNER',
-        },
-      });
-      
+
       return community;
     } catch {
       throw new InternalServerErrorException('Could not create community');
@@ -73,10 +65,10 @@ export class CommunitiesService {
         }
       });
       
-      // Return with actual member count from members table
+      // +1 includes the owner, who has no community_members row after D2.
       return communities.map(community => ({
         ...community,
-        memberCount: community._count.members,
+        memberCount: community._count.members + 1,
       }));
     } catch {
       throw new InternalServerErrorException('Could not fetch communities');
@@ -127,7 +119,7 @@ export class CommunitiesService {
 
       // Surface a memberCount field derived from _count, keeping the same
       // wire shape callers expect after the column was dropped.
-      return { ...community, memberCount: community._count.members };
+      return { ...community, memberCount: community._count.members + 1 };
     } catch (err) {
       if (err instanceof NotFoundException) {
         throw err;
@@ -186,11 +178,7 @@ export class CommunitiesService {
       }
 
       // Check if user has permission to edit (owner or manager)
-      const membership = await this.prisma.communityMember.findUnique({
-        where: { userId_communityId: { userId, communityId: id } },
-      });
-
-      if (!membership || (membership.role !== 'OWNER' && membership.role !== 'MANAGER')) {
+      if (!canManageCommunity(await getEffectiveRole(this.prisma, id, userId))) {
         throw new ForbiddenException('Only owners and managers can update the community');
       }
 
@@ -281,11 +269,7 @@ export class CommunitiesService {
       }
 
       // Check if user is owner
-      const membership = await this.prisma.communityMember.findUnique({
-        where: { userId_communityId: { userId, communityId: id } },
-      });
-
-      if (!membership || membership.role !== 'OWNER') {
+      if (community.ownerId !== userId) {
         throw new ForbiddenException('Only community owner can delete');
       }
 
@@ -395,29 +379,48 @@ export class CommunitiesService {
   async checkMembership(communityIdOrSlug: string, userId: string) {
     const communityId = await this.resolveId(communityIdOrSlug);
 
-    const membership = await this.prisma.communityMember.findUnique({
-      where: {
-        userId_communityId: { userId, communityId },
-      },
-    });
+    const [community, membership, ban] = await Promise.all([
+      this.prisma.community.findUnique({
+        where: { id: communityId },
+        select: { ownerId: true },
+      }),
+      this.prisma.communityMember.findUnique({
+        where: { userId_communityId: { userId, communityId } },
+      }),
+      // Surface ban state too — the frontend needs to know before showing
+      // a Join / Payment flow that the user can't actually rejoin.
+      this.prisma.communityBan.findUnique({
+        where: { userId_communityId: { userId, communityId } },
+        select: { expiresAt: true, reason: true },
+      }),
+    ]);
 
-    // Surface ban state too — the frontend needs to know before showing
-    // a Join / Payment flow that the user can't actually rejoin.
-    const ban = await this.prisma.communityBan.findUnique({
-      where: { userId_communityId: { userId, communityId } },
-      select: { expiresAt: true, reason: true },
-    });
     const isBanned = !!ban && (ban.expiresAt === null || ban.expiresAt > new Date());
+    const isOwner = !!community && community.ownerId === userId;
+
+    if (isOwner) {
+      return {
+        isMember: true,
+        role: 'OWNER' as const,
+        isOwner: true,
+        isManager: false,
+        canEdit: true,
+        canDelete: true,
+        canManageRoles: true,
+        isBanned: false,
+        banReason: null,
+      };
+    }
 
     if (membership) {
       return {
         isMember: true,
         role: membership.role,
-        isOwner: membership.role === 'OWNER',
+        isOwner: false,
         isManager: membership.role === 'MANAGER',
-        canEdit: membership.role === 'OWNER' || membership.role === 'MANAGER',
-        canDelete: membership.role === 'OWNER',
-        canManageRoles: membership.role === 'OWNER',
+        canEdit: membership.role === 'MANAGER',
+        canDelete: false,
+        canManageRoles: false,
         isBanned: false,
         banReason: null,
       };
@@ -438,14 +441,21 @@ export class CommunitiesService {
 
   async updateMemberRole(communityIdOrSlug: string, targetUserId: string, newRole: 'MANAGER' | 'USER', requesterId: string) {
     const communityId = await this.resolveId(communityIdOrSlug);
-    
-    // Check if requester is owner
-    const requesterMembership = await this.prisma.communityMember.findUnique({
-      where: { userId_communityId: { userId: requesterId, communityId } },
-    });
 
-    if (!requesterMembership || requesterMembership.role !== 'OWNER') {
+    const community = await this.prisma.community.findUnique({
+      where: { id: communityId },
+      select: { ownerId: true },
+    });
+    if (!community) {
+      throw new NotFoundException('Community not found');
+    }
+
+    if (community.ownerId !== requesterId) {
       throw new ForbiddenException('Only owners can change member roles');
+    }
+
+    if (targetUserId === community.ownerId) {
+      throw new ForbiddenException('Cannot change owner role');
     }
 
     // Check target membership exists
@@ -457,18 +467,13 @@ export class CommunitiesService {
       throw new NotFoundException('Member not found');
     }
 
-    // Cannot change owner role
-    if (targetMembership.role === 'OWNER') {
-      throw new ForbiddenException('Cannot change owner role');
-    }
-
     // Update role
     const updated = await this.prisma.communityMember.update({
       where: { userId_communityId: { userId: targetUserId, communityId } },
       data: { role: newRole },
       include: {
         user: {
-          select: { id: true, name: true, email: true, profileImage: true },
+          select: { id: true, name: true, profileImage: true },
         },
       },
     });
@@ -481,12 +486,29 @@ export class CommunitiesService {
   async removeMember(communityIdOrSlug: string, targetUserId: string, requesterId: string) {
     const communityId = await this.resolveId(communityIdOrSlug);
 
-    // Check if requester is owner or manager
-    const requesterMembership = await this.prisma.communityMember.findUnique({
-      where: { userId_communityId: { userId: requesterId, communityId } },
+    const community = await this.prisma.community.findUnique({
+      where: { id: communityId },
+      select: { ownerId: true },
     });
+    if (!community) {
+      throw new NotFoundException('Community not found');
+    }
 
-    if (!requesterMembership || (requesterMembership.role !== 'OWNER' && requesterMembership.role !== 'MANAGER')) {
+    // Cannot remove the owner — they're not a CommunityMember row at all,
+    // but checking by id keeps the contract explicit.
+    if (targetUserId === community.ownerId) {
+      throw new ForbiddenException('Cannot remove the owner');
+    }
+
+    const requesterIsOwner = community.ownerId === requesterId;
+    const requesterMembership = requesterIsOwner
+      ? null
+      : await this.prisma.communityMember.findUnique({
+          where: { userId_communityId: { userId: requesterId, communityId } },
+        });
+    const requesterIsManager = !requesterIsOwner && requesterMembership?.role === 'MANAGER';
+
+    if (!requesterIsOwner && !requesterIsManager) {
       throw new ForbiddenException('Only owners and managers can remove members');
     }
 
@@ -499,13 +521,8 @@ export class CommunitiesService {
       throw new NotFoundException('Member not found');
     }
 
-    // Cannot remove owner
-    if (targetMembership.role === 'OWNER') {
-      throw new ForbiddenException('Cannot remove the owner');
-    }
-
     // Managers cannot remove other managers
-    if (requesterMembership.role === 'MANAGER' && targetMembership.role === 'MANAGER') {
+    if (requesterIsManager && targetMembership.role === 'MANAGER') {
       throw new ForbiddenException('Managers cannot remove other managers');
     }
 
@@ -585,17 +602,29 @@ export class CommunitiesService {
 
   async getCommunityMembers(communityIdOrSlug: string) {
     const communityId = await this.resolveId(communityIdOrSlug);
-    
-    // Get the community
+
+    // Owner is no longer a community_members row — fold them in from
+    // Community.ownerId so the response shape stays the same.
     const community = await this.prisma.community.findUnique({
       where: { id: communityId },
+      include: {
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            profileImage: true,
+            createdAt: true,
+            lastActiveAt: true,
+            showOnline: true,
+          },
+        },
+      },
     });
 
     if (!community) {
       throw new NotFoundException('Community not found');
     }
 
-    // Get all members with roles
     const memberships = await this.prisma.communityMember.findMany({
       where: { communityId },
       include: {
@@ -611,22 +640,35 @@ export class CommunitiesService {
         },
       },
       orderBy: [
-        { role: 'asc' }, // OWNER first, then MANAGER, then USER
+        { role: 'asc' }, // MANAGER first, then USER (enum order)
         { joinedAt: 'desc' },
       ],
     });
 
     // Consider users "online" if they were active in the last 5 minutes AND showOnline is true
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const isOnline = (lastActiveAt: Date | null, showOnline: boolean) =>
+      showOnline && !!lastActiveAt && new Date(lastActiveAt) > fiveMinutesAgo;
 
-    return memberships.map(m => ({
+    const ownerEntry = {
+      ...community.owner,
+      joinedAt: community.createdAt,
+      role: 'OWNER' as const,
+      isOwner: true,
+      isManager: false,
+      isOnline: isOnline(community.owner.lastActiveAt, community.owner.showOnline),
+    };
+
+    const memberEntries = memberships.map(m => ({
       ...m.user,
       joinedAt: m.joinedAt,
       role: m.role,
-      isOwner: m.role === 'OWNER',
+      isOwner: false,
       isManager: m.role === 'MANAGER',
-      isOnline: m.user.showOnline && m.user.lastActiveAt && new Date(m.user.lastActiveAt) > fiveMinutesAgo,
+      isOnline: isOnline(m.user.lastActiveAt, m.user.showOnline),
     }));
+
+    return [ownerEntry, ...memberEntries];
   }
 
   // Leaderboard. Point formula:
@@ -748,13 +790,8 @@ export class CommunitiesService {
 
   async getBannedUsers(communityIdOrSlug: string, requesterId: string) {
     const communityId = await this.resolveId(communityIdOrSlug);
-    
-    // Check if requester is owner or manager
-    const requesterMembership = await this.prisma.communityMember.findUnique({
-      where: { userId_communityId: { userId: requesterId, communityId } },
-    });
 
-    if (!requesterMembership || (requesterMembership.role !== 'OWNER' && requesterMembership.role !== 'MANAGER')) {
+    if (!canManageCommunity(await getEffectiveRole(this.prisma, communityId, requesterId))) {
       throw new ForbiddenException('Only owners and managers can view banned users');
     }
 
@@ -795,12 +832,7 @@ export class CommunitiesService {
   async liftBan(communityIdOrSlug: string, banId: string, requesterId: string) {
     const communityId = await this.resolveId(communityIdOrSlug);
 
-    // Check if requester is owner or manager
-    const requesterMembership = await this.prisma.communityMember.findUnique({
-      where: { userId_communityId: { userId: requesterId, communityId } },
-    });
-
-    if (!requesterMembership || (requesterMembership.role !== 'OWNER' && requesterMembership.role !== 'MANAGER')) {
+    if (!canManageCommunity(await getEffectiveRole(this.prisma, communityId, requesterId))) {
       throw new ForbiddenException('Only owners and managers can lift bans');
     }
 
@@ -824,39 +856,41 @@ export class CommunitiesService {
 
   async getCommunityManagers(communityIdOrSlug: string) {
     const communityId = await this.resolveId(communityIdOrSlug);
-    
-    // Get the community
+
     const community = await this.prisma.community.findUnique({
       where: { id: communityId },
+      include: {
+        owner: {
+          select: { id: true, name: true },
+        },
+      },
     });
 
     if (!community) {
       throw new NotFoundException('Community not found');
     }
 
-    // Get owners and managers
-    const memberships = await this.prisma.communityMember.findMany({
-      where: { 
-        communityId,
-        role: { in: ['OWNER', 'MANAGER'] },
-      },
+    const managers = await this.prisma.communityMember.findMany({
+      where: { communityId, role: 'MANAGER' },
       include: {
         user: {
-          select: {
-            id: true,
-            email: true,
-            name: true,
-          },
+          select: { id: true, name: true },
         },
       },
     });
 
-    return memberships.map(m => ({
-      id: m.user.id,
-      name: m.user.name,
-      email: m.user.email,
-      role: m.role,
-    }));
+    return [
+      {
+        id: community.owner.id,
+        name: community.owner.name,
+        role: 'OWNER' as const,
+      },
+      ...managers.map(m => ({
+        id: m.user.id,
+        name: m.user.name,
+        role: m.role,
+      })),
+    ];
   }
 
   async getOnlineMembersCount(communityIdOrSlug: string) {
@@ -894,11 +928,7 @@ export class CommunitiesService {
       }
 
       // Check if user has permission (owner or manager)
-      const membership = await this.prisma.communityMember.findUnique({
-        where: { userId_communityId: { userId, communityId } },
-      });
-
-      if (!membership || (membership.role !== 'OWNER' && membership.role !== 'MANAGER')) {
+      if (!canManageCommunity(await getEffectiveRole(this.prisma, communityId, userId))) {
         throw new ForbiddenException('Only owners and managers can update community rules');
       }
 

@@ -2,6 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException, ForbiddenE
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { CommunitiesService } from '../communities/communities.service';
+import { canManageCommunity, getEffectiveRole } from '../common/community-roles.helper';
 
 @Injectable()
 export class PostsService {
@@ -485,13 +486,7 @@ export class PostsService {
     }
 
     // Check if user is owner or manager of the community
-    const membership = await this.prisma.communityMember.findUnique({
-      where: {
-        userId_communityId: { userId, communityId: post.communityId },
-      },
-    });
-
-    if (!membership || (membership.role !== 'OWNER' && membership.role !== 'MANAGER')) {
+    if (!canManageCommunity(await getEffectiveRole(this.prisma, post.communityId, userId))) {
       throw new ForbiddenException('Only owners and managers can pin posts');
     }
 

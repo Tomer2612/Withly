@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { PrismaService } from '../common/prisma.service';
 import { Prisma, RsvpStatus } from '@prisma/client';
 import { CommunitiesService } from '../communities/communities.service';
+import { canManageCommunity, getEffectiveRole } from '../common/community-roles.helper';
 
 @Injectable()
 export class EventsService {
@@ -37,13 +38,7 @@ export class EventsService {
     const communityId = await this.communitiesService.resolveId(communityIdOrSlug);
     
     // Verify user is owner or manager
-    const membership = await this.prisma.communityMember.findUnique({
-      where: {
-        userId_communityId: { userId: createdById, communityId },
-      },
-    });
-
-    if (!membership || (membership.role !== 'OWNER' && membership.role !== 'MANAGER')) {
+    if (!canManageCommunity(await getEffectiveRole(this.prisma, communityId, createdById))) {
       throw new ForbiddenException('Only community managers can create events');
     }
 
@@ -243,13 +238,7 @@ export class EventsService {
     }
 
     // Verify user is owner or manager
-    const membership = await this.prisma.communityMember.findUnique({
-      where: {
-        userId_communityId: { userId, communityId: event.communityId },
-      },
-    });
-
-    if (!membership || (membership.role !== 'OWNER' && membership.role !== 'MANAGER')) {
+    if (!canManageCommunity(await getEffectiveRole(this.prisma, event.communityId, userId))) {
       throw new ForbiddenException('Only community managers can update events');
     }
 
@@ -269,13 +258,7 @@ export class EventsService {
     }
 
     // Verify user is owner or manager
-    const membership = await this.prisma.communityMember.findUnique({
-      where: {
-        userId_communityId: { userId, communityId: event.communityId },
-      },
-    });
-
-    if (!membership || (membership.role !== 'OWNER' && membership.role !== 'MANAGER')) {
+    if (!canManageCommunity(await getEffectiveRole(this.prisma, event.communityId, userId))) {
       throw new ForbiddenException('Only community managers can delete events');
     }
 
