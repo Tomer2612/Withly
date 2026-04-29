@@ -41,6 +41,14 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
     };
 
     const token = localStorage.getItem('token');
+
+    // Self-heal a state-mismatch where the auth cookie is alive but localStorage
+    // was cleared — without this, middleware would redirect login/signup clicks
+    // back to / while the header still shows the auth buttons.
+    if (!token && document.cookie.includes('auth-token=')) {
+      document.cookie = 'auth-token=; path=/; max-age=0';
+    }
+
     if (token && token.split('.').length === 3) {
       try {
         const decoded = jwtDecode<JwtPayload>(token);

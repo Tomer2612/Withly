@@ -310,8 +310,8 @@ function LoginContent() {
 
                 {message && (
                   <div className="flex items-center gap-2 text-[14px] p-2 rounded-lg" style={{
-                    color: messageType === 'error' ? '#B3261E' : '#003233',
-                    backgroundColor: messageType === 'error' ? '#FEE2E2' : '#E0F2FE'
+                    color: messageType === 'error' ? '#B3261E' : 'var(--color-blue-dark)',
+                    backgroundColor: messageType === 'error' ? '#FEE2E2' : 'var(--color-blue-lighter)'
                   }}>
                     <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/><line x1="12" y1="8" x2="12" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="16.5" r="1" fill="currentColor"/></svg>
                     <p>{message}</p>
