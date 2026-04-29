@@ -12,7 +12,6 @@ import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface Member {
   id: string;
-  email: string;
   name: string;
   profileImage: string | null;
   joinedAt: string;
@@ -28,7 +27,6 @@ interface BannedUser {
   user: {
     id: string;
     name: string;
-    email: string;
     profileImage: string | null;
   };
   reason: string;
@@ -134,11 +132,7 @@ export default function CommunityMembersPage() {
     } else {
       const query = searchQuery.toLowerCase();
       setFilteredMembers(
-        members.filter(
-          m =>
-            m.name?.toLowerCase().includes(query) ||
-            m.email.toLowerCase().includes(query)
-        )
+        members.filter(m => m.name?.toLowerCase().includes(query))
       );
     }
   }, [searchQuery, members]);
@@ -149,10 +143,6 @@ export default function CommunityMembersPage() {
       month: '2-digit',
       year: 'numeric',
     });
-  };
-
-  const getUsername = (email: string) => {
-    return '@' + email.split('@')[0];
   };
 
   const getRoleBadge = (role: 'OWNER' | 'MANAGER' | 'USER') => {
@@ -320,7 +310,7 @@ export default function CommunityMembersPage() {
                     />
                   ) : (
                     <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-pink-100 flex items-center justify-center text-lg font-bold text-pink-600 hover:opacity-80 transition">
-                      {member.name?.charAt(0) || member.email.charAt(0).toUpperCase()}
+                      {member.name?.charAt(0) || '?'}
                     </div>
                   )}
                   {member.isOnline && (
@@ -337,7 +327,7 @@ export default function CommunityMembersPage() {
                     {getRoleBadge(member.role)}
                   </div>
                   <p className="text-sm text-[#52525B] truncate">
-                    {getUsername(member.email)} · תאריך הצטרפות: {formatDate(member.joinedAt)}
+                    תאריך הצטרפות: {formatDate(member.joinedAt)}
                   </p>
                 </div>
 
@@ -424,7 +414,7 @@ export default function CommunityMembersPage() {
                         />
                       ) : (
                         <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-lg font-bold text-gray-400">
-                          {ban.user.name?.charAt(0) || ban.user.email.charAt(0).toUpperCase()}
+                          {ban.user.name?.charAt(0) || '?'}
                         </div>
                       )}
                     </div>
@@ -439,7 +429,7 @@ export default function CommunityMembersPage() {
                         </span>
                       </div>
                       <p className="text-sm text-gray-500">
-                        @{ban.user.email.split('@')[0]} · {ban.daysLeft === null ? 'ללא הגבלה' : `נותרו ${ban.daysLeft} ימים`}
+                        {ban.daysLeft === null ? 'השעיה לצמיתות' : `נותרו ${ban.daysLeft} ימים`}
                       </p>
                     </div>
 

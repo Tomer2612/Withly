@@ -602,7 +602,6 @@ export class CommunitiesService {
         user: {
           select: {
             id: true,
-            email: true,
             name: true,
             profileImage: true,
             createdAt: true,
@@ -773,7 +772,6 @@ export class CommunitiesService {
           select: {
             id: true,
             name: true,
-            email: true,
             profileImage: true,
           },
         },

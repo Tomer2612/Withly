@@ -204,10 +204,6 @@ export default function MemberProfilePage() {
     }
   }, [userId]);
 
-  const formatUsername = (email: string) => {
-    return email.split('@')[0] + '@';
-  };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('he-IL', {
       day: 'numeric',
@@ -356,13 +352,10 @@ export default function MemberProfilePage() {
               )}
             </div>
 
-            {/* Name and Username */}
+            {/* Name */}
             <h1 className="text-black mt-4" style={{ fontFamily: 'var(--font-assistant), sans-serif', fontWeight: 700, fontSize: '28px' }}>
               {profile?.name || 'משתמש'}
             </h1>
-            <p className="mt-0.5" style={{ color: '#3F3F46', fontSize: '16px' }}>
-              {profile?.email ? formatUsername(profile.email) : ''}
-            </p>
 
             {/* Bio */}
             {profile?.bio ? (
