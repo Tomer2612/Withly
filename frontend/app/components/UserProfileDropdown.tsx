@@ -6,6 +6,7 @@ import Avatar from './Avatar';
 import UserIcon from './icons/UserIcon';
 import SettingsIcon from './icons/SettingsIcon';
 import LogoutIcon from './icons/LogoutIcon';
+import { serverLogout } from '../lib/auth';
 
 interface UserProfileDropdownProps {
   userEmail: string;
@@ -23,12 +24,13 @@ export default function UserProfileDropdown({
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Tell the backend first so the refresh token gets revoked and the new
+    // httpOnly cookies are cleared by Set-Cookie. Local cleanup runs after.
+    await serverLogout();
     localStorage.removeItem('token');
     localStorage.removeItem('userProfileCache');
-    // Clear auth cookie
     document.cookie = 'auth-token=; path=/; max-age=0';
-    // Force full page reload to clear all state
     window.location.href = '/';
   };
 

@@ -2,6 +2,22 @@
  * Shared auth helpers for token management and 401 handling.
  */
 
+/**
+ * Tell the backend to revoke the refresh token and clear the httpOnly
+ * cookies. Best-effort: a network failure shouldn't block the user from
+ * logging out locally, so we swallow errors.
+ */
+export async function serverLogout(): Promise<void> {
+  try {
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+  } catch {
+    // Ignore — local cleanup proceeds regardless.
+  }
+}
+
 /** Clear all auth state and redirect to login (unless already on login/signup) */
 export function clearSessionAndRedirect() {
   localStorage.removeItem('token');

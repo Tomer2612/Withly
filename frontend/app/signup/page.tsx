@@ -223,6 +223,7 @@ function SignupContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name.trim(), email, password }),
+        credentials: 'include', // accept Set-Cookie for the new httpOnly access/refresh cookies
       });
 
       const data = await res.json();
