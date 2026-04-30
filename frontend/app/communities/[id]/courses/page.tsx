@@ -132,11 +132,8 @@ export default function CoursesPage() {
   };
 
   const fetchCourses = async () => {
-    const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/community/${communityId}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/community/${communityId}`, );
       if (res.ok) {
         const data = await res.json();
         setCourses(data);
@@ -169,14 +166,10 @@ export default function CoursesPage() {
   const handleDeleteCourse = async () => {
     if (!deleteModal.courseId) return;
 
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
     setDeleting(true);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/${deleteModal.courseId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         setCourses(prev => prev.filter(c => c.id !== deleteModal.courseId));

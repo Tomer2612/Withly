@@ -11,6 +11,7 @@ import KeyIcon from '../../components/icons/KeyIcon';
 import CheckIcon from '../../components/icons/CheckIcon';
 import CloseIcon from '../../components/icons/CloseIcon';
 import UserIcon from '../../components/icons/UserIcon';
+import { useUser } from '../../lib/UserContext';
 
 // Checkmark Icon component
 const CheckmarkIcon = ({ className = "w-3 h-2.5" }: { className?: string }) => (
@@ -60,6 +61,7 @@ const isValidName = (name: string) => {
 
 function SignupContent() {
   const router = useRouter();
+  const { refresh: refreshUser } = useUser();
   const searchParams = useSearchParams();
 
   const [name, setName] = useState('');
@@ -224,11 +226,10 @@ function SignupContent() {
         return;
       }
 
-      // Real auth lives in httpOnly cookies; this localStorage flag is a
-      // logged-in marker for legacy pages that still gate on "is there a
-      // token?" The value can't be used to authenticate anywhere — the
-      // backend stopped accepting Bearer headers in S7+S9 phase 3.
-      localStorage.setItem('token', 'cookie-auth');
+      // Real auth lives in httpOnly cookies. Tell UserContext to
+      // re-probe so the new session shows up everywhere (header,
+      // page gates) without a hard reload.
+      await refreshUser();
 
       // Check if user was creating a community - skip email verification and go straight to pricing
       const isCreatingCommunity = searchParams.get('createCommunity') === 'true';

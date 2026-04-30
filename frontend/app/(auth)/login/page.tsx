@@ -8,9 +8,11 @@ import Link from 'next/link';
 import GoogleIcon from '../../components/icons/GoogleIcon';
 import MailIcon from '../../components/icons/MailIcon';
 import KeyIcon from '../../components/icons/KeyIcon';
+import { useUser } from '../../lib/UserContext';
 
 function LoginContent() {
   const router = useRouter();
+  const { refresh: refreshUser } = useUser();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -108,11 +110,10 @@ function LoginContent() {
       const data = await res.json();
 
       if (res.ok) {
-        // Real auth lives in httpOnly cookies; this localStorage flag is a
-        // logged-in marker for legacy pages that still gate on "is there a
-        // token?" The value can't be used to authenticate anywhere — the
-        // backend stopped accepting Bearer headers in S7+S9 phase 3.
-        localStorage.setItem('token', 'cookie-auth');
+        // Real auth lives in httpOnly cookies. Tell UserContext to
+        // re-probe /users/me so the new session shows up everywhere
+        // (header, page gates) without a hard reload.
+        await refreshUser();
 
         // Check for pending community join
         const pendingJoinCommunity = localStorage.getItem('pendingJoinCommunity');

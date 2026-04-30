@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { FaSave } from 'react-icons/fa';
 import { compressImage, compressImages, MAX_IMAGE_SIZE_BYTES } from '../../../../../lib/imageCompression';
 import CommunityNavbar from '../../../../../components/CommunityNavbar';
+import { useUser } from '../../../../../lib/UserContext';
 import LinkIcon from '../../../../../components/icons/LinkIcon';
 import VideoOffIcon from '../../../../../components/icons/VideoOffIcon';
 import VideoIcon from '../../../../../components/icons/VideoIcon';
@@ -95,9 +96,10 @@ export default function EditCoursePage() {
   const [error, setError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [mounted, setMounted] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [userProfile, setUserProfile] = useState<{ name?: string; profileImage?: string | null } | null>(null);
+  const { user } = useUser();
+  const userId = user?.userId ?? null;
+  const userEmail = user?.email ?? null;
+  const userProfile = user ? { name: user.name, profileImage: user.profileImage } : null;
   const [community, setCommunity] = useState<{ name: string; logo?: string | null } | null>(null);
   const [isOwnerOrManager, setIsOwnerOrManager] = useState(false);
 
@@ -143,54 +145,32 @@ export default function EditCoursePage() {
   useEffect(() => {
     setMounted(true);
 
-    // Read cached profile immediately
-    const cached = localStorage.getItem('userProfileCache');
-    if (cached) {
-      try { setUserProfile(JSON.parse(cached)); } catch {}
-    }
-
-    if (!localStorage.getItem('token')) {
+    if (!user) {
       router.push('/login');
       return;
     }
 
-    try {
-      // Cookie auth: probe /users/me for identity + profile, then load
-      // community data and gate manage-mode on owner/manager role.
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`)
-        .then(res => res.ok ? res.json() : null)
-        .then(async (me) => {
-          if (!me) return;
-          if (me.userId) setUserId(me.userId);
-          if (me.email) setUserEmail(me.email);
-          const profile = { name: me.name, profileImage: me.profileImage };
-          setUserProfile(profile);
-          localStorage.setItem('userProfileCache', JSON.stringify(profile));
-
-          const communityRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
-          if (!communityRes.ok) return;
-          const data = await communityRes.json();
-          setCommunity({ name: data.name, logo: data.logo });
-          const isOwner = data.ownerId === me.userId;
-          const membership = data.members?.find((m: any) => m.userId === me.userId);
-          const isManager = membership?.role === 'MANAGER' || membership?.role === 'OWNER';
-          setIsOwnerOrManager(isOwner || isManager);
-        })
-        .catch(console.error);
-    } catch (e) {
-      console.error('Failed to decode token');
-      router.push('/login');
-    }
+    (async () => {
+      try {
+        const communityRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
+        if (!communityRes.ok) return;
+        const data = await communityRes.json();
+        setCommunity({ name: data.name, logo: data.logo });
+        const isOwner = data.ownerId === user.userId;
+        const membership = data.members?.find((m: any) => m.userId === user.userId);
+        const isManager = membership?.role === 'MANAGER' || membership?.role === 'OWNER';
+        setIsOwnerOrManager(isOwner || isManager);
+      } catch (err) {
+        console.error('Failed to load community:', err);
+      }
+    })();
 
     fetchCourse();
-  }, [courseId, router, communityId]);
+  }, [courseId, router, communityId, user]);
 
   const fetchCourse = async () => {
-    const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/${courseId}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/${courseId}`, );
       if (res.ok) {
         const data = await res.json();
         setCourse({
@@ -631,12 +611,6 @@ export default function EditCoursePage() {
     setSaving(true);
     setError(null);
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      router.push('/login');
-      return;
-    }
-
     // Helper function to upload lesson images
     const uploadLessonImages = async (lesson: LessonForm): Promise<string[]> => {
       const uploadedImageUrls: string[] = [...(lesson.images || [])];
@@ -646,7 +620,6 @@ export default function EditCoursePage() {
           imageFormData.append('image', file);
           const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/lessons/upload-image`, {
             method: 'POST',
-            headers: { Authorization: `Bearer ${token}` },
             body: imageFormData,
           });
           if (uploadRes.ok) {
@@ -670,7 +643,6 @@ export default function EditCoursePage() {
 
       await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/${courseId}`, {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
 
@@ -680,14 +652,12 @@ export default function EditCoursePage() {
           // Delete chapter
           await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/chapters/${chapter.id}`, {
             method: 'DELETE',
-            headers: { Authorization: `Bearer ${token}` },
           });
         } else if (chapter.isNew) {
           // Create new chapter
           const chapterRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/${courseId}/chapters`, {
             method: 'POST',
             headers: {
-              Authorization: `Bearer ${token}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
@@ -721,7 +691,6 @@ export default function EditCoursePage() {
               await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/chapters/${newChapter.id}/lessons`, {
                 method: 'POST',
                 headers: {
-                  Authorization: `Bearer ${token}`,
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
@@ -745,7 +714,6 @@ export default function EditCoursePage() {
           await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/chapters/${chapter.id}`, {
             method: 'PATCH',
             headers: {
-              Authorization: `Bearer ${token}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
@@ -759,7 +727,6 @@ export default function EditCoursePage() {
             if (lesson.isDeleted && lesson.id) {
               await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/lessons/${lesson.id}`, {
                 method: 'DELETE',
-                headers: { Authorization: `Bearer ${token}` },
               });
             } else if (lesson.isNew) {
               // Upload images first
@@ -782,7 +749,6 @@ export default function EditCoursePage() {
               await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/chapters/${chapter.id}/lessons`, {
                 method: 'POST',
                 headers: {
-                  Authorization: `Bearer ${token}`,
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
@@ -820,7 +786,6 @@ export default function EditCoursePage() {
               await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/lessons/${lesson.id}`, {
                 method: 'PATCH',
                 headers: {
-                  Authorization: `Bearer ${token}`,
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
@@ -1366,12 +1331,10 @@ export default function EditCoursePage() {
                                                   }
                                                   setErrors(prev => { const n = { ...prev }; delete n[`lesson_${chapterIndex}_${lessonIndex}_videoUrl`]; return n; });
                                                   try {
-                                                    const token = localStorage.getItem('token');
                                                     const formData = new FormData();
                                                     formData.append('video', file);
                                                     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/lessons/upload-video`, {
                                                       method: 'POST',
-                                                      headers: { Authorization: `Bearer ${token}` },
                                                       body: formData,
                                                     });
                                                     if (res.ok) {

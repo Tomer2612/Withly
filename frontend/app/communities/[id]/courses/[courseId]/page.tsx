@@ -21,6 +21,7 @@ import PlayIcon from '../../../../components/icons/PlayIcon';
 import VideoPlayer from '../../../../components/VideoPlayer';
 import { isValidVideoUrl } from '@/app/lib/videoUtils';
 import { getImageUrl } from '@/app/lib/imageUrl';
+import { useUser } from '../../../../lib/UserContext';
 
 interface QuizOption {
   id: string;
@@ -97,9 +98,10 @@ function CourseViewerContent() {
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
   const [completingLesson, setCompletingLesson] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [userProfile, setUserProfile] = useState<{ name?: string; profileImage?: string | null } | null>(null);
+  const { user } = useUser();
+  const userId = user?.userId ?? null;
+  const userEmail = user?.email ?? null;
+  const userProfile = user ? { name: user.name, profileImage: user.profileImage } : null;
   const [deleting, setDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showUnenrollModal, setShowUnenrollModal] = useState(false);
@@ -123,27 +125,6 @@ function CourseViewerContent() {
 
   useEffect(() => {
     setMounted(true);
-
-    // Read cached profile immediately
-    const cached = localStorage.getItem('userProfileCache');
-    if (cached) {
-      try { setUserProfile(JSON.parse(cached)); } catch {}
-    }
-
-    if (localStorage.getItem('token')) {
-      // Cookie auth: probe /users/me for identity + profile in one call.
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`)
-        .then(res => res.ok ? res.json() : null)
-        .then(data => {
-          if (!data) return;
-          if (data.userId) setUserId(data.userId);
-          if (data.email) setUserEmail(data.email);
-          const profile = { name: data.name, profileImage: data.profileImage };
-          setUserProfile(profile);
-          localStorage.setItem('userProfileCache', JSON.stringify(profile));
-        })
-        .catch(console.error);
-    }
     fetchCourse();
   }, [courseId]);
 
@@ -162,10 +143,9 @@ function CourseViewerContent() {
       
       // Auto-enroll owner/author if not already enrolled
       if (isOwnerOrAuthor && !course.enrollment) {
-        const token = localStorage.getItem('token');
-        if (token) {
+        if (userEmail) {
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/${courseId}/enroll`, {
-            method: 'POST', headers: { Authorization: `Bearer ${token}` },
+            method: 'POST',
           }).then(res => {
             if (res.ok) fetchCourse();
           }).catch(console.error);
@@ -332,11 +312,8 @@ function CourseViewerContent() {
   };
 
   const fetchCourse = async () => {
-    const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/${courseId}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/${courseId}`, );
       if (res.ok) {
         setCourse(await res.json());
       } else if (res.status === 404) {
@@ -354,12 +331,11 @@ function CourseViewerContent() {
   };
 
   const handleEnroll = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) { router.push('/login'); return; }
+    if (!userEmail) { router.push('/login'); return; }
     setEnrolling(true);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/${courseId}/enroll`, {
-        method: 'POST', headers: { Authorization: `Bearer ${token}` },
+        method: 'POST',
       });
       if (res.ok) {
         await fetchCourse();
@@ -376,12 +352,10 @@ function CourseViewerContent() {
   };
 
   const handleUnenroll = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
     setUnenrolling(true);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/${courseId}/enroll`, {
-        method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
+        method: 'DELETE',
       });
       if (res.ok) {
         setShowUnenrollModal(false);
@@ -401,9 +375,6 @@ function CourseViewerContent() {
   const handleCompleteLesson = async (lessonId?: string) => {
     const targetLessonId = lessonId || currentLesson?.id;
     if (!targetLessonId || !course?.enrollment) return;
-    const token = localStorage.getItem('token');
-    if (!token) return;
-    
     const isCompleted = course.lessonProgress[targetLessonId];
     
     // Optimistic update - immediately update UI
@@ -422,7 +393,7 @@ function CourseViewerContent() {
     
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/lessons/${targetLessonId}/complete`, {
-        method: isCompleted ? 'DELETE' : 'POST', headers: { Authorization: `Bearer ${token}` },
+        method: isCompleted ? 'DELETE' : 'POST',
       });
       if (!res.ok) {
         // Revert on error
@@ -442,12 +413,10 @@ function CourseViewerContent() {
   };
 
   const handleDeleteCourse = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
     setDeleting(true);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/${courseId}`, {
-        method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
+        method: 'DELETE',
       });
       if (res.ok) router.push(`/communities/${communityId}/courses`);
     } catch (err) { console.error('Failed to delete course:', err); }

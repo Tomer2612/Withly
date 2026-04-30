@@ -2,17 +2,20 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useUser } from '../lib/UserContext';
 
 export default function GoogleSuccessPage() {
   const router = useRouter();
+  const { refresh: refreshUser } = useUser();
 
-  // The OAuth callback already set the httpOnly access + refresh cookies on
-  // the backend response before redirecting here. Set the legacy logged-in
-  // marker that some pages still gate on, then land the user on home.
+  // The OAuth callback already set the httpOnly access + refresh cookies
+  // on the backend response before redirecting here. Refresh the
+  // UserContext so the new session shows up everywhere, then land on home.
   useEffect(() => {
-    localStorage.setItem('token', 'cookie-auth');
-    router.push('/');
-  }, [router]);
+    void refreshUser().then(() => {
+      router.push('/');
+    });
+  }, [router, refreshUser]);
 
   return (
     <main className="flex items-center justify-center min-h-screen text-center">

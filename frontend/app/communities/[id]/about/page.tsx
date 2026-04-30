@@ -188,16 +188,12 @@ export default function CommunityAboutPage() {
 
   // Leave community handler
   const handleLeaveCommunity = async () => {
-    const token = localStorage.getItem('token');
-    if (!token || !communityId) return;
+    if (!userEmail || !communityId) return;
 
     setLeavingCommunity(true);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/leave`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
 
       if (!res.ok) {
@@ -226,8 +222,6 @@ export default function CommunityAboutPage() {
         setLoading(false);
         return;
       }
-
-      const token = localStorage.getItem('token');
 
       try {
         setLoading(true);
@@ -263,10 +257,8 @@ export default function CommunityAboutPage() {
         }
 
         // Fetch members to count managers (OWNER + MANAGER roles)
-        if (token) {
-          const membersRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/members`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+        if (userEmail) {
+          const membersRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/members`);
           if (membersRes.ok) {
             const members = await membersRes.json();
             const managers = members.filter((m: { role: string }) => m.role === 'OWNER' || m.role === 'MANAGER');

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import SiteFooter from '../../components/SiteFooter';
 import FormSelect from '../../components/FormSelect';
+import { useUser } from '../../lib/UserContext';
 import CreditCardIcon from '../../components/icons/CreditCardIcon';
 import CalendarIcon from '../../components/icons/CalendarIcon';
 import LockIcon from '../../components/icons/LockIcon';
@@ -99,9 +100,10 @@ answer: 'בטח. יש לכם 3 חודשי התנסות בחינם שבהם תו�
 function PricingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useUser();
+  const userEmail = user?.email ?? null;
   const [openFaqs, setOpenFaqs] = useState<Set<number>>(new Set());
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  
+
   // Flow states - 'create' is first popup (name+category), then 'payment'
   const [currentStep, setCurrentStep] = useState<'pricing' | 'create' | 'payment'>('pricing');
   const [cardNumber, setCardNumber] = useState('');
@@ -118,16 +120,6 @@ function PricingContent() {
       setCurrentStep('create');
     }
   }, [searchParams]);
-
-  useEffect(() => {
-    if (!localStorage.getItem('token')) return;
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`)
-      .then(res => res.ok ? res.json() : null)
-      .then((data: { email?: string } | null) => {
-        if (data?.email) setUserEmail(data.email);
-      })
-      .catch(() => {});
-  }, []);
 
   const toggleFaq = (index: number) => {
     setOpenFaqs(prev => {
@@ -162,43 +154,39 @@ function PricingContent() {
     if (!communityName.trim()) return;
     
     setCreatingCommunity(true);
-    const token = localStorage.getItem('token');
-    
+
     try {
       const formData = new FormData();
       formData.append('name', communityName);
       formData.append('description', `קהילת ${communityName}`);
       if (communityTopic) formData.append('topic', communityTopic);
-      
+
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
-      
+
       if (res.ok) {
         const newCommunity = await res.json();
-        
+
         // Save credit card info to the new community
         const lastFour = cardNumber.slice(-4);
         await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${newCommunity.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
             cardLastFour: lastFour,
             cardBrand: 'Visa',
           }),
         });
-        
+
         // Also save to user payment methods
         await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/payment-methods`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
             cardLastFour: lastFour,

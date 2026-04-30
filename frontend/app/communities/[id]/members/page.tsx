@@ -73,8 +73,7 @@ export default function CommunityMembersPage() {
     const fetchData = async () => {
       if (!communityId) return;
 
-      const token = localStorage.getItem('token');
-      if (!token) {
+      if (!userEmail) {
         router.push('/login');
         return;
       }
@@ -86,20 +85,18 @@ export default function CommunityMembersPage() {
         const communityRes = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
         if (communityRes.ok) {
           const communityData = await communityRes.json();
-          
+
           // Redirect to slug URL if community has a slug and we're using ID
           if (communityData.slug && communityId !== communityData.slug) {
             router.replace(`/communities/${communityData.slug}/members`);
             return;
           }
-          
+
           setCommunity(communityData);
         }
 
         // Fetch members
-        const membersRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/members`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const membersRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/members`);
 
         if (membersRes.ok) {
           const membersData = await membersRes.json();
@@ -108,9 +105,7 @@ export default function CommunityMembersPage() {
         }
 
         // Fetch banned users (for owners/managers)
-        const bannedRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/banned`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const bannedRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/banned`);
         if (bannedRes.ok) {
           const bannedData = await bannedRes.json();
           setBannedUsers(bannedData);
@@ -123,7 +118,7 @@ export default function CommunityMembersPage() {
     };
 
     fetchData();
-  }, [communityId, router]);
+  }, [communityId, router, userEmail]);
 
   // Filter members by search
   useEffect(() => {
@@ -170,15 +165,13 @@ export default function CommunityMembersPage() {
   };
 
   const handleRoleChange = async (memberId: string, newRole: 'MANAGER' | 'USER') => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!userEmail) return;
 
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/members/${memberId}/role`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ role: newRole }),
       });
@@ -204,15 +197,11 @@ export default function CommunityMembersPage() {
   };
 
   const handleRemoveMember = async (memberId: string, memberName: string) => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!userEmail) return;
 
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/members/${memberId}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
 
       if (res.ok) {
@@ -220,11 +209,9 @@ export default function CommunityMembersPage() {
         setMembers(prev => prev.filter(m => m.id !== memberId));
         setFilteredMembers(prev => prev.filter(m => m.id !== memberId));
         setRemoveModal({ open: false, memberId: null, memberName: '' });
-        
+
         // Refresh banned users list
-        const bannedRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/banned`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const bannedRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/banned`);
         if (bannedRes.ok) {
           setBannedUsers(await bannedRes.json());
         }
@@ -239,15 +226,11 @@ export default function CommunityMembersPage() {
   };
 
   const handleLiftBan = async (banId: string) => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!userEmail) return;
 
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/banned/${banId}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
 
       if (res.ok) {

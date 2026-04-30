@@ -26,12 +26,11 @@ export default function UserProfileDropdown({
 
   const handleLogout = async () => {
     // Backend revokes the refresh token and clears the httpOnly cookies
-    // via Set-Cookie. Locally drop the profile cache and the legacy
-    // logged-in marker. The auth-token clear is for users carrying a
-    // stale cookie from pre-S7+S9 versions of the frontend — nothing
-    // reads it now, but it lingers in their browser until cleaned.
+    // via Set-Cookie. Locally drop the profile cache. The auth-token
+    // clear is for users carrying a stale cookie from pre-S7+S9
+    // versions of the frontend — nothing reads it now, but it lingers
+    // in their browser until cleaned.
     await serverLogout();
-    localStorage.removeItem('token');
     localStorage.removeItem('userProfileCache');
     document.cookie = 'auth-token=; path=/; max-age=0';
     window.location.href = '/';
@@ -40,6 +39,7 @@ export default function UserProfileDropdown({
   return (
     <div className="relative">
       <button
+        data-testid="user-profile-dropdown-trigger"
         onClick={() => setIsOpen(!isOpen)}
         className="relative focus:outline-none"
       >

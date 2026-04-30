@@ -9,6 +9,7 @@ import SearchXIcon from '../components/icons/SearchXIcon';
 import ChevronLeftIcon from '../components/icons/ChevronLeftIcon';
 import ChevronRightIcon from '../components/icons/ChevronRightIcon';
 import { getImageUrl } from '@/app/lib/imageUrl';
+import { useUser } from '../lib/UserContext';
 
 const COMMUNITY_TOPICS = [
   'אנימציה',
@@ -109,8 +110,9 @@ interface Community {
 }
 
 export default function Home() {
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
+  const { user } = useUser();
+  const userEmail = user?.email ?? null;
+  const userId = user?.userId ?? null;
   const [communities, setCommunities] = useState<Community[]>([]);
   const [filteredCommunities, setFilteredCommunities] = useState<Community[]>([]);
   const [userMemberships, setUserMemberships] = useState<string[]>([]);
@@ -126,23 +128,13 @@ export default function Home() {
   const communitiesPerPage = 9;
 
   useEffect(() => {
-    if (!localStorage.getItem('token')) return;
-
-    // Cookie auth: probe /users/me for identity, then load memberships.
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`)
-      .then(res => res.ok ? res.json() : null)
-      .then((data: { userId?: string; email?: string } | null) => {
-        if (!data) return;
-        if (data.email) setUserEmail(data.email);
-        if (data.userId) setUserId(data.userId);
-      })
-      .catch(() => {});
+    if (!user) return;
 
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/user/memberships`)
       .then(res => res.ok ? res.json() : [])
       .then(data => setUserMemberships(data))
       .catch(console.error);
-  }, []);
+  }, [user]);
 
   // Fetch communities
   useEffect(() => {

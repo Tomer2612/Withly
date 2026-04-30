@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { authFetch } from '../../../lib/auth';
+import { useUser } from '../../../lib/UserContext';
 import { FaYoutube, FaWhatsapp, FaFacebook, FaInstagram } from 'react-icons/fa';
 import PlayIcon from '../../../components/icons/PlayIcon';
 import VideoPlayer, { VideoThumbnail } from '../../../components/VideoPlayer';
@@ -183,13 +184,13 @@ function CommunityPreviewContent() {
   const searchParams = useSearchParams();
   const communityId = params.id as string;
 
+  const { user } = useUser();
+  const userEmail = user?.email ?? null;
   const [community, setCommunity] = useState<Community | null>(null);
   const [ownerData, setOwnerData] = useState<{ id: string; name: string; profileImage?: string | null; coverImage?: string | null; bio?: string | null } | null>(null);
   const [similarCommunities, setSimilarCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [managerCount, setManagerCount] = useState(0);
   const [joining, setJoining] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -211,17 +212,6 @@ function CommunityPreviewContent() {
 
   useEffect(() => {
     setMounted(true);
-
-    // Cookie auth: only probe /users/me if there's a logged-in marker.
-    if (!localStorage.getItem('token')) return;
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`)
-      .then(res => res.ok ? res.json() : null)
-      .then((data: { userId?: string; email?: string } | null) => {
-        if (!data) return;
-        if (data.email) setUserEmail(data.email);
-        if (data.userId) setUserId(data.userId);
-      })
-      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -231,17 +221,13 @@ function CommunityPreviewContent() {
         return;
       }
 
-      const token = localStorage.getItem('token');
-
       try {
         setCommunity(null);
         setLoading(true);
-        
+
         // Check membership - if member, redirect to feed; if banned, surface that.
-        if (token) {
-          const membershipRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/membership`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+        if (user) {
+          const membershipRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/membership`);
           if (membershipRes.ok) {
             const membershipData = await membershipRes.json();
             if (membershipData.role) {
@@ -290,10 +276,8 @@ function CommunityPreviewContent() {
         }
 
         // Fetch members to count managers
-        if (token) {
-          const membersRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/members`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+        if (user) {
+          const membersRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/members`);
           if (membersRes.ok) {
             const members = await membersRes.json();
             const managers = members.filter((m: { role: string }) => m.role === 'OWNER' || m.role === 'MANAGER');
@@ -308,7 +292,7 @@ function CommunityPreviewContent() {
     };
 
     fetchCommunity();
-  }, [communityId, router]);
+  }, [communityId, router, user]);
 
   const handleJoinClick = () => {
     // Banned users can't rejoin — bail before any signup/payment side trips.
@@ -333,12 +317,10 @@ function CommunityPreviewContent() {
 
   const joinCommunity = async () => {
     setJoining(true);
-    const token = localStorage.getItem('token');
-    
+
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/join`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
       });
       
       if (res.ok) {
@@ -360,16 +342,14 @@ function CommunityPreviewContent() {
     e.preventDefault();
     if (!isPaymentValid) return;
     setJoining(true);
-    
+
     // Save credit card info to user payment methods
-    const token = localStorage.getItem('token');
     const lastFour = cardNumber.slice(-4);
     try {
       await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/payment-methods`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           cardLastFour: lastFour,

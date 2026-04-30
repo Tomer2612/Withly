@@ -3,6 +3,7 @@
 import { useState, useEffect, ReactNode, useCallback } from 'react';
 import { useParams, useRouter, usePathname } from 'next/navigation';
 import CommunityNavbar from '../../components/CommunityNavbar';
+import { useUser } from '../../lib/UserContext';
 import { CommunityLayoutContext, CommunityLayoutContextType } from './CommunityContext';
 
 interface Community {
@@ -18,23 +19,20 @@ interface UserProfile {
   profileImage?: string | null;
 }
 
-interface JwtPayload {
-  email: string;
-  sub: string;
-  iat: number;
-  exp: number;
-}
-
 export default function CommunityLayout({ children }: { children: ReactNode }) {
   const params = useParams();
   const router = useRouter();
   const pathname = usePathname();
   const communityId = params.id as string;
 
+  const { user } = useUser();
+  const userEmail = user?.email ?? null;
+  const userId = user?.userId ?? null;
+  const userProfile: UserProfile | null = user
+    ? { name: user.name, profileImage: user.profileImage }
+    : null;
+
   const [community, setCommunity] = useState<Community | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [userRole, setUserRole] = useState<'OWNER' | 'MANAGER' | 'MEMBER' | null>(null);
   const [isMember, setIsMember] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,64 +58,10 @@ export default function CommunityLayout({ children }: { children: ReactNode }) {
     setSearchQuery('');
   }, [pathname]);
 
-  // Fetch user info via /users/me — auth lives in httpOnly cookies.
-  useEffect(() => {
-    if (!localStorage.getItem('token')) return;
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`)
-      .then(res => res.ok ? res.json() : null)
-      .then((data: { userId?: string; email?: string } | null) => {
-        if (!data) return;
-        if (data.email) setUserEmail(data.email);
-        if (data.userId) setUserId(data.userId);
-      })
-      .catch(() => {});
-  }, []);
-
-  // Fetch user profile
-  useEffect(() => {
-    if (!userId) return;
-    
-    // Check cache first
-    const cachedProfile = localStorage.getItem('userProfileCache');
-    if (cachedProfile) {
-      try {
-        const parsed = JSON.parse(cachedProfile);
-        if (parsed.userId === userId) {
-          setUserProfile({ name: parsed.name, profileImage: parsed.profileImage });
-        }
-      } catch {}
-    }
-    
-    // Fetch fresh data
-    const fetchProfile = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${userId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setUserProfile({ name: data.name, profileImage: data.profileImage });
-          localStorage.setItem('userProfileCache', JSON.stringify({
-            userId,
-            name: data.name,
-            profileImage: data.profileImage,
-          }));
-        }
-      } catch {}
-    };
-    
-    fetchProfile();
-  }, [userId]);
-
   // Fetch community data and membership
   const fetchCommunity = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`, { headers });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
 
       if (res.ok) {
         const data = await res.json();
@@ -129,20 +73,9 @@ export default function CommunityLayout({ children }: { children: ReactNode }) {
           ownerId: data.ownerId,
         });
 
-        // Membership detection — important: don't flip isMember to a stale value
-        // while the JWT is still decoding. If a token exists in storage but
-        // userId hasn't been set yet, leave isMember alone and wait for the
-        // re-render after userId settles. Otherwise feed/page.tsx briefly sees
-        // isMember=false and bounces the user to /preview.
-        if (token && !userId) {
-          // userId not decoded yet — this effect will refire when it is.
-          // Don't mark initial-data-loaded yet so children don't paint
-          // until membership is actually known.
-          return;
-        } else if (token && userId) {
+        if (user) {
           const membershipRes = await fetch(
             `${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/membership`,
-            { headers },
           );
           if (membershipRes.ok) {
             const m = await membershipRes.json();
@@ -162,7 +95,7 @@ export default function CommunityLayout({ children }: { children: ReactNode }) {
             }
           }
         } else {
-          // No token at all — anonymous viewer
+          // Anonymous viewer
           setIsMember(false);
           setUserRole(null);
         }
@@ -180,7 +113,8 @@ export default function CommunityLayout({ children }: { children: ReactNode }) {
     if (communityId) {
       fetchCommunity();
     }
-  }, [communityId, userId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [communityId, user]);
 
   const isOwner = userRole === 'OWNER' || (userId !== null && community?.ownerId === userId);
   const isManager = userRole === 'MANAGER';

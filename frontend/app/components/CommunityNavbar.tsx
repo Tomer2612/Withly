@@ -53,13 +53,8 @@ export default function CommunityNavbar({
   // Fetch user's communities
   useEffect(() => {
     if (!userEmail) return;
-    
-    const token = localStorage.getItem('token');
-    if (!token) return;
 
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/user/my-communities`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/user/my-communities`)
       .then(res => res.ok ? res.json() : [])
       .then(data => setUserCommunities(data))
       .catch(console.error);

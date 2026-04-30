@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { compressImage, MAX_IMAGE_SIZE_BYTES } from '../../lib/imageCompression';
+import { useUser } from '../../lib/UserContext';
 import FormSelect from '../../components/FormSelect';
 import { HiOutlineUser, HiOutlineCamera, HiOutlineCog6Tooth, HiOutlineArrowRightOnRectangle, HiOutlineLink, HiOutlineLockClosed, HiOutlineEye, HiOutlineEyeSlash, HiOutlineBell, HiOutlineShieldCheck, HiOutlineHeart, HiOutlineChatBubbleLeft, HiOutlineChatBubbleOvalLeft, HiOutlineUserPlus, HiOutlineUsers, HiOutlineEnvelope, HiOutlineMapPin, HiOutlineDocumentText, HiOutlineAtSymbol, HiOutlineCreditCard } from 'react-icons/hi2';
 import CloseIcon from '../../components/icons/CloseIcon';
@@ -95,10 +96,11 @@ export default function SettingsPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  const { user, refresh: refreshUser, setLoggedOut } = useUser();
+  const userId = user?.userId ?? null;
+  const userEmail = user?.email ?? null;
   const [activeTab, setActiveTab] = useState<TabType>('profile');
   const [mounted, setMounted] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -256,73 +258,59 @@ export default function SettingsPage() {
   useEffect(() => {
     setMounted(true);
 
-    // Read cached profile immediately
-    const cached = localStorage.getItem('userProfileCache');
-    if (cached) {
-      try { setUserProfile(JSON.parse(cached)); } catch {}
-    }
-
-    if (!localStorage.getItem('token')) {
+    if (!user) {
       router.push('/login');
       return;
     }
 
-    try {
-      // Cookie auth: probe /users/me for both identity and profile in one
-      // call. Response shape includes userId/email plus the profile fields.
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`)
-        .then(res => {
-          if (!res.ok) throw new Error('Failed to fetch profile');
-          return res.json();
-        })
-        .then((data: UserProfile & { userId?: string; email?: string }) => {
-          if (data.email) setUserEmail(data.email);
-          if (data.userId) setUserId(data.userId);
-          setUserProfile(data);
-          localStorage.setItem('userProfileCache', JSON.stringify({ name: data.name, profileImage: data.profileImage }));
-          setName(data.name || '');
-          setBio(data.bio || '');
-          setLocation(data.location || '');
-          initialFormRef.current = {
-            name: data.name || '',
-            bio: data.bio || '',
-            location: data.location || '',
-          };
-          if (data.profileImage) {
-            setImagePreview(getImageUrl(data.profileImage));
-          }
-        })
-        .catch(console.error)
-        .finally(() => setLoading(false));
-      
-      // Cookie auth: the global fetch interceptor adds credentials.
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/online-status`)
-        .then(res => res.json())
-        .then(data => setShowOnline(data.showOnline))
-        .catch(console.error);
+    // Profile fetch: still needed because UserContext only carries
+    // userId/email/name/profileImage — bio/location/isGoogleAccount come
+    // from /users/me directly.
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`)
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch profile');
+        return res.json();
+      })
+      .then((data: UserProfile) => {
+        setUserProfile(data);
+        setName(data.name || '');
+        setBio(data.bio || '');
+        setLocation(data.location || '');
+        initialFormRef.current = {
+          name: data.name || '',
+          bio: data.bio || '',
+          location: data.location || '',
+        };
+        if (data.profileImage) {
+          setImagePreview(getImageUrl(data.profileImage));
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
 
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/notification-preferences`)
-        .then(res => res.json())
-        .then(data => {
-          setNotifyLikes(data.notifyLikes ?? true);
-          setNotifyComments(data.notifyComments ?? true);
-          setNotifyFollows(data.notifyFollows ?? true);
-          setNotifyNewPosts(data.notifyNewPosts ?? true);
-          setNotifyMentions(data.notifyMentions ?? true);
-          setNotifyCommunityJoins(data.notifyCommunityJoins ?? true);
-          setNotifyMessages(data.notifyMessages ?? true);
-        })
-        .catch(console.error);
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/online-status`)
+      .then(res => res.json())
+      .then(data => setShowOnline(data.showOnline))
+      .catch(console.error);
 
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/payment-methods`)
-        .then(res => res.json())
-        .then(data => setPaymentMethods(data))
-        .catch(console.error);
-    } catch (e) {
-      console.error('Invalid token:', e);
-      router.push('/login');
-    }
-  }, [router]);
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/notification-preferences`)
+      .then(res => res.json())
+      .then(data => {
+        setNotifyLikes(data.notifyLikes ?? true);
+        setNotifyComments(data.notifyComments ?? true);
+        setNotifyFollows(data.notifyFollows ?? true);
+        setNotifyNewPosts(data.notifyNewPosts ?? true);
+        setNotifyMentions(data.notifyMentions ?? true);
+        setNotifyCommunityJoins(data.notifyCommunityJoins ?? true);
+        setNotifyMessages(data.notifyMessages ?? true);
+      })
+      .catch(console.error);
+
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/payment-methods`)
+      .then(res => res.json())
+      .then(data => setPaymentMethods(data))
+      .catch(console.error);
+  }, [router, user]);
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -346,9 +334,8 @@ export default function SettingsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const token = localStorage.getItem('token');
-    if (!token) {
+
+    if (!user) {
       router.push('/login');
       return;
     }
@@ -373,9 +360,6 @@ export default function SettingsPage() {
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
         method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
         body: formData,
       });
 
@@ -387,11 +371,14 @@ export default function SettingsPage() {
       const updatedProfile = await res.json();
       setUserProfile(updatedProfile);
       setProfileImage(null);
-      
+
       if (updatedProfile.profileImage) {
         setImagePreview(getImageUrl(updatedProfile.profileImage));
       }
-      
+
+      // Refresh UserContext so SiteHeader and other consumers see the update.
+      void refreshUser();
+
       // Show success message
       setMessage('השינויים נשמרו בהצלחה');
       setMessageType('success');
@@ -411,8 +398,7 @@ export default function SettingsPage() {
   };
 
   const handleToggleOnlineStatus = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!user) return;
 
     try {
       setSettingOffline(true);
@@ -420,7 +406,6 @@ export default function SettingsPage() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ showOnline: !showOnline }),
       });
@@ -443,15 +428,13 @@ export default function SettingsPage() {
   };
 
   const saveNotificationPreference = async (key: string, value: boolean) => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!user) return;
 
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/notification-preferences`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           [key]: value,
@@ -510,9 +493,8 @@ export default function SettingsPage() {
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const token = localStorage.getItem('token');
-    if (!token) return;
+
+    if (!user) return;
 
     if (!currentPassword || !newPassword || !confirmPassword) {
       setMessage('יש למלא את כל השדות');
@@ -548,7 +530,6 @@ export default function SettingsPage() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ currentPassword, newPassword }),
       });
@@ -573,8 +554,7 @@ export default function SettingsPage() {
   };
 
   const handleDeleteAccount = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!user) return;
 
     if (deleteConfirmText !== 'מחק את החשבון שלי') {
       setMessage('יש להקליד את הטקסט המדויק לאישור');
@@ -586,17 +566,13 @@ export default function SettingsPage() {
       setDeletingAccount(true);
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
 
       if (!res.ok) {
         throw new Error('Failed to delete account');
       }
 
-      localStorage.removeItem('token');
-      localStorage.removeItem('userProfileCache');
+      setLoggedOut();
       setMessage('מחיקת המשתמש עברה בהצלחה');
       setMessageType('success');
       setDeletingAccount(false);
@@ -1172,13 +1148,11 @@ export default function SettingsPage() {
                             type="button"
                             onClick={async () => {
                               if (index === 0) return; // Already primary
-                              const token = localStorage.getItem('token');
-                              if (!token) return;
+                              if (!user) return;
                               setSettingPrimaryId(method.id);
                               try {
                                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/payment-methods/${method.id}/set-primary`, {
                                   method: 'PATCH',
-                                  headers: { Authorization: `Bearer ${token}` }
                                 });
                                 if (!res.ok) throw new Error('Failed to set primary');
                                 setPaymentMethods(prev => prev.map(m => 
@@ -1217,13 +1191,11 @@ export default function SettingsPage() {
                             <button
                               type="button"
                               onClick={async () => {
-                                const token = localStorage.getItem('token');
-                                if (!token) return;
+                                if (!user) return;
                                 setDeletingCardId(method.id);
                                 try {
                                   const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/payment-methods/${method.id}`, {
                                     method: 'DELETE',
-                                    headers: { Authorization: `Bearer ${token}` }
                                   });
                                   if (!res.ok) throw new Error('Failed to delete');
                                   setPaymentMethods(prev => prev.filter(m => m.id !== method.id));
@@ -1371,19 +1343,17 @@ export default function SettingsPage() {
                       if (!isCardValid) {
                         return;
                       }
-                      const token = localStorage.getItem('token');
-                      if (!token) return;
-                      
+                      if (!user) return;
+
                       setSavingCard(true);
                       try {
                         const cardLast4 = cardNumber.slice(-4);
                         const brand = cardNumber.startsWith('4') ? 'Visa' : cardNumber.startsWith('5') ? 'Mastercard' : 'Card';
-                        
+
                         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/payment-methods`, {
                           method: 'POST',
                           headers: {
                             'Content-Type': 'application/json',
-                            Authorization: `Bearer ${token}`
                           },
                           body: JSON.stringify({ cardLastFour: cardLast4, cardBrand: brand })
                         });

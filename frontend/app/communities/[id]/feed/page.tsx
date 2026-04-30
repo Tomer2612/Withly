@@ -277,19 +277,16 @@ function CommunityFeedContent() {
   useEffect(() => {
     setMounted(true);
 
-    const token = localStorage.getItem('token');
-    if (token && token.split('.').length === 3) {
+    if (userEmail) {
       // Fetch user's community memberships
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/user/memberships`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/user/memberships`)
         .then(res => res.ok ? res.json() : [])
         .then(data => {
           setUserMemberships(data);
         })
         .catch(console.error);
     }
-  }, []);
+  }, [userEmail]);
 
   useEffect(() => {
     const fetchCommunities = async () => {
@@ -317,7 +314,6 @@ function CommunityFeedContent() {
       // Wait for context to finish loading membership info
       if (contextLoading) return;
 
-      const token = localStorage.getItem('token');
       
       try {
         setLoading(true);
@@ -363,11 +359,10 @@ function CommunityFeedContent() {
         }
 
         // Fetch top members
-        if (token) {
+        if (userEmail) {
           try {
             const topMembersRes = await fetch(
               `${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/top-members`,
-              { headers: { Authorization: `Bearer ${token}` } }
             );
             if (topMembersRes.ok) {
               const topMembersData = await topMembersRes.json();
@@ -394,8 +389,7 @@ function CommunityFeedContent() {
         // Fetch upcoming events
         try {
           const eventsRes = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/events/community/${communityId}/upcoming?limit=3`,
-            token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+            `${process.env.NEXT_PUBLIC_API_URL}/events/community/${communityId}/upcoming?limit=3`
           );
           if (eventsRes.ok) {
             const eventsData = await eventsRes.json();
@@ -444,10 +438,8 @@ function CommunityFeedContent() {
     
     const refreshPosts = async () => {
       try {
-        const token = localStorage.getItem('token');
         const postsRes = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/posts/community/${communityId}?userId=${userId}`,
-          token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+          `${process.env.NEXT_PUBLIC_API_URL}/posts/community/${communityId}?userId=${userId}`
         );
         if (postsRes.ok) {
           const postsData = await postsRes.json();
@@ -550,12 +542,6 @@ function CommunityFeedContent() {
       }
     }
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      alert('אנא התחברו כדי לפרסם פוסט');
-      return;
-    }
-
     try {
       setPostSubmitting(true);
       
@@ -585,9 +571,6 @@ function CommunityFeedContent() {
       
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/posts/community/${communityId}`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
         body: formData,
       });
 
@@ -601,7 +584,6 @@ function CommunityFeedContent() {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
               question: pollQuestion.trim(),
@@ -791,17 +773,10 @@ function CommunityFeedContent() {
 
   // Like/Unlike handler
   const handleToggleLike = async (postId: string) => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      alert('אנא התחברו כדי לתת לייק');
-      return;
-    }
-
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/posts/${postId}/like`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
@@ -835,8 +810,7 @@ function CommunityFeedContent() {
 
   // Edit post handler - full edit with all attachments
   const handleEditPost = async (postId: string) => {
-    const token = localStorage.getItem('token');
-    if (!token || !editContent.trim() || editSubmitting) return;
+    if (!userEmail || !editContent.trim() || editSubmitting) return;
 
     setEditSubmitting(true);
     try {
@@ -874,9 +848,6 @@ function CommunityFeedContent() {
       
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/posts/${postId}`, {
         method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
         body: formData,
       });
 
@@ -889,9 +860,6 @@ function CommunityFeedContent() {
         if (postToEdit?.poll) {
           await fetch(`${process.env.NEXT_PUBLIC_API_URL}/posts/polls/${postToEdit.poll.id}`, {
             method: 'DELETE',
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
           });
           updatedPost.poll = null;
         }
@@ -1064,18 +1032,9 @@ function CommunityFeedContent() {
 
   // Save/Unsave handler
   const handleToggleSave = async (postId: string) => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      alert('אנא התחברו כדי לשמור פוסט');
-      return;
-    }
-
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/posts/${postId}/save`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
 
       if (!res.ok) throw new Error('Failed to toggle save');
@@ -1104,15 +1063,9 @@ function CommunityFeedContent() {
 
   // Pin/Unpin handler (owner/manager only)
   const handleTogglePin = async (postId: string) => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/posts/${postId}/pin`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
 
       if (!res.ok) {
@@ -1145,15 +1098,9 @@ function CommunityFeedContent() {
 
   // Delete post handler
   const handleDeletePost = async (postId: string) => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/posts/${postId}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
 
       if (!res.ok) throw new Error('Failed to delete post');
@@ -1189,9 +1136,8 @@ function CommunityFeedContent() {
 
   // Add comment handler
   const handleAddComment = async (postId: string) => {
-    const token = localStorage.getItem('token');
     const content = newCommentContent[postId]?.trim();
-    if (!token || !content || submittingComment[postId]) return;
+    if (!userEmail || !content || submittingComment[postId]) return;
 
     setSubmittingComment((prev) => ({ ...prev, [postId]: true }));
 
@@ -1200,7 +1146,6 @@ function CommunityFeedContent() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ content }),
       });
@@ -1244,12 +1189,8 @@ function CommunityFeedContent() {
       return;
     }
 
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/search?q=${encodeURIComponent(query)}`, {
-        headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const users = await res.json();
@@ -1299,21 +1240,12 @@ function CommunityFeedContent() {
 
   // Vote on poll handler
   const handleVotePoll = async (pollId: string, optionId: string, postId: string, currentVotedOptionId: string | null) => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      alert('אנא התחברו כדי להצביע');
-      return;
-    }
-
     setVotingPollId(pollId);
     try {
       // If clicking the same option, remove the vote
       if (currentVotedOptionId === optionId) {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/posts/polls/${pollId}/vote`, {
           method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
         });
 
         if (res.ok) {
@@ -1330,7 +1262,6 @@ function CommunityFeedContent() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ optionId }),
         });
@@ -1354,18 +1285,9 @@ function CommunityFeedContent() {
 
   // Delete poll handler
   const handleDeletePoll = async (pollId: string, postId: string) => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      alert('אנא התחברו כדי למחוק סקר');
-      return;
-    }
-
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/posts/polls/${pollId}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
 
       if (res.ok) {
@@ -1392,15 +1314,9 @@ function CommunityFeedContent() {
 
   // Delete comment handler
   const handleDeleteComment = async (commentId: string, postId: string) => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/posts/comments/${commentId}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
 
       if (!res.ok) throw new Error('Failed to delete comment');
@@ -1432,16 +1348,14 @@ function CommunityFeedContent() {
 
   // Edit comment handler
   const handleEditComment = async (commentId: string, postId: string) => {
-    const token = localStorage.getItem('token');
     const content = editCommentContent.trim();
-    if (!token || !content) return;
+    if (!userEmail || !content) return;
 
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/posts/comments/${commentId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ content }),
       });

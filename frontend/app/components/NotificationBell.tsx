@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { getImageUrl } from '@/app/lib/imageUrl';
+import { useUser } from '../lib/UserContext';
 
 interface Notification {
   id: string;
@@ -169,6 +170,7 @@ const getGroupedNotificationLink = (group: GroupedNotification): string | null =
 };
 
 export default function NotificationBell() {
+  const { user } = useUser();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
@@ -181,14 +183,11 @@ export default function NotificationBell() {
     const fetchUnreadCount = async () => {
       // Skip fetch if we just marked all as read (give server time to process)
       if (justMarkedReadRef.current) return;
-      
-      const token = localStorage.getItem('token');
-      if (!token) return;
+
+      if (!user) return;
 
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/unread-count`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/unread-count`);
         if (res.ok) {
           const data = await res.json();
           // Handle both count and unreadCount response format
@@ -200,11 +199,11 @@ export default function NotificationBell() {
     };
 
     fetchUnreadCount();
-    
+
     // Poll every 30 seconds
     const interval = setInterval(fetchUnreadCount, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user]);
 
   // Fetch notifications when dropdown opens
   useEffect(() => {
@@ -226,14 +225,11 @@ export default function NotificationBell() {
   }, []);
 
   const fetchNotifications = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!user) return;
 
     setLoading(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications?limit=50`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications?limit=50`);
       if (res.ok) {
         const data = await res.json();
         setNotifications(data.notifications || []);
@@ -252,8 +248,7 @@ export default function NotificationBell() {
       e.stopPropagation();
     }
     
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!user) return;
 
     const unreadNotifications = group.notifications.filter(n => !n.isRead);
     if (unreadNotifications.length === 0) return;
@@ -264,7 +259,6 @@ export default function NotificationBell() {
         unreadNotifications.map(n =>
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/${n.id}/read`, {
             method: 'POST',
-            headers: { Authorization: `Bearer ${token}` },
           })
         )
       );
@@ -280,14 +274,12 @@ export default function NotificationBell() {
   };
 
   const markAllAsRead = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!user) return;
 
     try {
       // 1. Call API to update database
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/read-all`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {

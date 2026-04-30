@@ -2,77 +2,27 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import WithlyLogo from './icons/WithlyLogo';
 import NotificationBell from './NotificationBell';
 import { MessagesBell } from './ChatWidget';
 import UserProfileDropdown from './UserProfileDropdown';
-
-// Pages where the user is by definition not logged in — skip the /users/me
-// probe (and its refresh-on-401 fallback) entirely instead of burning two
-// round-trips on every visit.
-const AUTH_FORM_PATHS = ['/login', '/signup', '/forgot-password', '/reset-password', '/verify-email', '/access-gate', '/google-success'];
+import { useUser } from '../lib/UserContext';
 
 interface SiteHeaderProps {
   // Optional: override the default nav links
   hideNavLinks?: boolean;
   // Optional: hide login/signup buttons
   hideAuthButtons?: boolean;
-  // Optional: server-rendered initial auth state. SiteHeaderServer reads
-  // the access cookie and decodes the JWT payload to fill this in, which
-  // lets us render the correct UI on first paint and avoid the auth-state
-  // flicker. When null, render as logged-out until the /users/me probe
-  // confirms otherwise.
-  initialUser?: { email: string; userId: string } | null;
 }
 
-export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = false, initialUser = null }: SiteHeaderProps) {
-  const pathname = usePathname();
+export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = false }: SiteHeaderProps) {
+  const { user } = useUser();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [userEmail, setUserEmail] = useState<string | null>(initialUser?.email ?? null);
-  const [userId, setUserId] = useState<string | null>(initialUser?.userId ?? null);
-  const [userProfile, setUserProfile] = useState<{ name?: string; profileImage?: string | null } | null>(null);
-
-  useEffect(() => {
-    // SSR already decided whether we're logged in. If the server saw no
-    // valid access cookie, don't probe — that probe would 401, the
-    // interceptor would try /auth/refresh, that would also 401, and the
-    // user would get bounced to /login?expired=true on a perfectly
-    // legitimate logged-out homepage visit. Just trust SSR's decision.
-    if (!initialUser) return;
-
-    // Skip the auth probe on the auth-form pages — middleware already
-    // redirects logged-in users away from them.
-    if (AUTH_FORM_PATHS.some(p => pathname === p || pathname.startsWith(`${p}/`))) {
-      return;
-    }
-
-    // Logged in per SSR. Hydrate cached profile immediately, then refresh
-    // from /users/me. The global fetch interceptor handles credentials
-    // and any refresh-on-401 dance.
-    const cached = localStorage.getItem('userProfileCache');
-    if (cached) {
-      try { setUserProfile(JSON.parse(cached)); } catch {}
-    }
-
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`)
-      .then((res) => res.ok ? res.json() : null)
-      .then((data) => {
-        if (!data) {
-          setUserEmail(null);
-          setUserId(null);
-          setUserProfile(null);
-          localStorage.removeItem('userProfileCache');
-          return;
-        }
-        setUserEmail(data.email);
-        setUserId(data.userId);
-        const profile = { name: data.name, profileImage: data.profileImage };
-        setUserProfile(profile);
-        localStorage.setItem('userProfileCache', JSON.stringify(profile));
-      })
-      .catch(console.error);
-  }, [pathname, initialUser]);
+  const userEmail = user?.email ?? null;
+  const userId = user?.userId ?? null;
+  const userProfile = user
+    ? { name: user.name, profileImage: user.profileImage }
+    : null;
 
   // Close mobile menu on route change / resize past breakpoint
   useEffect(() => {

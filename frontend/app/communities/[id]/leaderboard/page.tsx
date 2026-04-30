@@ -47,28 +47,24 @@ export default function LeaderboardPage() {
     const fetchData = async () => {
       if (!communityId) return;
 
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
       try {
         // Fetch community details
         const communityRes = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
         if (communityRes.ok) {
           const communityData = await communityRes.json();
-          
+
           // Redirect to slug URL if community has a slug and we're using ID
           if (communityData.slug && communityId !== communityData.slug) {
             router.replace(`/communities/${communityData.slug}/leaderboard`);
             return;
           }
-          
+
           setCommunity(communityData);
         }
 
         // Fetch leaderboard (top 10 members)
         const leaderboardRes = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/top-members?limit=10`,
-          { headers: { Authorization: `Bearer ${token}` } }
         );
         if (leaderboardRes.ok) {
           const leaderboardData = await leaderboardRes.json();

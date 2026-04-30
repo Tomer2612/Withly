@@ -2,24 +2,23 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { useUser } from '../../lib/UserContext';
 
 export default function CommunityRedirectPage() {
   const router = useRouter();
   const params = useParams();
   const communityId = params.id as string;
+  const { user } = useUser();
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
     const checkMembership = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
+      if (!user) {
         router.replace(`/communities/${communityId}/preview`);
         return;
       }
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/membership`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/membership`);
         if (res.ok) {
           const data = await res.json();
           if (data.role) {
@@ -36,7 +35,7 @@ export default function CommunityRedirectPage() {
       setChecked(true);
     };
     checkMembership();
-  }, [communityId, router]);
+  }, [communityId, router, user]);
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-gray-100">

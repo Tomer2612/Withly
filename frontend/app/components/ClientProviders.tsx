@@ -2,6 +2,7 @@
 
 import { Suspense } from 'react';
 import { SocketProvider } from '../lib/SocketContext';
+import { UserProvider } from '../lib/UserContext';
 import ChatWidget from './ChatWidget';
 import RouteProgress from './RouteProgress';
 import { clearSessionAndRedirect } from '../lib/auth';
@@ -83,14 +84,21 @@ function installFetchInterceptor() {
 
 installFetchInterceptor();
 
-export function ClientProviders({ children }: { children: React.ReactNode }) {
+interface ClientProvidersProps {
+  initialUser: { userId: string; email: string } | null;
+  children: React.ReactNode;
+}
+
+export function ClientProviders({ initialUser, children }: ClientProvidersProps) {
   return (
-    <SocketProvider>
-      <Suspense fallback={null}>
-        <RouteProgress />
-      </Suspense>
-      {children}
-      <ChatWidget />
-    </SocketProvider>
+    <UserProvider initialUser={initialUser}>
+      <SocketProvider>
+        <Suspense fallback={null}>
+          <RouteProgress />
+        </Suspense>
+        {children}
+        <ChatWidget />
+      </SocketProvider>
+    </UserProvider>
   );
 }

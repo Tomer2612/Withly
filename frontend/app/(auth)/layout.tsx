@@ -1,9 +1,9 @@
-import SiteHeaderServer from '../components/SiteHeaderServer';
+import SiteHeader from '../components/SiteHeader';
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <SiteHeaderServer hideAuthButtons />
+      <SiteHeader hideAuthButtons />
       {children}
     </>
   );

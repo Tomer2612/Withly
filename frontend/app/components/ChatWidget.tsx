@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { useSocketContext, SocketMessage } from '../lib/SocketContext';
+import { useUser } from '../lib/UserContext';
 import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface Message {
@@ -39,13 +40,13 @@ interface OpenChat {
 }
 
 export default function ChatWidget() {
+  const { user } = useUser();
+  const currentUserId = user?.userId ?? null;
+  const isLoggedIn = !!user;
   const [openChats, setOpenChats] = useState<OpenChat[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [showConversations, setShowConversations] = useState(false);
   const [loadingConversations, setLoadingConversations] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const conversationsRef = useRef<HTMLDivElement>(null);
   const justMarkedAllReadRef = useRef(false);
   
@@ -60,48 +61,16 @@ export default function ChatWidget() {
   
   const { onNewMessage } = useSocketContext();
 
-  // Check auth status — cookie auth, identity comes from /users/me.
-  useEffect(() => {
-    const checkAuth = () => {
-      const marker = localStorage.getItem('token');
-      if (!marker) {
-        setIsLoggedIn(false);
-        setAuthChecked(true);
-        setCurrentUserId(null);
-        return;
-      }
-      setIsLoggedIn(true);
-      setAuthChecked(true);
-
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`)
-        .then(res => res.ok ? res.json() : null)
-        .then((data: { userId?: string } | null) => {
-          if (data?.userId) setCurrentUserId(data.userId);
-        })
-        .catch(() => {});
-    };
-
-    checkAuth();
-    window.addEventListener('storage', checkAuth);
-
-    return () => {
-      window.removeEventListener('storage', checkAuth);
-    };
-  }, []);
-
   // Fetch conversations
   const fetchConversations = useCallback(async () => {
     // Skip fetch if we just marked all as read
     if (justMarkedAllReadRef.current) return;
-    
-    const token = localStorage.getItem('token');
-    if (!token) return;
+
+    if (!user) return;
 
     setLoadingConversations(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/messages/conversations`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/messages/conversations`);
       if (res.ok) {
         const data = await res.json();
         setConversations(data);
@@ -111,7 +80,7 @@ export default function ChatWidget() {
     } finally {
       setLoadingConversations(false);
     }
-  }, []);
+  }, [user]);
 
   // Store fetchConversations in a ref to avoid stale closures
   const fetchConversationsRef = useRef(fetchConversations);
@@ -122,17 +91,16 @@ export default function ChatWidget() {
   // Expose toggle function globally - bypasses event listener issues
   useEffect(() => {
     const toggle = () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
+      if (!isLoggedIn) {
         (window as any).chatWidgetOpenIntent = true;
         return;
       }
-      
+
       const currentlyShowing = showConversationsRef.current;
       if (!currentlyShowing) {
         fetchConversationsRef.current();
       }
-      
+
       showConversationsRef.current = !currentlyShowing;
       setShowConversationsRef.current(!currentlyShowing);
     };
@@ -141,8 +109,7 @@ export default function ChatWidget() {
     (window as any).toggleChatWidget = toggle;
 
     // Check for pending intent (race condition fix)
-    const token = localStorage.getItem('token');
-    if ((window as any).chatWidgetOpenIntent && token) {
+    if ((window as any).chatWidgetOpenIntent && isLoggedIn) {
       showConversationsRef.current = true;
       setShowConversationsRef.current(true);
       fetchConversationsRef.current();
@@ -155,16 +122,7 @@ export default function ChatWidget() {
         delete (window as any).toggleChatWidget;
       }
     };
-  }, []);
-
-  // Handle "Open Intent" when Auth becomes ready
-  useEffect(() => {
-    if (authChecked && isLoggedIn && (window as any).chatWidgetOpenIntent) {
-      setShowConversations(true);
-      fetchConversationsRef.current();
-      (window as any).chatWidgetOpenIntent = false;
-    }
-  }, [authChecked, isLoggedIn]);
+  }, [isLoggedIn]);
 
   // Close conversations dropdown when clicking outside
   useEffect(() => {
@@ -291,13 +249,11 @@ export default function ChatWidget() {
 
   // Open chat with a user directly (called from profile)
   const startChatWithUser = useCallback(async (userId: string) => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!user) return;
 
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/messages/conversations/${userId}`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const conv = await res.json();
@@ -313,7 +269,7 @@ export default function ChatWidget() {
     } catch (err) {
       console.error('Failed to create conversation:', err);
     }
-  }, [openChat]);
+  }, [openChat, user]);
 
   // Expose startChatWithUser globally
   useEffect(() => {
@@ -334,13 +290,11 @@ export default function ChatWidget() {
   };
 
   const markConversationAsRead = async (conversationId: string) => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!user) return;
 
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/messages/conversations/${conversationId}/read`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {
@@ -357,14 +311,12 @@ export default function ChatWidget() {
   };
 
   const markAllMessagesAsRead = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!user) return;
 
     try {
       // 1. Call API to update database
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/messages/read-all`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {
@@ -394,10 +346,7 @@ export default function ChatWidget() {
     setShowConversations(false);
   };
 
-  // Check token directly as well - isLoggedIn state might be stale
-  const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('token');
-  
-  if (!authChecked || (!isLoggedIn && !hasToken)) {
+  if (!isLoggedIn) {
     return null;
   }
 
@@ -610,16 +559,12 @@ function ChatWindow({
     e.preventDefault();
     if (!message.trim() || sending) return;
 
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
     setSending(true);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/messages/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           recipientId: chat.recipientId,
@@ -837,6 +782,7 @@ function ChatWindow({
 
 // Messages Bell Component - for chat messages icon in navbar
 export function MessagesBell() {
+  const { user } = useUser();
   const [unreadCount, setUnreadCount] = useState(0);
   const justMarkedReadRef = useRef(false);
 
@@ -844,14 +790,11 @@ export function MessagesBell() {
     const fetchUnreadCount = async () => {
       // Skip fetch if we just marked all as read (give server time to process)
       if (justMarkedReadRef.current) return;
-      
-      const token = localStorage.getItem('token');
-      if (!token) return;
+
+      if (!user) return;
 
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/messages/unread-count`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/messages/unread-count`);
         if (res.ok) {
           const data = await res.json();
           setUnreadCount(data.unreadCount || 0);
@@ -880,13 +823,13 @@ export function MessagesBell() {
     const interval = setInterval(fetchUnreadCount, 30000);
     window.addEventListener('messagesMarkedRead', handleMarkedRead);
     window.addEventListener('conversationRead', handleConversationRead);
-    
+
     return () => {
       clearInterval(interval);
       window.removeEventListener('messagesMarkedRead', handleMarkedRead);
       window.removeEventListener('conversationRead', handleConversationRead);
     };
-  }, []);
+  }, [user]);
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();

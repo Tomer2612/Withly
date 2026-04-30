@@ -270,9 +270,6 @@ export default function ManageCommunityPage() {
         return;
       }
       
-      const token = localStorage.getItem('token');
-      if (!token) return;
-      
       try {
         const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
         if (!res.ok) throw new Error('Community not found');
@@ -504,12 +501,6 @@ export default function ManageCommunityPage() {
       return;
     }
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      router.push('/login');
-      return;
-    }
-
     try {
       setLoading(true);
       setMessage('');
@@ -581,9 +572,6 @@ export default function ManageCommunityPage() {
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`, {
         method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
         body: formData,
       });
 
@@ -597,7 +585,6 @@ export default function ManageCommunityPage() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ rules }),
       });
@@ -643,8 +630,7 @@ export default function ManageCommunityPage() {
       return;
     }
 
-    const token = localStorage.getItem('token');
-    if (!token) {
+    if (!userEmail) {
       setSlugError('יש להתחבר מחדש');
       return;
     }
@@ -670,7 +656,6 @@ export default function ManageCommunityPage() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ slug }),
       });
@@ -707,16 +692,10 @@ export default function ManageCommunityPage() {
   };
 
   const handleDeleteCommunity = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
     try {
       setDeleting(true);
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
 
       if (!res.ok) {
@@ -1792,7 +1771,6 @@ export default function ManageCommunityPage() {
                       return;
                     }
                     try {
-                      const token = localStorage.getItem('token');
                       const lastFour = newCardNumber.slice(-4);
                       
                       // Save to community
@@ -1800,7 +1778,6 @@ export default function ManageCommunityPage() {
                         method: 'PUT',
                         headers: {
                           'Content-Type': 'application/json',
-                          'Authorization': `Bearer ${token}`,
                         },
                         body: JSON.stringify({ 
                           cardLastFour: lastFour,
@@ -1813,7 +1790,6 @@ export default function ManageCommunityPage() {
                         method: 'POST',
                         headers: {
                           'Content-Type': 'application/json',
-                          'Authorization': `Bearer ${token}`,
                         },
                         body: JSON.stringify({ 
                           cardLastFour: lastFour,
@@ -1876,12 +1852,10 @@ export default function ManageCommunityPage() {
                     onClick={async () => {
                       setCancellingTrial(true);
                       try {
-                        const token = localStorage.getItem('token');
                         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`, {
                           method: 'PATCH',
                           headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`,
                           },
                           body: JSON.stringify({ trialCancelled: true }),
                         });

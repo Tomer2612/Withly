@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import SiteFooter from '../../components/SiteFooter';
+import { useUser } from '../../lib/UserContext';
 
 // Email validation
 const isValidEmail = (email: string) => {
@@ -17,6 +18,7 @@ const CHAR_LIMITS = {
 };
 
 export default function ContactPage() {
+  const { user } = useUser();
   // Contact form state
   const [contactName, setContactName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
@@ -24,33 +26,18 @@ export default function ContactPage() {
   const [contactMessage, setContactMessage] = useState('');
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
-  
+
   // Validation state
   const [emailTouched, setEmailTouched] = useState(false);
   const [emailError, setEmailError] = useState('');
 
   // Pre-fill form if user is logged in
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token && token.split('.').length === 3) {
-      try {
-        // Fetch user profile to pre-fill name and email
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data) {
-              setContactName(data.name || '');
-              setContactEmail(data.email || '');
-            }
-          })
-          .catch(console.error);
-      } catch (e) {
-        console.error('Invalid token:', e);
-      }
+    if (user) {
+      setContactName(user.name || '');
+      setContactEmail(user.email || '');
     }
-  }, []);
+  }, [user]);
 
   const validateEmail = () => {
     setEmailTouched(true);

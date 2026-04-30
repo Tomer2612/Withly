@@ -432,25 +432,21 @@ function EventsPageContent() {
   useEffect(() => {
     setMounted(true);
 
-    const token = localStorage.getItem('token');
-    if (token) {
+    if (userEmail) {
       // Fetch communities user is member of
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/user/memberships`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).then(res => res.ok ? res.json() : [])
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/user/memberships`).then(res => res.ok ? res.json() : [])
         .then(data => {
           setCommunities(data);
           setUserMemberships(data.map((c: Community) => c.id));
         });
     }
-  }, []);
+  }, [userEmail]);
 
   useEffect(() => {
     if (!communityId) return;
 
     const fetchData = async () => {
       setLoading(true);
-      const token = localStorage.getItem('token');
       
       try {
         // Fetch community
@@ -476,11 +472,9 @@ function EventsPageContent() {
     };
 
     const fetchAllEventsInitial = async () => {
-      const token = localStorage.getItem('token');
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/events/community/${communityId}`,
-          token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+          `${process.env.NEXT_PUBLIC_API_URL}/events/community/${communityId}`
         );
         if (res.ok) {
           const data = await res.json();
@@ -500,11 +494,9 @@ function EventsPageContent() {
   }, [communityId]);
 
   const fetchEventsForMonth = async (year: number, month: number) => {
-    const token = localStorage.getItem('token');
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/events/community/${communityId}/calendar?year=${year}&month=${month}`,
-        token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+        `${process.env.NEXT_PUBLIC_API_URL}/events/community/${communityId}/calendar?year=${year}&month=${month}`
       );
       if (res.ok) {
         const data = await res.json();
@@ -516,11 +508,9 @@ function EventsPageContent() {
   };
 
   const fetchAllEvents = async () => {
-    const token = localStorage.getItem('token');
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/events/community/${communityId}`,
-        token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+        `${process.env.NEXT_PUBLIC_API_URL}/events/community/${communityId}`
       );
       if (res.ok) {
         const data = await res.json();
@@ -563,13 +553,9 @@ function EventsPageContent() {
   };
 
   const handleDeleteEvent = async (eventId: string) => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/events/${eventId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         setEvents(prev => prev.filter(e => e.id !== eventId));
@@ -590,12 +576,6 @@ function EventsPageContent() {
   };
 
   const handleRsvp = async (eventId: string, status: 'GOING' | 'MAYBE' | 'NOT_GOING') => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      alert('אנא התחברו כדי לאשר הגעה');
-      return;
-    }
-
     const event = events.find(e => e.id === eventId);
     const previousRsvp = event?.userRsvp;
     const previousCounts = event?.rsvpCounts || { going: 0, maybe: 0, notGoing: 0 };
@@ -635,7 +615,6 @@ function EventsPageContent() {
       if (isRemoving) {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/events/${eventId}/rsvp`, {
           method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
           const data = await res.json();
@@ -660,7 +639,6 @@ function EventsPageContent() {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}` 
           },
           body: JSON.stringify({ status }),
         });
@@ -1494,12 +1472,6 @@ function AddEventModal({
       return;
     }
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setError('אנא התחברו');
-      return;
-    }
-
     setLoading(true);
 
     try {
@@ -1523,9 +1495,6 @@ function AddEventModal({
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/events/community/${communityId}`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
         body: formData,
       });
 
@@ -1974,12 +1943,6 @@ function EditEventModal({
       return;
     }
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setError('אנא התחברו');
-      return;
-    }
-
     setLoading(true);
 
     try {
@@ -2003,9 +1966,6 @@ function EditEventModal({
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/events/${event.id}`, {
         method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
         body: formData,
       });
 

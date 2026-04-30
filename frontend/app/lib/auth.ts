@@ -42,7 +42,6 @@ function clearLegacyAuthCookie() {
  * refresh, and the logout button calls serverLogout first.
  */
 export function clearSessionAndRedirect() {
-  localStorage.removeItem('token');
   localStorage.removeItem('userProfileCache');
   clearLegacyAuthCookie();
   const path = window.location.pathname;
@@ -53,7 +52,6 @@ export function clearSessionAndRedirect() {
 
 /** Clear local auth-derived caches without redirecting. */
 export function clearSessionData() {
-  localStorage.removeItem('token');
   localStorage.removeItem('userProfileCache');
   clearLegacyAuthCookie();
 }

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { authFetch } from '../../../lib/auth';
+import { useUser } from '../../../lib/UserContext';
 import { FaMapMarkerAlt, FaSignInAlt } from 'react-icons/fa';
 import ChevronLeftIcon from '../../../components/icons/ChevronLeftIcon';
 import ChevronRightIcon from '../../../components/icons/ChevronRightIcon';
@@ -106,25 +107,9 @@ export default function MemberProfilePage() {
   const communitiesPerPage = 5;
 
   // Current user state (for checking if viewing own profile)
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const { user } = useUser();
+  const currentUserId = user?.userId ?? null;
   const [uploadingCover, setUploadingCover] = useState(false);
-
-  // Fetch current user ID to check if viewing own profile
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token && token.split('.').length === 3) {
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-        .then(res => res.ok ? res.json() : null)
-        .then(data => {
-          if (data) {
-            setCurrentUserId(data.userId);
-          }
-        })
-        .catch(console.error);
-    }
-  }, []);
 
   // Fetch profile data
   useEffect(() => {
@@ -133,23 +118,17 @@ export default function MemberProfilePage() {
         setLoading(true);
         setError(null);
 
-        const token = localStorage.getItem('token');
-
         // Fetch all data in parallel for faster loading
         const [profileRes, createdRes, memberRes, statsRes, isFollowingRes, hasConversationRes] = await Promise.all([
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${userId}`),
           authFetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${userId}/communities/created`),
           authFetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${userId}/communities/member`),
           authFetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${userId}/stats`),
-          token 
-            ? fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${userId}/is-following`, {
-                headers: { Authorization: `Bearer ${token}` },
-              })
+          user
+            ? fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${userId}/is-following`)
             : Promise.resolve(null),
-          token 
-            ? fetch(`${process.env.NEXT_PUBLIC_API_URL}/messages/has-conversation/${userId}`, {
-                headers: { Authorization: `Bearer ${token}` },
-              })
+          user
+            ? fetch(`${process.env.NEXT_PUBLIC_API_URL}/messages/has-conversation/${userId}`)
             : Promise.resolve(null),
         ]);
 
@@ -201,7 +180,7 @@ export default function MemberProfilePage() {
     if (userId) {
       fetchProfileData();
     }
-  }, [userId]);
+  }, [userId, user]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('he-IL', {
@@ -212,8 +191,7 @@ export default function MemberProfilePage() {
   };
 
   const handleFollowToggle = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
+    if (!user) {
       router.push('/login');
       return;
     }
@@ -223,7 +201,6 @@ export default function MemberProfilePage() {
       const method = isFollowing ? 'DELETE' : 'POST';
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${userId}/follow`, {
         method,
-        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {
@@ -241,8 +218,7 @@ export default function MemberProfilePage() {
   };
 
   const handleSendMessage = () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
+    if (!user) {
       router.push('/login');
       return;
     }
@@ -295,18 +271,16 @@ export default function MemberProfilePage() {
                 if (!file) return;
                 if (!file.type.startsWith('image/')) return;
                 if (file.size > 20 * 1024 * 1024) return;
-                
-                const token = localStorage.getItem('token');
-                if (!token) return;
-                
+
+                if (!user) return;
+
                 setUploadingCover(true);
                 try {
                   const formData = new FormData();
                   formData.append('coverImage', file);
-                  
+
                   const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
                     method: 'PATCH',
-                    headers: { Authorization: `Bearer ${token}` },
                     body: formData,
                   });
                   
