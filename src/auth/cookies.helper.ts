@@ -3,10 +3,10 @@ import type { Response } from 'express';
 export const ACCESS_TOKEN_COOKIE = 'access_token';
 export const REFRESH_TOKEN_COOKIE = 'refresh_token';
 
-// Phase 1: access cookie aligned with the 30-day JWT expiry so the
-// unrefactored frontend doesn't lose its session mid-flow. Phase 3 will
-// drop both to 15m once the refresh-on-401 loop ships on the frontend.
-export const ACCESS_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+// Short-lived access cookie + long-lived refresh cookie. When the access
+// cookie expires, the next API call gets 401 and the frontend interceptor
+// silently rotates via /auth/refresh.
+export const ACCESS_TOKEN_TTL_MS = 15 * 60 * 1000; // 15 minutes
 export const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 const isProd = process.env.NODE_ENV === 'production';

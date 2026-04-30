@@ -12,6 +12,24 @@ import * as jwt from 'jsonwebtoken';
 import { MessagesService } from './messages.service';
 import { CORS_ORIGINS } from '../common/cors';
 import { getJwtSecret } from '../common/jwt.helper';
+import { ACCESS_TOKEN_COOKIE } from '../auth/cookies.helper';
+
+// socket.io's handshake doesn't go through cookie-parser, so we parse
+// the raw Cookie header ourselves to find the access token.
+function parseCookieHeader(header: string | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!header) return out;
+  for (const pair of header.split(/;\s*/)) {
+    const eq = pair.indexOf('=');
+    if (eq === -1) continue;
+    try {
+      out[pair.slice(0, eq).trim()] = decodeURIComponent(pair.slice(eq + 1).trim());
+    } catch {
+      // Skip malformed cookies.
+    }
+  }
+  return out;
+}
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -35,16 +53,18 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
 
   async handleConnection(socket: AuthenticatedSocket) {
     try {
-      // Get token from auth header or query
-      const token = socket.handshake.auth?.token || socket.handshake.query?.token;
-      
+      // Pull the access token from the httpOnly cookie sent on the
+      // handshake (frontend connects with withCredentials: true).
+      const cookies = parseCookieHeader(socket.handshake.headers.cookie);
+      const token = cookies[ACCESS_TOKEN_COOKIE];
+
       if (!token) {
         socket.disconnect();
         return;
       }
 
       // Verify JWT using jsonwebtoken directly
-      const payload = jwt.verify(token as string, getJwtSecret()) as { sub: string };
+      const payload = jwt.verify(token, getJwtSecret()) as { sub: string };
       const userId = payload.sub as string;
       socket.userId = userId;
 

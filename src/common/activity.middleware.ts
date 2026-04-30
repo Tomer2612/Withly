@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from 'express';
 import { PrismaService } from './prisma.service';
 import * as jwt from 'jsonwebtoken';
 import { getJwtSecret } from './jwt.helper';
+import { ACCESS_TOKEN_COOKIE } from '../auth/cookies.helper';
 
 // Skip the DB write if we already updated lastActiveAt for this user
 // within the throttle window. Users on multiple tabs can fire dozens
@@ -18,10 +19,11 @@ export class ActivityMiddleware implements NestMiddleware {
 
   async use(req: Request, res: Response, next: NextFunction) {
     try {
-      const authHeader = req.headers.authorization;
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.substring(7);
-        const decoded = jwt.verify(token, getJwtSecret()) as { sub?: string };
+      // Pull the access token from the httpOnly cookie set on login.
+      const cookieToken = (req as Request & { cookies?: Record<string, string> })
+        .cookies?.[ACCESS_TOKEN_COOKIE];
+      if (cookieToken) {
+        const decoded = jwt.verify(cookieToken, getJwtSecret()) as { sub?: string };
 
         if (decoded?.sub) {
           const userId = decoded.sub;

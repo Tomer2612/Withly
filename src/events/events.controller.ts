@@ -19,7 +19,7 @@ import { EventsService } from './events.service';
 import { RsvpStatus } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { StorageService } from '../common/storage.service';
-import { getUserIdFromAuthHeader } from '../common/jwt.helper';
+import { getUserIdFromRequest } from '../common/jwt.helper';
 import { imageFileFilter } from '../common/upload-filters';
 import { canManageCommunity, getEffectiveRole } from '../common/community-roles.helper';
 import { CreateEventDto, UpdateEventDto, RsvpEventDto } from './dto/events.dto';
@@ -101,8 +101,8 @@ export class EventsController {
     @Query('month') month: string,
     @Req() req,
   ) {
-    // Optional auth: get userId if a valid token is provided, otherwise undefined.
-    const userId = getUserIdFromAuthHeader(req.headers.authorization);
+    // Optional auth: get userId if a valid cookie is present, otherwise undefined.
+    const userId = getUserIdFromRequest(req);
 
     // Check if user is manager (or owner)
     let isManager = false;

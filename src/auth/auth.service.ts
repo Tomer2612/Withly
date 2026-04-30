@@ -237,12 +237,11 @@ export class AuthService {
     return { message: 'Contact form submitted successfully' };
   }
 
-  // Access tokens are stateless JWTs. Phase 1 keeps them at the 30-day module
-  // default so the unrefactored frontend (no /auth/refresh client yet)
-  // doesn't get bounced mid-session. Phase 3 will override to 15m once the
-  // frontend's refresh-on-401 loop ships.
+  // Access tokens are short-lived stateless JWTs. The 15m expiry caps the
+  // blast radius of a leaked token; the frontend rotates them silently via
+  // /auth/refresh whenever an API call 401s.
   private signAccessToken(userId: string, email: string): string {
-    return this.jwtService.sign({ sub: userId, email });
+    return this.jwtService.sign({ sub: userId, email }, { expiresIn: '15m' });
   }
 
   // Refresh tokens are random 32-byte values stored in DB by sha256 hash so

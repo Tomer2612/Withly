@@ -19,7 +19,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { CoursesService } from './courses.service';
 import { StorageService } from '../common/storage.service';
-import { getUserIdFromAuthHeader } from '../common/jwt.helper';
+import { getUserIdFromRequest } from '../common/jwt.helper';
 import { imageFileFilter, videoFileFilter } from '../common/upload-filters';
 import {
   CreateCourseDto,
@@ -65,9 +65,9 @@ export class CoursesController {
   @Get('community/:communityId')
   async getCoursesByCommunity(
     @Param('communityId') communityId: string,
-    @Headers('authorization') authHeader?: string,
+    @Req() req,
   ) {
-    const userId = getUserIdFromAuthHeader(authHeader);
+    const userId = getUserIdFromRequest(req);
     return this.coursesService.getCoursesByCommunity(communityId, userId);
   }
 
@@ -82,9 +82,9 @@ export class CoursesController {
   @Get(':courseId')
   async getCourseById(
     @Param('courseId') courseId: string,
-    @Headers('authorization') authHeader?: string,
+    @Req() req,
   ) {
-    const userId = getUserIdFromAuthHeader(authHeader);
+    const userId = getUserIdFromRequest(req);
     return this.coursesService.getCourseById(courseId, userId);
   }
 
@@ -219,9 +219,9 @@ export class CoursesController {
   @Get('lessons/:lessonId')
   async getLessonById(
     @Param('lessonId') lessonId: string,
-    @Headers('authorization') authHeader?: string,
+    @Req() req,
   ) {
-    const userId = getUserIdFromAuthHeader(authHeader);
+    const userId = getUserIdFromRequest(req);
     return this.coursesService.getLessonById(lessonId, userId);
   }
 

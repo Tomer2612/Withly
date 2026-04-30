@@ -6,7 +6,7 @@ import { CommunitiesService } from './communities.service';
 import { AuthGuard } from '@nestjs/passport';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../common/storage.service';
-import { getUserIdFromAuthHeader } from '../common/jwt.helper';
+import { getUserIdFromRequest } from '../common/jwt.helper';
 import { imageFileFilter, imageOrVideoFileFilter } from '../common/upload-filters';
 import {
   CreateCommunityDto,
@@ -74,9 +74,9 @@ export class CommunitiesController {
   @Get(':id')
   findOne(
     @Param('id') id: string,
-    @Headers('authorization') authHeader?: string,
+    @Req() req,
   ) {
-    const viewerUserId = getUserIdFromAuthHeader(authHeader);
+    const viewerUserId = getUserIdFromRequest(req);
     return this.communitiesService.findById(id, viewerUserId);
   }
 

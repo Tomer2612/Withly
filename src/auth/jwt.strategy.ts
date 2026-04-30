@@ -5,9 +5,9 @@ import type { Request } from 'express';
 import { getJwtSecret } from '../common/jwt.helper';
 import { ACCESS_TOKEN_COOKIE } from './cookies.helper';
 
-// Phase 1: cookie is preferred but Bearer header still works so the
-// existing localStorage-based frontend keeps logging in. Phase 3 will drop
-// the Bearer fallback once the frontend is fully on cookies.
+// Cookie-only auth: the access token rides in an httpOnly cookie set on
+// login and rotated by /auth/refresh. JS can't read it, so XSS can't lift
+// it. Bearer headers are no longer accepted.
 const fromAccessCookie = (req: Request): string | null => {
   return (req?.cookies?.[ACCESS_TOKEN_COOKIE] as string | undefined) ?? null;
 };
@@ -16,10 +16,7 @@ const fromAccessCookie = (req: Request): string | null => {
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor() {
     super({
-      jwtFromRequest: ExtractJwt.fromExtractors([
-        fromAccessCookie,
-        ExtractJwt.fromAuthHeaderAsBearerToken(),
-      ]),
+      jwtFromRequest: ExtractJwt.fromExtractors([fromAccessCookie]),
       ignoreExpiration: false,
       secretOrKey: getJwtSecret(),
     });

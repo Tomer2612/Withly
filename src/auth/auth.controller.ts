@@ -26,9 +26,7 @@ export class AuthController {
     const { accessToken, refreshToken } = await this.authService.signup(body.email, body.name, body.password);
     setAccessCookie(res, accessToken);
     setRefreshCookie(res, refreshToken);
-    // Phase 1: still return access_token in the body so the existing
-    // localStorage-based frontend keeps working. Phase 3 will drop this.
-    return { access_token: accessToken };
+    return { success: true };
   }
 
   // Strict rate limit for login: 5 per minute to prevent brute force
@@ -38,7 +36,7 @@ export class AuthController {
     const { accessToken, refreshToken } = await this.authService.login(body.email, body.password);
     setAccessCookie(res, accessToken);
     setRefreshCookie(res, refreshToken);
-    return { access_token: accessToken };
+    return { success: true };
   }
 
   // Exchange a valid refresh cookie for a new access + refresh pair.
@@ -54,7 +52,7 @@ export class AuthController {
     const { accessToken, refreshToken } = await this.authService.refreshTokens(submitted);
     setAccessCookie(res, accessToken);
     setRefreshCookie(res, refreshToken);
-    return { access_token: accessToken };
+    return { success: true };
   }
 
   @Post('logout')
@@ -87,10 +85,9 @@ export class AuthController {
       const { accessToken, refreshToken } = await this.authService.loginWithGoogle(req.user);
       setAccessCookie(res, accessToken);
       setRefreshCookie(res, refreshToken);
-      // Phase 1: still pass the access token via URL so the existing
-      // /google-success page can store it in localStorage. Phase 2 will
-      // drop the token query param and rely on the cookie alone.
-      res.redirect(`${this.frontendUrl}/google-success?token=${accessToken}`);
+      // Cookies are set on this response — the /google-success page just
+      // needs to land the user on the home screen.
+      res.redirect(`${this.frontendUrl}/google-success`);
     } catch (error) {
       if (error.message === 'ACCOUNT_EXISTS_USE_PASSWORD') {
         // User exists with email/password, redirect to login with message
