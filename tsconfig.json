@@ -19,6 +19,6 @@
     "noFallthroughCasesInSwitch": false,
     "types": ["jest", "node"]
   },
-  "include": ["src", "test", "**/*.spec.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src", "test", "src/**/*.spec.ts"],
+  "exclude": ["node_modules", "dist", "e2e-tests", "frontend"]
 }
