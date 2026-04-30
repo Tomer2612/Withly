@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { CommunitiesService } from '../communities/communities.service';
 import { canManageCommunity, getEffectiveRole } from '../common/community-roles.helper';
+import { FileAttachment } from '../common/file-attachment.type';
 
 @Injectable()
 export class PostsService {
@@ -17,7 +18,7 @@ export class PostsService {
     communityIdOrSlug: string, 
     title?: string, 
     images?: string[],
-    files?: { url: string; name: string }[],
+    files?: FileAttachment[],
     links?: string[],
     category?: string,
     videos?: string[]
@@ -32,7 +33,7 @@ export class PostsService {
           content, 
           images: images || [],
           videos: videos || [],
-          files: files || [],
+          files: (files || []) as unknown as Prisma.InputJsonValue[],
           links: links || [],
           category,
           authorId, 
@@ -144,7 +145,7 @@ export class PostsService {
     userId: string, 
     title?: string,
     images?: string[],
-    files?: { url: string; name: string }[],
+    files?: FileAttachment[],
     links?: string[],
     imagesToRemove?: string[],
     filesToRemove?: string[],
@@ -190,7 +191,7 @@ export class PostsService {
     
     // Handle files - add new ones and remove specified
     if (files || filesToRemove) {
-      const currentFiles = (post.files as { url: string; name: string }[]) || [];
+      const currentFiles = (post.files as unknown as FileAttachment[]) || [];
       let newFiles = [...currentFiles];
       
       // Remove specified files
@@ -203,7 +204,10 @@ export class PostsService {
         newFiles = [...newFiles, ...files].slice(0, 6);
       }
       
-      updateData.files = newFiles;
+      // Cast at the Prisma boundary — InputJsonObject expects an index
+      // signature, which our typed FileAttachment doesn't carry. Storage
+      // is still Json[]; the type just guards us elsewhere in the code.
+      updateData.files = newFiles as unknown as Prisma.InputJsonValue[];
     }
     
     // Handle links - replace with new list (frontend sends kept links + handles removals)

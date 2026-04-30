@@ -10,6 +10,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../common/storage.service';
 import { postContentFileFilter } from '../common/upload-filters';
+import { FileAttachment } from '../common/file-attachment.type';
 import {
   CreatePostDto,
   UpdatePostDto,
@@ -62,7 +63,7 @@ export class PostsController {
     const userId = req.user.userId;
     
     const images: string[] = [];
-    const uploadedFiles: { url: string; name: string }[] = [];
+    const uploadedFiles: FileAttachment[] = [];
     const videos: string[] = [];
     
     if (files && files.length > 0) {
@@ -161,7 +162,7 @@ export class PostsController {
     const userId = req.user.userId;
     
     const newImages: string[] = [];
-    const newFiles: { url: string; name: string }[] = [];
+    const newFiles: FileAttachment[] = [];
     const newVideos: string[] = [];
     
     if (files && files.length > 0) {

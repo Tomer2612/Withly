@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { CommunitiesService } from '../communities/communities.service';
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../common/messages';
+import { FileAttachment } from '../common/file-attachment.type';
 
 @Injectable()
 export class CoursesService {
@@ -511,7 +512,7 @@ export class CoursesService {
     duration?: number;
     lessonType?: string;
     images?: string[];
-    files?: { url: string; name: string }[];
+    files?: FileAttachment[];
     links?: string[];
     contentOrder?: string[];
     quiz?: {
@@ -558,7 +559,7 @@ export class CoursesService {
         chapterId,
         lessonType: data.lessonType || 'content',
         images: data.images || [],
-        files: data.files || [],
+        files: (data.files || []) as unknown as Prisma.InputJsonValue[],
         links: data.links || [],
         contentOrder: data.contentOrder || ['video', 'text', 'links', 'images'],
         ...(data.quiz && data.lessonType === 'quiz' ? {
@@ -700,7 +701,7 @@ export class CoursesService {
     order?: number;
     lessonType?: string;
     images?: string[];
-    files?: { url: string; name: string }[];
+    files?: FileAttachment[];
     links?: string[];
     contentOrder?: string[];
     quiz?: {
@@ -782,7 +783,7 @@ export class CoursesService {
         order: data.order,
         lessonType: data.lessonType,
         images: data.images,
-        files: data.files,
+        files: data.files as unknown as Prisma.InputJsonValue[] | undefined,
         links: data.links,
         contentOrder: data.contentOrder,
       },
