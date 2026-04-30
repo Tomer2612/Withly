@@ -3,8 +3,7 @@
 import { useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { FaCheck, FaTimes, FaEye, FaEyeSlash } from 'react-icons/fa';
-import SiteHeader from '../components/SiteHeader';
-import LockIcon from '../components/icons/LockIcon';
+import LockIcon from '../../components/icons/LockIcon';
 
 // Password requirements
 const passwordRequirements = [
@@ -112,8 +111,6 @@ function ResetPasswordContent() {
   if (!token) {
     return (
       <main className="min-h-screen flex flex-col" dir="rtl" style={{ backgroundColor: '#F4F4F5' }}>
-        <SiteHeader hideAuthButtons={true} />
-
         <div className="flex-1 flex items-center justify-center px-6 py-8">
           <div className="w-full max-w-lg">
             <div className="bg-white rounded-2xl p-8 flex flex-col items-center text-center" style={{ border: '1px solid #D0D0D4' }}>
@@ -146,8 +143,6 @@ function ResetPasswordContent() {
   if (status === 'success') {
     return (
       <main className="min-h-screen flex flex-col" dir="rtl" style={{ backgroundColor: '#F4F4F5' }}>
-        <SiteHeader hideAuthButtons={true} />
-
         <div className="flex-1 flex items-center justify-center px-6 py-8">
           <div className="w-full max-w-lg">
             <div className="bg-white rounded-2xl p-8 flex flex-col items-center text-center" style={{ border: '1px solid #D0D0D4' }}>
@@ -185,8 +180,6 @@ function ResetPasswordContent() {
   if (status === 'error') {
     return (
       <main className="min-h-screen flex flex-col" dir="rtl" style={{ backgroundColor: '#F4F4F5' }}>
-        <SiteHeader hideAuthButtons={true} />
-
         <div className="flex-1 flex items-center justify-center px-6 py-8">
           <div className="w-full max-w-lg">
             <div className="bg-white rounded-2xl p-8 flex flex-col items-center text-center" style={{ border: '1px solid #D0D0D4' }}>
@@ -216,8 +209,6 @@ function ResetPasswordContent() {
 
   return (
     <main className="min-h-screen flex flex-col" dir="rtl" style={{ backgroundColor: '#F4F4F5' }}>
-      <SiteHeader hideAuthButtons={true} />
-
       <div className="flex-1 flex items-center justify-center px-6 py-8">
         <div className="w-full max-w-md">
           <form
@@ -405,7 +396,6 @@ export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
       <main className="min-h-screen flex flex-col" dir="rtl" style={{ backgroundColor: '#F4F4F5' }}>
-        <SiteHeader hideAuthButtons={true} />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-xl">טוען...</div>
         </div>

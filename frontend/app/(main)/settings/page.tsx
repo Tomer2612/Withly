@@ -2,17 +2,16 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { compressImage, MAX_IMAGE_SIZE_BYTES } from '../lib/imageCompression';
-import SiteHeader from '../components/SiteHeader';
-import FormSelect from '../components/FormSelect';
+import { compressImage, MAX_IMAGE_SIZE_BYTES } from '../../lib/imageCompression';
+import FormSelect from '../../components/FormSelect';
 import { HiOutlineUser, HiOutlineCamera, HiOutlineCog6Tooth, HiOutlineArrowRightOnRectangle, HiOutlineLink, HiOutlineLockClosed, HiOutlineEye, HiOutlineEyeSlash, HiOutlineBell, HiOutlineShieldCheck, HiOutlineHeart, HiOutlineChatBubbleLeft, HiOutlineChatBubbleOvalLeft, HiOutlineUserPlus, HiOutlineUsers, HiOutlineEnvelope, HiOutlineMapPin, HiOutlineDocumentText, HiOutlineAtSymbol, HiOutlineCreditCard } from 'react-icons/hi2';
-import CloseIcon from '../components/icons/CloseIcon';
-import PowerIcon from '../components/icons/PowerIcon';
-import PowerOffIcon from '../components/icons/PowerOffIcon';
-import CreditCardIcon from '../components/icons/CreditCardIcon';
-import TrashIcon from '../components/icons/TrashIcon';
-import LockIcon from '../components/icons/LockIcon';
-import CalendarIcon from '../components/icons/CalendarIcon';
+import CloseIcon from '../../components/icons/CloseIcon';
+import PowerIcon from '../../components/icons/PowerIcon';
+import PowerOffIcon from '../../components/icons/PowerOffIcon';
+import CreditCardIcon from '../../components/icons/CreditCardIcon';
+import TrashIcon from '../../components/icons/TrashIcon';
+import LockIcon from '../../components/icons/LockIcon';
+import CalendarIcon from '../../components/icons/CalendarIcon';
 import { getImageUrl } from '@/app/lib/imageUrl';
 
 // Password requirements (same as signup)
@@ -616,8 +615,6 @@ export default function SettingsPage() {
 
   return (
     <main className="min-h-screen text-right" style={{ backgroundColor: '#F4F4F5' }} dir="rtl">
-      <SiteHeader />
-
       {/* Mobile Tab Bar */}
       <div className="md:hidden flex overflow-x-auto bg-white px-3 py-2 gap-1 border-b scrollbar-hide" style={{ borderColor: '#E1E1E2', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}>
         {[

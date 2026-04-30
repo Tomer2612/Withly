@@ -5,10 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import Image from 'next/image';
 import Link from 'next/link';
-import SiteHeader from '../components/SiteHeader';
-import GoogleIcon from '../components/icons/GoogleIcon';
-import MailIcon from '../components/icons/MailIcon';
-import KeyIcon from '../components/icons/KeyIcon';
+import GoogleIcon from '../../components/icons/GoogleIcon';
+import MailIcon from '../../components/icons/MailIcon';
+import KeyIcon from '../../components/icons/KeyIcon';
 
 function LoginContent() {
   const router = useRouter();
@@ -189,9 +188,6 @@ function LoginContent() {
 
   return (
     <main className="min-h-screen flex flex-col" dir="rtl" style={{ backgroundColor: '#F4F4F5' }}>
-      {/* Top Navbar */}
-      <SiteHeader hideAuthButtons={true} />
-
       {/* Content Area */}
       <div className="flex-1 flex items-center justify-center px-6 py-8">
         <div className="w-full max-w-md">

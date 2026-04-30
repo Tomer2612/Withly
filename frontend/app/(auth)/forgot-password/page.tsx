@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import SiteHeader from '../components/SiteHeader';
-import MailIcon from '../components/icons/MailIcon';
+import MailIcon from '../../components/icons/MailIcon';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -39,8 +38,6 @@ export default function ForgotPasswordPage() {
   if (submitted) {
     return (
       <main className="min-h-screen flex flex-col" dir="rtl" style={{ backgroundColor: '#F4F4F5' }}>
-        <SiteHeader hideAuthButtons={true} />
-
         <div className="flex-1 flex items-center justify-center px-6 py-8">
           <div className="w-full max-w-lg">
             <div className="bg-white rounded-2xl p-8 flex flex-col items-center text-center" style={{ border: '1px solid #D0D0D4' }}>
@@ -82,8 +79,6 @@ export default function ForgotPasswordPage() {
 
   return (
     <main className="min-h-screen flex flex-col" dir="rtl" style={{ backgroundColor: '#F4F4F5' }}>
-      <SiteHeader hideAuthButtons={true} />
-
       <div className="flex-1 flex items-center justify-center px-6 py-8">
         <div className="w-full max-w-md">
           <form

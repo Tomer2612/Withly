@@ -52,15 +52,19 @@ export default function RouteProgress() {
     };
   }, [loading]);
 
-  // Complete progress when route actually changes
+  // Complete progress when route actually changes. Reset progress to 0
+  // only AFTER the bar has fully faded out — otherwise the width animates
+  // from 100% back to 0% during the fade and you see the bar "shrink"
+  // visibly in the wrong direction.
   useEffect(() => {
     if (loading) {
       setProgress(100);
-      const timer = setTimeout(() => {
-        setLoading(false);
-        setProgress(0);
-      }, 200);
-      return () => clearTimeout(timer);
+      const fadeOut = setTimeout(() => setLoading(false), 200);
+      const reset = setTimeout(() => setProgress(0), 500);
+      return () => {
+        clearTimeout(fadeOut);
+        clearTimeout(reset);
+      };
     }
   }, [pathname, searchParams]);
 
@@ -73,7 +77,12 @@ export default function RouteProgress() {
         style={{
           width: `${progress}%`,
           opacity: loading ? 1 : 0,
-          transition: 'width 0.2s ease-out, opacity 0.2s ease-out',
+          // Animate width only while loading. Once the bar is fading out
+          // we hide width transitions so the reset to 0% doesn't visibly
+          // shrink the bar backwards under the fade.
+          transition: loading
+            ? 'width 0.2s ease-out, opacity 0.2s ease-out'
+            : 'opacity 0.2s ease-out',
           backgroundColor: '#A7EA7B',
           boxShadow: '0 0 10px rgba(167, 234, 123, 0.5)',
         }}

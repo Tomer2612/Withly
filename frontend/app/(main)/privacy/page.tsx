@@ -1,14 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import SiteHeader from '../components/SiteHeader';
-import SiteFooter from '../components/SiteFooter';
+import SiteFooter from '../../components/SiteFooter';
 
 export default function PrivacyPage() {
   return (
     <main className="min-h-screen" dir="rtl" style={{ backgroundColor: '#F4F4F5' }}>
-      <SiteHeader />
-
       {/* Hero Section */}
       <section className="text-center py-16 px-4">
         <h1 className="font-semibold text-black text-3xl md:text-5xl lg:text-[3.5rem]">

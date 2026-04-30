@@ -5,13 +5,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import Image from 'next/image';
 import Link from 'next/link';
-import SiteHeader from '../components/SiteHeader';
-import GoogleIcon from '../components/icons/GoogleIcon';
-import MailIcon from '../components/icons/MailIcon';
-import KeyIcon from '../components/icons/KeyIcon';
-import CheckIcon from '../components/icons/CheckIcon';
-import CloseIcon from '../components/icons/CloseIcon';
-import UserIcon from '../components/icons/UserIcon';
+import GoogleIcon from '../../components/icons/GoogleIcon';
+import MailIcon from '../../components/icons/MailIcon';
+import KeyIcon from '../../components/icons/KeyIcon';
+import CheckIcon from '../../components/icons/CheckIcon';
+import CloseIcon from '../../components/icons/CloseIcon';
+import UserIcon from '../../components/icons/UserIcon';
 
 // Checkmark Icon component
 const CheckmarkIcon = ({ className = "w-3 h-2.5" }: { className?: string }) => (
@@ -304,8 +303,6 @@ function SignupContent() {
   if (showVerificationMessage) {
     return (
       <main className="min-h-screen flex flex-col" dir="rtl" style={{ backgroundColor: '#F4F4F5' }}>
-        <SiteHeader hideAuthButtons={true} />
-
         <div className="flex-1 flex items-center justify-center px-6 py-8">
           <div className="w-full max-w-lg">
             <div className="bg-white rounded-2xl p-8 flex flex-col items-center text-center" style={{ border: '1px solid #D0D0D4' }}>
@@ -357,9 +354,6 @@ function SignupContent() {
 
   return (
     <main className="min-h-screen flex flex-col" dir="rtl" style={{ backgroundColor: '#F4F4F5' }}>
-      {/* Top Navbar */}
-      <SiteHeader hideAuthButtons={true} />
-
       {/* Content Area */}
       <div className="flex-1 flex items-center justify-center px-6 py-8">
         <div className={`flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-16 w-full ${isCreatingCommunity ? 'max-w-5xl' : 'max-w-md'}`}>

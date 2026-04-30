@@ -3,15 +3,14 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { authFetch } from '../../lib/auth';
+import { authFetch } from '../../../lib/auth';
 import { FaMapMarkerAlt, FaSignInAlt } from 'react-icons/fa';
-import SiteHeader from '../../components/SiteHeader';
-import ChevronLeftIcon from '../../components/icons/ChevronLeftIcon';
-import ChevronRightIcon from '../../components/icons/ChevronRightIcon';
-import CameraIcon from '../../components/icons/CameraIcon';
-import CalendarIcon from '../../components/icons/CalendarIcon';
-import HistoryIcon from '../../components/icons/HistoryIcon';
-import UsersIcon from '../../components/icons/UsersIcon';
+import ChevronLeftIcon from '../../../components/icons/ChevronLeftIcon';
+import ChevronRightIcon from '../../../components/icons/ChevronRightIcon';
+import CameraIcon from '../../../components/icons/CameraIcon';
+import CalendarIcon from '../../../components/icons/CalendarIcon';
+import HistoryIcon from '../../../components/icons/HistoryIcon';
+import UsersIcon from '../../../components/icons/UsersIcon';
 import { getImageUrl } from '@/app/lib/imageUrl';
 
 const formatMemberCount = (count: number) => {
@@ -269,8 +268,6 @@ export default function MemberProfilePage() {
 
   return (
     <div className="min-h-screen bg-white" dir="rtl">
-      <SiteHeader />
-
       {/* Profile Cover Image - Full width outside container */}
       <div className="w-full h-64 relative z-0">
         {profile?.coverImage ? (

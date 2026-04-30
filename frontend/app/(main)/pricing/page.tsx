@@ -3,12 +3,11 @@
 import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import SiteHeader from '../components/SiteHeader';
-import SiteFooter from '../components/SiteFooter';
-import FormSelect from '../components/FormSelect';
-import CreditCardIcon from '../components/icons/CreditCardIcon';
-import CalendarIcon from '../components/icons/CalendarIcon';
-import LockIcon from '../components/icons/LockIcon';
+import SiteFooter from '../../components/SiteFooter';
+import FormSelect from '../../components/FormSelect';
+import CreditCardIcon from '../../components/icons/CreditCardIcon';
+import CalendarIcon from '../../components/icons/CalendarIcon';
+import LockIcon from '../../components/icons/LockIcon';
 
 // Checkmark Icon component
 const CheckmarkIcon = ({ className = "w-3 h-2.5" }: { className?: string }) => (
@@ -393,9 +392,6 @@ function PricingContent() {
 
   return (
     <main className="min-h-screen" style={{ backgroundColor: '#F4F4F5' }} dir="rtl">
-      {/* Header */}
-      <SiteHeader />
-
       {/* Hero Section */}
       <section className="text-center py-16 px-4">
         <h1 className="font-semibold text-black mb-4 text-3xl md:text-5xl lg:text-[3.5rem]">

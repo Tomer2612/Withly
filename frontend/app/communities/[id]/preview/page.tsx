@@ -5,7 +5,6 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { authFetch } from '../../../lib/auth';
 import { FaYoutube, FaWhatsapp, FaFacebook, FaInstagram } from 'react-icons/fa';
-import SiteHeader from '../../../components/SiteHeader';
 import PlayIcon from '../../../components/icons/PlayIcon';
 import VideoPlayer, { VideoThumbnail } from '../../../components/VideoPlayer';
 import CalendarIcon from '../../../components/icons/CalendarIcon';
@@ -434,8 +433,6 @@ function CommunityPreviewContent() {
 
   return (
     <main className="min-h-screen bg-gray-100 text-right" dir="rtl">
-      <SiteHeader />
-
       {/* Content - 2 column layout */}
       <div className="max-w-6xl mx-auto py-8 px-4">
         <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">

@@ -18,31 +18,38 @@ interface SiteHeaderProps {
   hideNavLinks?: boolean;
   // Optional: hide login/signup buttons
   hideAuthButtons?: boolean;
+  // Optional: server-rendered initial auth state. SiteHeaderServer reads
+  // the access cookie and decodes the JWT payload to fill this in, which
+  // lets us render the correct UI on first paint and avoid the auth-state
+  // flicker. When null, render as logged-out until the /users/me probe
+  // confirms otherwise.
+  initialUser?: { email: string; userId: string } | null;
 }
 
-export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = false }: SiteHeaderProps) {
+export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = false, initialUser = null }: SiteHeaderProps) {
   const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(initialUser?.email ?? null);
+  const [userId, setUserId] = useState<string | null>(initialUser?.userId ?? null);
   const [userProfile, setUserProfile] = useState<{ name?: string; profileImage?: string | null } | null>(null);
 
   useEffect(() => {
-    setMounted(true);
+    // SSR already decided whether we're logged in. If the server saw no
+    // valid access cookie, don't probe — that probe would 401, the
+    // interceptor would try /auth/refresh, that would also 401, and the
+    // user would get bounced to /login?expired=true on a perfectly
+    // legitimate logged-out homepage visit. Just trust SSR's decision.
+    if (!initialUser) return;
 
-    // Skip the auth probe on the auth-form pages — the user is definitely
-    // not logged in there, and middleware already redirects them away if
-    // they are. Saves a guaranteed-failing /users/me + /auth/refresh pair.
+    // Skip the auth probe on the auth-form pages — middleware already
+    // redirects logged-in users away from them.
     if (AUTH_FORM_PATHS.some(p => pathname === p || pathname.startsWith(`${p}/`))) {
       return;
     }
 
-    // Auth state lives in httpOnly cookies — JS can't read them, so we
-    // probe /users/me. 200 means logged in (and gives us the profile);
-    // 401 means logged out. The global fetch interceptor already adds
-    // credentials and runs the refresh-on-401 retry, so a single failure
-    // here is the genuine signal.
+    // Logged in per SSR. Hydrate cached profile immediately, then refresh
+    // from /users/me. The global fetch interceptor handles credentials
+    // and any refresh-on-401 dance.
     const cached = localStorage.getItem('userProfileCache');
     if (cached) {
       try { setUserProfile(JSON.parse(cached)); } catch {}
@@ -65,7 +72,7 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
         localStorage.setItem('userProfileCache', JSON.stringify(profile));
       })
       .catch(console.error);
-  }, [pathname]);
+  }, [pathname, initialUser]);
 
   // Close mobile menu on route change / resize past breakpoint
   useEffect(() => {
@@ -129,9 +136,7 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
         )}
 
         {/* Auth Section */}
-        {!mounted ? (
-          <div className="w-10 h-10" />
-        ) : !userEmail ? (
+        {!userEmail ? (
           !hideAuthButtons && (
             <div className="flex items-center gap-4">
               <Link
@@ -165,7 +170,7 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
 
       {/* Mobile: user icons (if logged in) */}
       <div className="flex md:hidden items-center gap-3">
-        {mounted && userEmail && (
+        {userEmail && (
           <>
             <div className="flex items-center gap-1">
               <MessagesBell />
@@ -178,7 +183,7 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
             />
           </>
         )}
-        {mounted && !userEmail && !hideAuthButtons && (
+        {!userEmail && !hideAuthButtons && (
           <div className="flex items-center gap-2">
             <Link
               href="/login"
@@ -215,7 +220,7 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
             </>
           )}
           
-          {mounted && !userEmail && !hideAuthButtons && (
+          {!userEmail && !hideAuthButtons && (
             <div className="flex flex-col gap-3 mt-4">
               <Link
                 href="/login"

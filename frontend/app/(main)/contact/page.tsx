@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import SiteHeader from '../components/SiteHeader';
-import SiteFooter from '../components/SiteFooter';
+import SiteFooter from '../../components/SiteFooter';
 
 // Email validation
 const isValidEmail = (email: string) => {
@@ -112,8 +111,6 @@ export default function ContactPage() {
 
   return (
     <main className="min-h-screen" dir="rtl" style={{ backgroundColor: '#F4F4F5' }}>
-      <SiteHeader />
-
       {/* Hero Section */}
       <section className="text-center py-16 px-4">
         <h1 className="font-semibold text-black text-3xl md:text-5xl lg:text-[3.5rem]">

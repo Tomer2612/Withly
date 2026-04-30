@@ -3,12 +3,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import SiteHeader from './components/SiteHeader';
-import SiteFooter from './components/SiteFooter';
-import FilterDropdown from './components/FilterDropdown';
-import SearchXIcon from './components/icons/SearchXIcon';
-import ChevronLeftIcon from './components/icons/ChevronLeftIcon';
-import ChevronRightIcon from './components/icons/ChevronRightIcon';
+import SiteFooter from '../components/SiteFooter';
+import FilterDropdown from '../components/FilterDropdown';
+import SearchXIcon from '../components/icons/SearchXIcon';
+import ChevronLeftIcon from '../components/icons/ChevronLeftIcon';
+import ChevronRightIcon from '../components/icons/ChevronRightIcon';
 import { getImageUrl } from '@/app/lib/imageUrl';
 
 const COMMUNITY_TOPICS = [
@@ -220,9 +219,6 @@ export default function Home() {
 
   return (
     <main className="min-h-screen text-right" style={{ backgroundColor: '#F4F4F5' }}>
-      {/* Header */}
-      <SiteHeader />
-
       {/* Title + CTA */}
       <section className="text-center mb-8 mt-8 md:mt-12 px-4">
         <h1 className="font-semibold text-black mb-3 text-3xl md:text-5xl lg:text-[3.5rem]">

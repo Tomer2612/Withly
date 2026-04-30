@@ -2,8 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import SiteHeader from '../components/SiteHeader';
-import CloseIcon from '../components/icons/CloseIcon';
+import CloseIcon from '../../components/icons/CloseIcon';
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
@@ -44,8 +43,6 @@ function VerifyEmailContent() {
   if (status === 'loading') {
     return (
       <main className="min-h-screen flex flex-col" dir="rtl" style={{ backgroundColor: '#F4F4F5' }}>
-        <SiteHeader hideAuthButtons={true} />
-
         <div className="flex-1 flex items-center justify-center px-6 py-8">
           <div className="w-full max-w-lg">
             <div className="bg-white rounded-2xl p-8 flex flex-col items-center text-center" style={{ border: '1px solid #D0D0D4' }}>
@@ -70,8 +67,6 @@ function VerifyEmailContent() {
   if (status === 'success') {
     return (
       <main className="min-h-screen flex flex-col" dir="rtl" style={{ backgroundColor: '#F4F4F5' }}>
-        <SiteHeader hideAuthButtons={true} />
-
         <div className="flex-1 flex items-center justify-center px-6 py-8">
           <div className="w-full max-w-lg">
             <div className="bg-white rounded-2xl p-8 flex flex-col items-center text-center" style={{ border: '1px solid #D0D0D4' }}>
@@ -110,8 +105,6 @@ function VerifyEmailContent() {
   // Error state
   return (
     <main className="min-h-screen flex flex-col" dir="rtl" style={{ backgroundColor: '#F4F4F5' }}>
-      <SiteHeader hideAuthButtons={true} />
-
       <div className="flex-1 flex items-center justify-center px-6 py-8">
         <div className="w-full max-w-lg">
           <div className="bg-white rounded-2xl p-8 flex flex-col items-center text-center" style={{ border: '1px solid #D0D0D4' }}>
