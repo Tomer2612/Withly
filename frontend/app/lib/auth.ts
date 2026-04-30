@@ -24,14 +24,27 @@ export async function serverLogout(): Promise<void> {
 }
 
 /**
+ * Wipe the legacy `auth-token` cookie set by pre-cookie-auth versions of
+ * the frontend. Nothing reads it after S7+S9 phase 2, but a user who
+ * logged in before that deploy still has it sitting in their browser.
+ * Calling this on every logout/expiry path cleans it up over time.
+ */
+function clearLegacyAuthCookie() {
+  if (typeof document !== 'undefined') {
+    document.cookie = 'auth-token=; path=/; max-age=0';
+  }
+}
+
+/**
  * Clear local auth-derived caches and redirect to login (unless already
- * on login/signup). The cookies themselves are httpOnly and only the
- * server can clear them — the global 401 interceptor calls this after a
- * failed refresh, and the logout button calls serverLogout first.
+ * on login/signup). The httpOnly cookies themselves are cleared
+ * server-side — the global 401 interceptor calls this after a failed
+ * refresh, and the logout button calls serverLogout first.
  */
 export function clearSessionAndRedirect() {
   localStorage.removeItem('token');
   localStorage.removeItem('userProfileCache');
+  clearLegacyAuthCookie();
   const path = window.location.pathname;
   if (path !== '/login' && path !== '/signup') {
     window.location.href = '/login?expired=true';
@@ -42,6 +55,7 @@ export function clearSessionAndRedirect() {
 export function clearSessionData() {
   localStorage.removeItem('token');
   localStorage.removeItem('userProfileCache');
+  clearLegacyAuthCookie();
 }
 
 /**
