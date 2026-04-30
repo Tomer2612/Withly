@@ -72,14 +72,15 @@ credentials.json
 # -----------------------------
 server/
 
+# Local Claude Code state (per-project agent settings, history)
+.claude/
+
 # -----------------------------
 # OS / Editor junk
 # -----------------------------
 .DS_Store
 .idea/
-.vscode/*
-!.vscode/settings.json
-!.vscode/extensions.json
+.vscode/
 
 # -----------------------------
 # Optional stacks (safe to keep)
@@ -103,6 +104,10 @@ web_modules/
 generated/
 generated/prisma
 
+# Playwright test artifacts
+test-results/
+
 # Uploads (user-generated content)
 uploads/
-.claude/settings.local.json
+
+
