@@ -30,6 +30,7 @@ export async function serverLogout(): Promise<void> {
  * failed refresh, and the logout button calls serverLogout first.
  */
 export function clearSessionAndRedirect() {
+  localStorage.removeItem('token');
   localStorage.removeItem('userProfileCache');
   const path = window.location.pathname;
   if (path !== '/login' && path !== '/signup') {
@@ -39,6 +40,7 @@ export function clearSessionAndRedirect() {
 
 /** Clear local auth-derived caches without redirecting. */
 export function clearSessionData() {
+  localStorage.removeItem('token');
   localStorage.removeItem('userProfileCache');
 }
 

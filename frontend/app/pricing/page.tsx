@@ -3,7 +3,6 @@
 import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { jwtDecode } from 'jwt-decode';
 import SiteHeader from '../components/SiteHeader';
 import SiteFooter from '../components/SiteFooter';
 import FormSelect from '../components/FormSelect';
@@ -32,13 +31,6 @@ const CheckmarkIcon = ({ className = "w-3 h-2.5" }: { className?: string }) => (
 interface FAQ {
   question: string;
   answer: string;
-}
-
-interface JwtPayload {
-  email: string;
-  sub: string;
-  iat: number;
-  exp: number;
 }
 
 interface PricingPlan {
@@ -129,15 +121,13 @@ function PricingContent() {
   }, [searchParams]);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token && token.split('.').length === 3) {
-      try {
-        const decoded = jwtDecode<JwtPayload>(token);
-        setUserEmail(decoded.email);
-      } catch (e) {
-        console.error('Invalid token:', e);
-      }
-    }
+    if (!localStorage.getItem('token')) return;
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`)
+      .then(res => res.ok ? res.json() : null)
+      .then((data: { email?: string } | null) => {
+        if (data?.email) setUserEmail(data.email);
+      })
+      .catch(() => {});
   }, []);
 
   const toggleFaq = (index: number) => {

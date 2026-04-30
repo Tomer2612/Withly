@@ -58,12 +58,11 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const notificationCallbackRef = useRef<((notification: Notification) => void) | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
-    // Create socket connection
+    // Cookie-based auth: socket.io sends the httpOnly access cookie on
+    // the handshake when withCredentials is set; the gateway parses it
+    // from handshake.headers.cookie.
     const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000', {
-      auth: { token },
+      withCredentials: true,
       transports: ['websocket', 'polling'],
     });
 

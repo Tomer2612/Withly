@@ -2,7 +2,6 @@
 
 import { useState, useEffect, ReactNode, useCallback } from 'react';
 import { useParams, useRouter, usePathname } from 'next/navigation';
-import { jwtDecode } from 'jwt-decode';
 import CommunityNavbar from '../../components/CommunityNavbar';
 import { CommunityLayoutContext, CommunityLayoutContextType } from './CommunityContext';
 
@@ -61,18 +60,17 @@ export default function CommunityLayout({ children }: { children: ReactNode }) {
     setSearchQuery('');
   }, [pathname]);
 
-  // Fetch user info from token
+  // Fetch user info via /users/me — auth lives in httpOnly cookies.
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        const decoded = jwtDecode<JwtPayload>(token);
-        setUserEmail(decoded.email);
-        setUserId(decoded.sub);
-      } catch {
-        localStorage.removeItem('token');
-      }
-    }
+    if (!localStorage.getItem('token')) return;
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`)
+      .then(res => res.ok ? res.json() : null)
+      .then((data: { userId?: string; email?: string } | null) => {
+        if (!data) return;
+        if (data.email) setUserEmail(data.email);
+        if (data.userId) setUserId(data.userId);
+      })
+      .catch(() => {});
   }, []);
 
   // Fetch user profile

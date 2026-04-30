@@ -130,23 +130,19 @@ function CourseViewerContent() {
       try { setUserProfile(JSON.parse(cached)); } catch {}
     }
 
-    const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        setUserId(payload.sub);
-        setUserEmail(payload.email);
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, { headers: { Authorization: `Bearer ${token}` } })
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data) {
-              const profile = { name: data.name, profileImage: data.profileImage };
-              setUserProfile(profile);
-              localStorage.setItem('userProfileCache', JSON.stringify(profile));
-            }
-          })
-          .catch(console.error);
-      } catch (e) { console.error('Failed to decode token'); }
+    if (localStorage.getItem('token')) {
+      // Cookie auth: probe /users/me for identity + profile in one call.
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (!data) return;
+          if (data.userId) setUserId(data.userId);
+          if (data.email) setUserEmail(data.email);
+          const profile = { name: data.name, profileImage: data.profileImage };
+          setUserProfile(profile);
+          localStorage.setItem('userProfileCache', JSON.stringify(profile));
+        })
+        .catch(console.error);
     }
     fetchCourse();
   }, [courseId]);

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { jwtDecode } from 'jwt-decode';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import SiteHeader from './components/SiteHeader';
@@ -110,13 +109,6 @@ interface Community {
   };
 }
 
-interface JwtPayload {
-  email: string;
-  sub: string;
-  iat: number;
-  exp: number;
-}
-
 export default function Home() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -135,24 +127,22 @@ export default function Home() {
   const communitiesPerPage = 9;
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token && token.split('.').length === 3) {
-      try {
-        const decoded = jwtDecode<JwtPayload>(token);
-        setUserEmail(decoded.email);
-        setUserId(decoded.sub);
+    if (!localStorage.getItem('token')) return;
 
-        // Fetch user memberships
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/user/memberships`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-          .then(res => res.ok ? res.json() : [])
-          .then(data => setUserMemberships(data))
-          .catch(console.error);
-      } catch (e) {
-        console.error('Invalid token:', e);
-      }
-    }
+    // Cookie auth: probe /users/me for identity, then load memberships.
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`)
+      .then(res => res.ok ? res.json() : null)
+      .then((data: { userId?: string; email?: string } | null) => {
+        if (!data) return;
+        if (data.email) setUserEmail(data.email);
+        if (data.userId) setUserId(data.userId);
+      })
+      .catch(() => {});
+
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/user/memberships`)
+      .then(res => res.ok ? res.json() : [])
+      .then(data => setUserMemberships(data))
+      .catch(console.error);
   }, []);
 
   // Fetch communities

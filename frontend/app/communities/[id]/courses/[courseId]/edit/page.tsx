@@ -149,46 +149,32 @@ export default function EditCoursePage() {
       try { setUserProfile(JSON.parse(cached)); } catch {}
     }
 
-    const token = localStorage.getItem('token');
-    if (!token) {
+    if (!localStorage.getItem('token')) {
       router.push('/login');
       return;
     }
 
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      setUserId(payload.sub);
-      setUserEmail(payload.email);
-      
-      // Fetch user profile
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      // Cookie auth: probe /users/me for identity + profile, then load
+      // community data and gate manage-mode on owner/manager role.
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`)
         .then(res => res.ok ? res.json() : null)
-        .then(data => {
-          if (data) {
-            const profile = { name: data.name, profileImage: data.profileImage };
-            setUserProfile(profile);
-            localStorage.setItem('userProfileCache', JSON.stringify(profile));
-          }
-        })
-        .catch(console.error);
+        .then(async (me) => {
+          if (!me) return;
+          if (me.userId) setUserId(me.userId);
+          if (me.email) setUserEmail(me.email);
+          const profile = { name: me.name, profileImage: me.profileImage };
+          setUserProfile(profile);
+          localStorage.setItem('userProfileCache', JSON.stringify(profile));
 
-      // Fetch community data
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-        .then(res => res.ok ? res.json() : null)
-        .then(data => {
-          if (data) {
-            setCommunity({ name: data.name, logo: data.logo });
-            // Check if owner or manager
-            const currentUserId = payload.sub;
-            const isOwner = data.ownerId === currentUserId;
-            const membership = data.members?.find((m: any) => m.userId === currentUserId);
-            const isManager = membership?.role === 'MANAGER' || membership?.role === 'OWNER';
-            setIsOwnerOrManager(isOwner || isManager);
-          }
+          const communityRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
+          if (!communityRes.ok) return;
+          const data = await communityRes.json();
+          setCommunity({ name: data.name, logo: data.logo });
+          const isOwner = data.ownerId === me.userId;
+          const membership = data.members?.find((m: any) => m.userId === me.userId);
+          const isManager = membership?.role === 'MANAGER' || membership?.role === 'OWNER';
+          setIsOwnerOrManager(isOwner || isManager);
         })
         .catch(console.error);
     } catch (e) {

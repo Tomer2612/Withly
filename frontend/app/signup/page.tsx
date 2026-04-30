@@ -225,8 +225,11 @@ function SignupContent() {
         return;
       }
 
-      // Auth state lives in httpOnly cookies set by the backend's Set-Cookie
-      // header — no client-side token storage needed.
+      // Real auth lives in httpOnly cookies; this localStorage flag is a
+      // logged-in marker for legacy pages that still gate on "is there a
+      // token?" The value can't be used to authenticate anywhere — the
+      // backend stopped accepting Bearer headers in S7+S9 phase 3.
+      localStorage.setItem('token', 'cookie-auth');
 
       // Check if user was creating a community - skip email verification and go straight to pricing
       const isCreatingCommunity = searchParams.get('createCommunity') === 'true';
@@ -246,11 +249,11 @@ function SignupContent() {
           // Paid community - redirect back to preview to show payment modal
           router.push(`/communities/${pendingJoinCommunity}/preview?showPayment=true`);
         } else {
-          // Free community - join directly then redirect to community
+          // Free community - join directly then redirect to community.
+          // Cookie auth is added automatically by the fetch interceptor.
           try {
             const joinRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${pendingJoinCommunity}/join`, {
               method: 'POST',
-              headers: { Authorization: `Bearer ${data.access_token}` },
             });
             if (joinRes.ok) {
               router.push(`/communities/${pendingJoinCommunity}/feed`);

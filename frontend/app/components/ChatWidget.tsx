@@ -60,11 +60,11 @@ export default function ChatWidget() {
   
   const { onNewMessage } = useSocketContext();
 
-  // Check auth status
+  // Check auth status — cookie auth, identity comes from /users/me.
   useEffect(() => {
     const checkAuth = () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
+      const marker = localStorage.getItem('token');
+      if (!marker) {
         setIsLoggedIn(false);
         setAuthChecked(true);
         setCurrentUserId(null);
@@ -73,12 +73,12 @@ export default function ChatWidget() {
       setIsLoggedIn(true);
       setAuthChecked(true);
 
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        setCurrentUserId(payload.sub);
-      } catch {
-        console.error('Failed to decode token');
-      }
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`)
+        .then(res => res.ok ? res.json() : null)
+        .then((data: { userId?: string } | null) => {
+          if (data?.userId) setCurrentUserId(data.userId);
+        })
+        .catch(() => {});
     };
 
     checkAuth();
@@ -205,20 +205,8 @@ export default function ChatWidget() {
   }, [onNewMessage]);
 
   const openChat = useCallback(async (conv: Conversation) => {
-    // Get userId from token directly to avoid stale state
-    const token = localStorage.getItem('token');
-    if (!token) return;
-    
-    let userId = currentUserId;
-    if (!userId) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        userId = payload.sub;
-      } catch {
-        return;
-      }
-    }
-    if (!userId) return;
+    if (!currentUserId) return;
+    const userId = currentUserId;
     
     const other = conv.participant1.id === userId ? conv.participant2 : conv.participant1;
     
@@ -265,15 +253,13 @@ export default function ChatWidget() {
       return [...finalMinimized, ...expanded, newChat];
     });
 
-    // Fetch messages
+    // Fetch messages — cookie auth, the global interceptor adds credentials.
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/messages/conversations/${conv.id}/messages`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/messages/conversations/${conv.id}/messages`);
       if (res.ok) {
         const data = await res.json();
-        setOpenChats(prev => prev.map(c => 
-          c.conversationId === conv.id 
+        setOpenChats(prev => prev.map(c =>
+          c.conversationId === conv.id
             ? { ...c, messages: data.messages || [], isLoading: false }
             : c
         ));
@@ -281,7 +267,6 @@ export default function ChatWidget() {
         // Mark as read
         await fetch(`${process.env.NEXT_PUBLIC_API_URL}/messages/conversations/${conv.id}/read`, {
           method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
         });
         
         // Immediately trigger refresh of unread count in MessagesBell
@@ -401,20 +386,7 @@ export default function ChatWidget() {
   };
 
   const getOtherParticipant = (conv: Conversation) => {
-    // Get userId from token directly to avoid stale state
-    let userId = currentUserId;
-    if (!userId) {
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          userId = payload.sub;
-        } catch {
-          // fallback
-        }
-      }
-    }
-    return conv.participant1.id === userId ? conv.participant2 : conv.participant1;
+    return conv.participant1.id === currentUserId ? conv.participant2 : conv.participant1;
   };
 
   const handleConversationClick = (conv: Conversation) => {
@@ -724,20 +696,7 @@ function ChatWindow({
           </div>
         ) : (
           chat.messages.map((msg, index) => {
-            // Get userId from token directly to avoid stale state
-            let userId = currentUserId;
-            if (!userId) {
-              const token = localStorage.getItem('token');
-              if (token) {
-                try {
-                  const payload = JSON.parse(atob(token.split('.')[1]));
-                  userId = payload.sub;
-                } catch {
-                  // fallback
-                }
-              }
-            }
-            const isOwn = msg.senderId === userId;
+            const isOwn = msg.senderId === currentUserId;
             
             // Check if this message is part of a consecutive group from same sender
             const prevMsg = chat.messages[index - 1];

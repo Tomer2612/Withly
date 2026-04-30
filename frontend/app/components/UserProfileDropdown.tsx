@@ -26,8 +26,10 @@ export default function UserProfileDropdown({
 
   const handleLogout = async () => {
     // Backend revokes the refresh token and clears the httpOnly cookies
-    // via Set-Cookie. Locally we just need to drop the profile cache.
+    // via Set-Cookie. Locally drop the profile cache and the legacy
+    // logged-in marker.
     await serverLogout();
+    localStorage.removeItem('token');
     localStorage.removeItem('userProfileCache');
     window.location.href = '/';
   };

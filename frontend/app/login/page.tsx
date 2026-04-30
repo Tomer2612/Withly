@@ -108,9 +108,12 @@ function LoginContent() {
 
       const data = await res.json();
 
-      if (res.ok && data.access_token) {
-        // Auth state lives in httpOnly cookies set by the backend's Set-Cookie
-        // header — no client-side token storage needed.
+      if (res.ok) {
+        // Real auth lives in httpOnly cookies; this localStorage flag is a
+        // logged-in marker for legacy pages that still gate on "is there a
+        // token?" The value can't be used to authenticate anywhere — the
+        // backend stopped accepting Bearer headers in S7+S9 phase 3.
+        localStorage.setItem('token', 'cookie-auth');
 
         // Check for pending community join
         const pendingJoinCommunity = localStorage.getItem('pendingJoinCommunity');
@@ -118,15 +121,15 @@ function LoginContent() {
           localStorage.removeItem('pendingJoinCommunity');
           const pendingPayment = localStorage.getItem('pendingPayment');
           localStorage.removeItem('pendingPayment');
-          
+
           if (pendingPayment) {
             router.push(`/communities/${pendingJoinCommunity}/preview?showPayment=true`);
           } else {
-            // Try to join directly
+            // Try to join directly. The global fetch interceptor adds
+            // credentials: 'include' so the access cookie authenticates this.
             try {
               const joinRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${pendingJoinCommunity}/join`, {
                 method: 'POST',
-                headers: { Authorization: `Bearer ${data.access_token}` },
               });
               if (joinRes.ok) {
                 router.push(`/communities/${pendingJoinCommunity}/feed`);

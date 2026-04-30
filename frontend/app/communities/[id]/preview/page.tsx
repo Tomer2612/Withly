@@ -2,7 +2,6 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { jwtDecode } from 'jwt-decode';
 import Link from 'next/link';
 import { authFetch } from '../../../lib/auth';
 import { FaYoutube, FaWhatsapp, FaFacebook, FaInstagram } from 'react-icons/fa';
@@ -41,13 +40,6 @@ interface Community {
     email: string;
     profileImage?: string | null;
   };
-}
-
-interface JwtPayload {
-  email: string;
-  sub: string;
-  iat: number;
-  exp: number;
 }
 
 // Gallery media item type
@@ -221,16 +213,16 @@ function CommunityPreviewContent() {
   useEffect(() => {
     setMounted(true);
 
-    const token = localStorage.getItem('token');
-    if (token && token.split('.').length === 3) {
-      try {
-        const decoded = jwtDecode<JwtPayload>(token);
-        setUserEmail(decoded.email);
-        setUserId(decoded.sub);
-      } catch (e) {
-        console.error('Invalid token:', e);
-      }
-    }
+    // Cookie auth: only probe /users/me if there's a logged-in marker.
+    if (!localStorage.getItem('token')) return;
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`)
+      .then(res => res.ok ? res.json() : null)
+      .then((data: { userId?: string; email?: string } | null) => {
+        if (!data) return;
+        if (data.email) setUserEmail(data.email);
+        if (data.userId) setUserId(data.userId);
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {

@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { jwtDecode } from 'jwt-decode';
 import { compressImage, MAX_IMAGE_SIZE_BYTES } from '../lib/imageCompression';
 import SiteHeader from '../components/SiteHeader';
 import FormSelect from '../components/FormSelect';
@@ -80,13 +79,6 @@ const ISRAELI_CITIES = [
   'נתיבות',
   'אחר',
 ];
-
-interface JwtPayload {
-  email: string;
-  sub: string;
-  iat: number;
-  exp: number;
-}
 
 interface UserProfile {
   userId: string;
@@ -271,26 +263,22 @@ export default function SettingsPage() {
       try { setUserProfile(JSON.parse(cached)); } catch {}
     }
 
-    const token = localStorage.getItem('token');
-    if (!token || token.split('.').length !== 3) {
+    if (!localStorage.getItem('token')) {
       router.push('/login');
       return;
     }
 
     try {
-      const decoded = jwtDecode<JwtPayload>(token);
-      setUserEmail(decoded.email);
-      setUserId(decoded.sub);
-      
-      // Fetch user profile
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      // Cookie auth: probe /users/me for both identity and profile in one
+      // call. Response shape includes userId/email plus the profile fields.
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`)
         .then(res => {
           if (!res.ok) throw new Error('Failed to fetch profile');
           return res.json();
         })
-        .then((data: UserProfile) => {
+        .then((data: UserProfile & { userId?: string; email?: string }) => {
+          if (data.email) setUserEmail(data.email);
+          if (data.userId) setUserId(data.userId);
           setUserProfile(data);
           localStorage.setItem('userProfileCache', JSON.stringify({ name: data.name, profileImage: data.profileImage }));
           setName(data.name || '');
@@ -308,18 +296,13 @@ export default function SettingsPage() {
         .catch(console.error)
         .finally(() => setLoading(false));
       
-      // Fetch online status
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/online-status`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      // Cookie auth: the global fetch interceptor adds credentials.
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/online-status`)
         .then(res => res.json())
         .then(data => setShowOnline(data.showOnline))
         .catch(console.error);
-      
-      // Fetch notification preferences
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/notification-preferences`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/notification-preferences`)
         .then(res => res.json())
         .then(data => {
           setNotifyLikes(data.notifyLikes ?? true);
@@ -331,11 +314,8 @@ export default function SettingsPage() {
           setNotifyMessages(data.notifyMessages ?? true);
         })
         .catch(console.error);
-        
-      // Fetch payment methods
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/payment-methods`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/payment-methods`)
         .then(res => res.json())
         .then(data => setPaymentMethods(data))
         .catch(console.error);

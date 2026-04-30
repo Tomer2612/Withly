@@ -7,9 +7,10 @@ export default function GoogleSuccessPage() {
   const router = useRouter();
 
   // The OAuth callback already set the httpOnly access + refresh cookies on
-  // the backend response before redirecting here, so this page just needs
-  // to land the user on the home screen.
+  // the backend response before redirecting here. Set the legacy logged-in
+  // marker that some pages still gate on, then land the user on home.
   useEffect(() => {
+    localStorage.setItem('token', 'cookie-auth');
     router.push('/');
   }, [router]);
 
