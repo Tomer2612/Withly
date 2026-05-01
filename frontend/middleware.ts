@@ -19,7 +19,6 @@ const accessGateExemptRoutes = [
 // Routes that require authentication
 const protectedRoutes = [
   '/settings',
-  '/profile',
   '/communities', // Community pages need auth (except preview)
 ];
 
