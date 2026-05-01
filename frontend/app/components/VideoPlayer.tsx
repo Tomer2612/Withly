@@ -35,7 +35,6 @@ export default function VideoPlayer({ url, className = '', onEnded }: VideoPlaye
           src={`https://www.youtube.com/embed/${videoId}?enablejsapi=1&rel=0`}
           className="w-full h-full border-0"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-          allowFullScreen
         />
         {!activated && (
           <div
@@ -72,7 +71,6 @@ export default function VideoPlayer({ url, className = '', onEnded }: VideoPlaye
           src={`https://player.vimeo.com/video/${videoId}?title=0&byline=0&portrait=0`}
           className="w-full h-full border-0"
           allow="autoplay; fullscreen; picture-in-picture"
-          allowFullScreen
         />
         {!activated && (
           <div
@@ -108,7 +106,6 @@ export default function VideoPlayer({ url, className = '', onEnded }: VideoPlaye
           src={`https://geo.dailymotion.com/player.html?video=${videoId}`}
           className="w-full h-full border-0"
           allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
-          allowFullScreen
         />
       </div>
     );

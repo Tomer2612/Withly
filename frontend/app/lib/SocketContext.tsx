@@ -61,7 +61,20 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     // Cookie-based auth: socket.io sends the httpOnly access cookie on
     // the handshake when withCredentials is set; the gateway parses it
     // from handshake.headers.cookie.
-    const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000', {
+    //
+    // socket.io ignores the path portion of the URL it's given (it only
+    // uses protocol/host/port) and defaults to `/socket.io`. On prod the
+    // backend lives behind Cloudflare's `/api/*` route, so we pull the
+    // path prefix off NEXT_PUBLIC_API_URL and prepend it explicitly.
+    // Dev (NEXT_PUBLIC_API_URL=http://localhost:4000) → path `/socket.io`.
+    // Prod (NEXT_PUBLIC_API_URL=https://withly.co.il/api) → path
+    // `/api/socket.io`, which Cloudflare routes to the origin and strips
+    // back to `/socket.io` for the gateway.
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const parsed = new URL(apiUrl);
+    const apiPathPrefix = parsed.pathname.replace(/\/$/, '');
+    const socket = io(parsed.origin, {
+      path: `${apiPathPrefix}/socket.io`,
       withCredentials: true,
       transports: ['websocket', 'polling'],
     });

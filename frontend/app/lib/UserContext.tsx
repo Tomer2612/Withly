@@ -110,14 +110,17 @@ export function UserProvider({ initialUser, children }: UserProviderProps) {
     }
   }, []);
 
-  // Hydrate fresh profile data on mount if SSR said we're logged in.
-  // The initialUser prop only carries email/userId from the JWT — name
-  // and profileImage need a server probe.
+  // Always probe /users/me on mount, regardless of initialUser. SSR's
+  // cookies() can come back empty even for logged-in users (e.g. when
+  // Cloudflare serves cached HTML, or a CDN strips cookies before they
+  // reach the origin), in which case initialUser is null but the cookie
+  // works fine for client-side requests. The probe recovers that state.
+  // The interceptor in ClientProviders is configured not to redirect on
+  // /users/me failures, so anonymous visitors to public pages just stay
+  // logged-out instead of getting bounced to /login.
   useEffect(() => {
-    if (initialUser) {
-      void refresh();
-    }
-  }, [initialUser, refresh]);
+    void refresh();
+  }, [refresh]);
 
   const value = useMemo<UserContextValue>(
     () => ({

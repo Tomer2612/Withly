@@ -12,6 +12,11 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? '';
 // excluded because a 401 from refresh is the genuine signal that the user is
 // fully logged out — looping would just hammer the server.
 const NO_REFRESH_PATHS = ['/auth/login', '/auth/signup', '/auth/refresh', '/auth/logout'];
+// Endpoints where a refresh-failure should NOT redirect to /login. /users/me
+// is the auth probe UserProvider runs on mount — anonymous visitors on public
+// pages will hit it and 401, and we want them to just stay logged-out, not
+// get bounced. A real 401 on a user-action API call still redirects normally.
+const NO_REDIRECT_ON_REFRESH_FAILURE_PATHS = ['/users/me'];
 
 function isApiUrl(url: string): boolean {
   // Match the configured API base if we have one; fall back to anything that
@@ -72,8 +77,11 @@ function installFetchInterceptor() {
 
     const refreshed = await tryRefresh();
     if (!refreshed) {
-      // Refresh itself failed — really logged out. Bounce to login.
-      clearSessionAndRedirect();
+      // Refresh itself failed — really logged out.
+      const skipRedirect = NO_REDIRECT_ON_REFRESH_FAILURE_PATHS.some(p => url.includes(p));
+      if (!skipRedirect) {
+        clearSessionAndRedirect();
+      }
       return response;
     }
 
