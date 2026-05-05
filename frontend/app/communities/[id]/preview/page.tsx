@@ -28,6 +28,7 @@ interface Community {
   topic?: string | null;
   memberCount?: number | null;
   price?: number | null;
+  pendingPrice?: number | null;
   youtubeUrl?: string | null;
   whatsappUrl?: string | null;
   facebookUrl?: string | null;
@@ -41,6 +42,9 @@ interface Community {
     profileImage?: string | null;
   };
 }
+
+const joinPrice = (c: { price?: number | null; pendingPrice?: number | null }): number =>
+  c.pendingPrice ?? c.price ?? 0;
 
 // Gallery media item type
 interface GalleryItem {
@@ -69,19 +73,6 @@ function CommunityGallery({ primaryImage, galleryImages, galleryVideos, communit
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   
-  // Find first image index for advancing after video ends
-  const firstImageIndex = allMedia.findIndex(item => item.type === 'image');
-  
-  // Handle video end - advance to images
-  const handleVideoEnd = () => {
-    if (firstImageIndex !== -1) {
-      setCurrentIndex(firstImageIndex);
-    } else {
-      setCurrentIndex((prev) => (prev === allMedia.length - 1 ? 0 : prev + 1));
-    }
-    setIsVideoPlaying(false);
-  };
-
   // Auto-rotate every 10 seconds (pause on video)
   useEffect(() => {
     if (allMedia.length <= 1) return;
@@ -190,7 +181,6 @@ function CommunityPreviewContent() {
   const [ownerData, setOwnerData] = useState<{ id: string; name: string; profileImage?: string | null; coverImage?: string | null; bio?: string | null } | null>(null);
   const [similarCommunities, setSimilarCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
-  const [mounted, setMounted] = useState(false);
   const [managerCount, setManagerCount] = useState(0);
   const [joining, setJoining] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -198,7 +188,6 @@ function CommunityPreviewContent() {
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvv, setCardCvv] = useState('');
-  const [cardName, setCardName] = useState('');
 
   // Check if we should show payment modal (coming back from signup).
   // Banned users skip this - the banner replaces the join flow entirely.
@@ -209,10 +198,6 @@ function CommunityPreviewContent() {
       router.replace(`/communities/${communityId}/preview`);
     }
   }, [searchParams, community, communityId, router, isBanned]);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     const fetchCommunity = async () => {
@@ -298,17 +283,19 @@ function CommunityPreviewContent() {
     // Banned users can't rejoin — bail before any signup/payment side trips.
     if (isBanned) return;
 
+    const effectivePrice = community ? joinPrice(community) : 0;
+
     if (!userEmail) {
       // Save the community ID and payment intent for after registration
       localStorage.setItem('pendingJoinCommunity', communityId);
-      if (community?.price && community.price > 0) {
+      if (effectivePrice > 0) {
         localStorage.setItem('pendingPayment', 'true');
       }
       router.push('/signup');
       return;
     }
 
-    if (community?.price && community.price > 0) {
+    if (effectivePrice > 0) {
       setShowPaymentModal(true);
     } else {
       joinCommunity();
@@ -481,14 +468,14 @@ function CommunityPreviewContent() {
                         <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                         מצטרף...
                       </>
-                    ) : community.price && community.price > 0 ? (
+                    ) : joinPrice(community) > 0 ? (
                       `הצטרפות בתשלום`
                     ) : (
                       `הצטרפות בחינם`
                     )}
                   </button>
-                  {community.price && community.price > 0 ? (
-                    <p className="text-xs text-gray-500 text-center mt-2">₪{community.price} לחודש • 3 חודשי ניסיון חינם</p>
+                  {joinPrice(community) > 0 ? (
+                    <p className="text-xs text-gray-500 text-center mt-2">₪{joinPrice(community)} לחודש • 3 חודשי ניסיון חינם</p>
                   ) : null}
                 </>
               )}
@@ -658,20 +645,20 @@ function CommunityPreviewContent() {
                               : `${formatMemberCount(comm.memberCount ?? 0)}+ משתמשים`}
                         </span>
                         
-                        {/* Free/Paid badge */}
-                        {(comm.price ?? 0) === 0 ? (
-                          <span 
+                        {/* Free/Paid badge — joinPrice for pending changes */}
+                        {joinPrice(comm) === 0 ? (
+                          <span
                             className="rounded-full font-normal"
                             style={{ backgroundColor: '#A7EA7B', color: '#163300', fontSize: '1rem', padding: '0.5rem 1rem' }}
                           >
                             חינם
                           </span>
                         ) : (
-                          <span 
+                          <span
                             className="rounded-full font-normal"
                             style={{ backgroundColor: '#91DCED', color: '#003233', fontSize: '1rem', padding: '0.5rem 1rem' }}
                           >
-                            ₪{comm.price} לחודש
+                            ₪{joinPrice(comm)} לחודש
                           </span>
                         )}
                       </div>
@@ -705,14 +692,13 @@ function CommunityPreviewContent() {
                     type="text"
                     value={cardNumber}
                     onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, '').slice(0, 16))}
-                    className={`w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black ${
-                      getCardNumberError() ? 'border-red-400' : 'border-gray-300'
-                    }`}
+                    className="w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
+                    style={{ borderColor: getCardNumberError() ? 'var(--color-error)' : '#D1D5DB' }}
                   />
                   <CreditCardIcon className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 </div>
                 {getCardNumberError() && (
-                  <p className="text-red-500 text-sm mt-1">{getCardNumberError()}</p>
+                  <p className="text-sm mt-1" style={{ color: 'var(--color-error)' }}>{getCardNumberError()}</p>
                 )}
               </div>
 
@@ -738,14 +724,13 @@ function CommunityPreviewContent() {
                           setCardExpiry(rawValue);
                         }
                       }}
-                      className={`w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black ${
-                        getExpiryError() ? 'border-red-400' : 'border-gray-300'
-                      }`}
+                      className="w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
+                      style={{ borderColor: getExpiryError() ? 'var(--color-error)' : '#D1D5DB' }}
                     />
                     <CalendarIcon className="absolute right-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                   </div>
                   {getExpiryError() && (
-                    <p className="text-red-500 text-sm mt-1">{getExpiryError()}</p>
+                    <p className="text-sm mt-1" style={{ color: 'var(--color-error)' }}>{getExpiryError()}</p>
                   )}
                 </div>
                 <div>
@@ -755,14 +740,13 @@ function CommunityPreviewContent() {
                       type="text"
                       value={cardCvv}
                       onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, '').slice(0, 3))}
-                      className={`w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black ${
-                        getCvvError() ? 'border-red-400' : 'border-gray-300'
-                      }`}
+                      className="w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
+                      style={{ borderColor: getCvvError() ? 'var(--color-error)' : '#D1D5DB' }}
                     />
                     <LockIcon className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   </div>
                   {getCvvError() && (
-                    <p className="text-red-500 text-sm mt-1">{getCvvError()}</p>
+                    <p className="text-sm mt-1" style={{ color: 'var(--color-error)' }}>{getCvvError()}</p>
                   )}
                 </div>
               </div>

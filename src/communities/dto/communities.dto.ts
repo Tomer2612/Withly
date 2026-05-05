@@ -42,12 +42,23 @@ export class UpdateCommunityDto {
   @IsOptional() @IsString() @MaxLength(URL_MAX) existingLogo?: string;
 
   @IsOptional() @IsString() price?: string;
-  @IsOptional() trialCancelled?: boolean;
   @IsOptional() @IsString() @MaxLength(20) cardLastFour?: string;
   @IsOptional() @IsString() @MaxLength(50) cardBrand?: string;
   @IsOptional() @IsString() showOnlineMembers?: string;
 
   @IsOptional() @IsIn(['DRAFT', 'PRIVATE', 'PUBLIC']) status?: string;
+}
+
+// Owner-only payment fields. Lives on its own endpoint so the suspended
+// community renewal flow can hit it without tripping assertActive.
+export class UpdatePaymentInfoDto {
+  @IsOptional() @IsString() price?: string;
+  @IsOptional() @IsString() @MaxLength(20) cardLastFour?: string;
+  @IsOptional() @IsString() @MaxLength(50) cardBrand?: string;
+  // ISO date string when the owner-initiated subscription cancellation takes
+  // effect. Pass null to clear (un-cancel). Actual deletion is handled later
+  // by the HYP integration / cron job.
+  @IsOptional() @IsString() subscriptionCancelledAt?: string | null;
 }
 
 export class UpdateMemberRoleDto {

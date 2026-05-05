@@ -31,31 +31,6 @@ const COMMUNITY_TOPICS = [
   'יזמות ועסקים עצמאיים',
 ];
 
-// Topic color mapping - synced with topicIcons.tsx colors
-const TOPIC_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  'אנימציה': { bg: 'bg-pink-100', text: 'text-pink-600', border: 'border-pink-200' },
-  'אוכל, בישול ותזונה': { bg: 'bg-orange-100', text: 'text-orange-600', border: 'border-orange-200' },
-  'עזרה ותמיכה': { bg: 'bg-teal-100', text: 'text-teal-600', border: 'border-teal-200' },
-  'עיצוב גרפי': { bg: 'bg-purple-100', text: 'text-purple-600', border: 'border-purple-200' },
-  'עיצוב מותגים': { bg: 'bg-indigo-100', text: 'text-indigo-600', border: 'border-indigo-200' },
-  'עריכת וידאו': { bg: 'bg-red-100', text: 'text-red-600', border: 'border-red-200' },
-  'בריאות הנפש ופיתוח אישי': { bg: 'bg-emerald-100', text: 'text-emerald-600', border: 'border-emerald-200' },
-  'גיימינג': { bg: 'bg-violet-100', text: 'text-violet-600', border: 'border-violet-200' },
-  'טיולים ולייףסטייל': { bg: 'bg-sky-100', text: 'text-sky-600', border: 'border-sky-200' },
-  'לימודים ואקדמיה': { bg: 'bg-amber-100', text: 'text-amber-600', border: 'border-amber-200' },
-  'מדיה, קולנוע וסדרות': { bg: 'bg-rose-100', text: 'text-rose-600', border: 'border-rose-200' },
-  'מדיה חברתית ותוכן ויזואלי': { bg: 'bg-fuchsia-100', text: 'text-fuchsia-600', border: 'border-fuchsia-200' },
-  'ניהול פיננסי והשקעות': { bg: 'bg-green-100', text: 'text-green-600', border: 'border-green-200' },
-  'ספרים וכתיבה': { bg: 'bg-yellow-100', text: 'text-yellow-700', border: 'border-yellow-200' },
-  'ספורט ואורח חיים פעיל': { bg: 'bg-lime-100', text: 'text-lime-600', border: 'border-lime-200' },
-  'תחביבים': { bg: 'bg-cyan-100', text: 'text-cyan-600', border: 'border-cyan-200' },
-  'יזמות ועסקים עצמאיים': { bg: 'bg-blue-100', text: 'text-blue-600', border: 'border-blue-200' },
-};
-
-const getTopicColor = (topic: string) => {
-  return TOPIC_COLORS[topic] || { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-200', bgHex: '#F4F4F5', textHex: '#3F3F46', borderHex: '#E1E1E2' };
-};
-
 // Helper function to get visible page numbers (max 10, sliding window)
 const getVisiblePages = (currentPage: number, totalPages: number): number[] => {
   const maxVisible = 10;
@@ -104,10 +79,18 @@ interface Community {
   topic?: string | null;
   memberCount?: number | null;
   price?: number | null;
+  pendingPrice?: number | null;
   _count?: {
     posts: number;
   };
 }
+
+// Price a brand-new joiner would pay right now. When the owner has announced
+// a price change, the new price kicks in for new joiners immediately while
+// existing members are grandfathered until pendingPriceEffectiveAt.
+const joinPrice = (c: { price?: number | null; pendingPrice?: number | null }): number => {
+  return c.pendingPrice ?? c.price ?? 0;
+};
 
 export default function Home() {
   const { user } = useUser();
@@ -177,7 +160,7 @@ export default function Home() {
       
       const matchesPrice = (() => {
         if (!selectedPrice) return true;
-        const price = community.price ?? 0;
+        const price = joinPrice(community);
         if (selectedPrice === 'free') return price === 0;
         if (selectedPrice === 'low') return price >= 1 && price <= 50;
         if (selectedPrice === 'high') return price > 50;
@@ -399,20 +382,21 @@ export default function Home() {
                           : `${formatMemberCount(community.memberCount ?? 0)}+ משתמשים`}
                     </span>
                     
-                    {/* Free/Paid badge */}
-                    {(community.price ?? 0) === 0 ? (
-                      <span 
+                    {/* Free/Paid badge — uses joinPrice so a pending price
+                        change is reflected immediately for new joiners. */}
+                    {joinPrice(community) === 0 ? (
+                      <span
                         className="rounded-full font-normal"
                         style={{ backgroundColor: '#A7EA7B', color: '#163300', fontSize: '1rem', padding: '0.5rem 1rem' }}
                       >
                         חינם
                       </span>
                     ) : (
-                      <span 
+                      <span
                         className="rounded-full font-normal"
                         style={{ backgroundColor: '#91DCED', color: '#003233', fontSize: '1rem', padding: '0.5rem 1rem' }}
                       >
-                        ₪{community.price} לחודש
+                        ₪{joinPrice(community)} לחודש
                       </span>
                     )}
                   </div>

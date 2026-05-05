@@ -30,7 +30,6 @@ export class UpdateNotificationPreferencesDto {
   @IsOptional() @IsBoolean() notifyNewPosts?: boolean;
   @IsOptional() @IsBoolean() notifyMentions?: boolean;
   @IsOptional() @IsBoolean() notifyCommunityJoins?: boolean;
-  @IsOptional() @IsBoolean() notifyMessages?: boolean;
 }
 
 export class ChangePasswordDto {

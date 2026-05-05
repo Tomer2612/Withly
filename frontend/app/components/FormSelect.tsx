@@ -59,7 +59,7 @@ export default function FormSelect({
       {label && (
         <label className="block text-sm font-medium text-gray-700 mb-2 text-right">
           {label}
-          {required && <span className="text-red-500 mr-1">*</span>}
+          {required && <span className="mr-1" style={{ color: 'var(--color-error)' }}>*</span>}
         </label>
       )}
       <button

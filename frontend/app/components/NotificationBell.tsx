@@ -6,10 +6,13 @@ import { formatDistanceToNow } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { getImageUrl } from '@/app/lib/imageUrl';
 import { useUser } from '../lib/UserContext';
+import { useSocketContext } from '../lib/SocketContext';
+import CloseIcon from './icons/CloseIcon';
+import TrashIcon from './icons/TrashIcon';
 
 interface Notification {
   id: string;
-  type: 'LIKE' | 'COMMENT' | 'FOLLOW' | 'NEW_POST' | 'MENTION' | 'COMMUNITY_JOIN' | 'COMMUNITY_BAN' | 'COMMUNITY_BAN_LIFTED';
+  type: 'LIKE' | 'COMMENT' | 'FOLLOW' | 'NEW_POST' | 'MENTION' | 'COMMUNITY_JOIN' | 'COMMUNITY_BAN' | 'COMMUNITY_BAN_LIFTED' | 'COMMUNITY_SCHEDULED_FOR_SUSPENSION' | 'COMMUNITY_SUSPENDED' | 'COMMUNITY_REACTIVATED';
   message?: string;
   isRead: boolean;
   createdAt: string;
@@ -31,12 +34,13 @@ interface Notification {
   community?: {
     id: string;
     name: string;
+    slug?: string | null;
   };
 }
 
 interface GroupedNotification {
   key: string;
-  type: 'LIKE' | 'COMMENT' | 'FOLLOW' | 'NEW_POST' | 'MENTION' | 'COMMUNITY_JOIN' | 'COMMUNITY_BAN' | 'COMMUNITY_BAN_LIFTED';
+  type: 'LIKE' | 'COMMENT' | 'FOLLOW' | 'NEW_POST' | 'MENTION' | 'COMMUNITY_JOIN' | 'COMMUNITY_BAN' | 'COMMUNITY_BAN_LIFTED' | 'COMMUNITY_SCHEDULED_FOR_SUSPENSION' | 'COMMUNITY_SUSPENDED' | 'COMMUNITY_REACTIVATED';
   notifications: Notification[];
   latestAt: string;
   isRead: boolean;
@@ -116,6 +120,14 @@ const getGroupedNotificationText = (group: GroupedNotification) => {
       return `${firstActor} השעה אותך מ${group.community?.name || 'הקהילה'}`;
     case 'COMMUNITY_BAN_LIFTED':
       return `${firstActor} ביטל את ההשעיה שלך מ${group.community?.name || 'הקהילה'}`;
+    case 'COMMUNITY_SCHEDULED_FOR_SUSPENSION':
+      return group.community?.name
+        ? `${firstActor} החל/ה תהליך השבתה של קהילת ${group.community.name}`
+        : `${firstActor} החל/ה תהליך השבתה של הקהילה`;
+    case 'COMMUNITY_SUSPENDED':
+      return `הקהילה ${group.community?.name || ''} הושבתה`;
+    case 'COMMUNITY_REACTIVATED':
+      return `${firstActor} הפעיל/ה מחדש את הקהילה ${group.community?.name || ''}`;
     default:
       return 'התראה חדשה';
   }
@@ -126,15 +138,12 @@ const getGroupedNotificationLink = (group: GroupedNotification): string | null =
     case 'LIKE':
     case 'COMMENT':
     case 'MENTION': {
-      // Try to get communityId from direct field or from post.community
-      const communityId = group.communityId || group.post?.community?.id;
-      const postId = group.postId || group.post?.id;
-      if (communityId && postId) {
-        return `/communities/${communityId}/feed?postId=${postId}`;
-      }
-      // Fallback: just link to communities if we have communityId only
-      if (communityId) {
-        return `/communities/${communityId}/feed`;
+      // Prefer slug — landing on the canonical URL avoids the feed page's
+      // slug-redirect that would otherwise refetch the page once the
+      // community payload arrives.
+      const communityIdOrSlug = group.community?.slug || group.communityId || group.post?.community?.id;
+      if (communityIdOrSlug) {
+        return `/communities/${communityIdOrSlug}/feed`;
       }
       return null;
     }
@@ -148,9 +157,9 @@ const getGroupedNotificationLink = (group: GroupedNotification): string | null =
     }
     case 'NEW_POST':
     case 'COMMUNITY_JOIN': {
-      const communityId = group.communityId || group.community?.id;
-      if (communityId) {
-        return `/communities/${communityId}/feed`;
+      const idOrSlug = group.community?.slug || group.communityId || group.community?.id;
+      if (idOrSlug) {
+        return `/communities/${idOrSlug}/feed`;
       }
       return null;
     }
@@ -158,9 +167,18 @@ const getGroupedNotificationLink = (group: GroupedNotification): string | null =
     case 'COMMUNITY_BAN_LIFTED': {
       // Both go to /preview: banned users see the banner, lifted users
       // are no longer members and need to rejoin from there.
-      const communityId = group.communityId || group.community?.id;
-      if (communityId) {
-        return `/communities/${communityId}/preview`;
+      const idOrSlug = group.community?.slug || group.communityId || group.community?.id;
+      if (idOrSlug) {
+        return `/communities/${idOrSlug}/preview`;
+      }
+      return null;
+    }
+    case 'COMMUNITY_SCHEDULED_FOR_SUSPENSION':
+    case 'COMMUNITY_SUSPENDED':
+    case 'COMMUNITY_REACTIVATED': {
+      const idOrSlug = group.community?.slug || group.communityId || group.community?.id;
+      if (idOrSlug) {
+        return `/communities/${idOrSlug}/feed`;
       }
       return null;
     }
@@ -171,12 +189,42 @@ const getGroupedNotificationLink = (group: GroupedNotification): string | null =
 
 export default function NotificationBell() {
   const { user } = useUser();
+  const { socket } = useSocketContext();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const justMarkedReadRef = useRef(false);
+  const isOpenRef = useRef(isOpen);
+  useEffect(() => { isOpenRef.current = isOpen; }, [isOpen]);
+
+  // Subscribe to socket-pushed notifications so the bell badge updates in
+  // real time. We refetch the authoritative unread count from the server
+  // rather than `prev + 1` — the JS counter drifts (e.g. when an action on
+  // another tab marks notifications as read). Refetching keeps the bell in
+  // sync with what the dropdown rows actually show.
+  useEffect(() => {
+    if (!socket || !user) return;
+    const handler = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/unread-count`);
+        if (res.ok) {
+          const data = await res.json();
+          setUnreadCount(data.unreadCount ?? data.count ?? 0);
+        }
+      } catch {
+        // Best-effort — the 30s poll will catch up.
+      }
+      // If the dropdown is open, also refresh the list so the new row appears.
+      if (isOpenRef.current) {
+        fetchNotifications();
+      }
+    };
+    socket.on('newNotification', handler);
+    return () => { socket.off('newNotification', handler); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket, user]);
 
   // Fetch unread count on mount
   useEffect(() => {
@@ -286,7 +334,7 @@ export default function NotificationBell() {
         // 2. Update local state
         setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
         setUnreadCount(0);
-        
+
         // 3. Set flag to prevent fetches from overriding our local state
         justMarkedReadRef.current = true;
         setTimeout(() => {
@@ -295,6 +343,45 @@ export default function NotificationBell() {
       }
     } catch (err) {
       console.error('Failed to mark all as read:', err);
+    }
+  };
+
+  const deleteGroup = async (group: GroupedNotification, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (!user) return;
+    const ids = group.notifications.map(n => n.id);
+    const wasUnread = group.notifications.filter(n => !n.isRead).length;
+    // Optimistic remove — keeps the bell snappy.
+    setNotifications(prev => prev.filter(n => !ids.includes(n.id)));
+    if (wasUnread > 0) setUnreadCount(prev => Math.max(0, prev - wasUnread));
+    try {
+      await Promise.all(
+        ids.map(id =>
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/${id}`, {
+            method: 'DELETE',
+          }),
+        ),
+      );
+    } catch (err) {
+      console.error('Failed to delete notification:', err);
+    }
+  };
+
+  const deleteAllNotifications = async () => {
+    if (!user) return;
+    setNotifications([]);
+    setUnreadCount(0);
+    justMarkedReadRef.current = true;
+    setTimeout(() => { justMarkedReadRef.current = false; }, 10000);
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/all`, {
+        method: 'DELETE',
+      });
+    } catch (err) {
+      console.error('Failed to delete all notifications:', err);
     }
   };
 
@@ -356,18 +443,32 @@ export default function NotificationBell() {
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
             <h3 className="font-semibold text-gray-900">התראות</h3>
-            {unreadCount > 0 && (
-              <button
-                onClick={markAllAsRead}
-                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition"
-                title="סמן הכל כנקרא"
-              >
-                {/* Double checkmark icon */}
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-            )}
+            <div className="flex items-center gap-1">
+              {unreadCount > 0 && (
+                <button
+                  onClick={markAllAsRead}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition"
+                  title="סמן הכל כנקרא"
+                >
+                  {/* Double checkmark icon */}
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </button>
+              )}
+              {notifications.length > 0 && (
+                <button
+                  onClick={deleteAllNotifications}
+                  className="p-1.5 text-gray-400 hover:bg-red-50 rounded-full transition"
+                  style={{ color: undefined }}
+                  title="מחק את כל ההתראות"
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-error)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = ''; }}
+                >
+                  <TrashIcon size={18} />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Notifications List */}
@@ -404,8 +505,9 @@ export default function NotificationBell() {
                 
                 const innerContent = (
                   <>
-                    {/* Stacked Avatars */}
-                    <div className="flex-shrink-0 relative" style={{ width: avatars.length > 1 ? 44 : 40, height: 40 }}>
+                    {/* Stacked Avatars — fixed width regardless of count so
+                        every row's text starts at the same horizontal position. */}
+                    <div className="flex-shrink-0 relative" style={{ width: 44, height: 40 }}>
                       {avatars.map((actor, i) => (
                         <div
                           key={actor?.id || i}
@@ -445,7 +547,7 @@ export default function NotificationBell() {
                 return (
                   <div
                     key={group.key}
-                    className={`flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition ${
+                    className={`group flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition ${
                       !group.isRead ? 'bg-[#FCFCFC]' : ''
                     }`}
                   >
@@ -466,18 +568,31 @@ export default function NotificationBell() {
                       </div>
                     )}
 
-                    {/* Mark as Read button - OUTSIDE the Link */}
-                    {!group.isRead && (
+                    {/* Action buttons — OUTSIDE the Link so clicking them
+                        doesn't navigate. Hidden by default; revealed when the
+                        row is hovered (or focused for keyboard users). */}
+                    <div className="flex flex-col gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                      {!group.isRead && (
+                        <button
+                          onClick={(e) => markGroupAsRead(group, e)}
+                          className="p-1.5 text-gray-400 hover:text-[#65A30D] hover:bg-[#A7EA7B]/20 rounded-full transition"
+                          title="סמן כנקרא"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </button>
+                      )}
                       <button
-                        onClick={(e) => markGroupAsRead(group, e)}
-                        className="flex-shrink-0 p-1.5 text-gray-400 hover:text-[#65A30D] hover:bg-[#A7EA7B]/20 rounded-full transition"
-                        title="סמן כנקרא"
+                        onClick={(e) => deleteGroup(group, e)}
+                        className="p-1.5 text-gray-400 hover:bg-red-50 rounded-full transition"
+                        title="מחק"
+                        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-error)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = ''; }}
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
+                        <CloseIcon size={14} />
                       </button>
-                    )}
+                    </div>
                   </div>
                 );
               })

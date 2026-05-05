@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useUser } from '../../lib/UserContext';
 
@@ -9,7 +9,6 @@ export default function CommunityRedirectPage() {
   const params = useParams();
   const communityId = params.id as string;
   const { user } = useUser();
-  const [checked, setChecked] = useState(false);
 
   useEffect(() => {
     const checkMembership = async () => {
@@ -32,7 +31,6 @@ export default function CommunityRedirectPage() {
       } catch {
         router.replace(`/communities/${communityId}/preview`);
       }
-      setChecked(true);
     };
     checkMembership();
   }, [communityId, router, user]);

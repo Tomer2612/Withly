@@ -216,7 +216,12 @@ export class MessagesService {
 
   // Get total unread message count
   async getUnreadCount(userId: string) {
-    const count = await this.prisma.message.count({
+    // Count distinct *conversations* with unread messages, not the total
+    // unread message count. Standard chat-app pattern (Discord/Slack/etc):
+    // bell shows how many people have pinged you, the per-row badge in the
+    // dropdown shows how many messages from each.
+    const rows = await this.prisma.message.groupBy({
+      by: ['conversationId'],
       where: {
         conversation: {
           OR: [
@@ -228,7 +233,7 @@ export class MessagesService {
         isRead: false,
       },
     });
-    return { unreadCount: count };
+    return { unreadCount: rows.length };
   }
 
   // Get conversation with a specific user

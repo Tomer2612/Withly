@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import Image from 'next/image';
 import { useSocketContext, SocketMessage } from '../lib/SocketContext';
 import { useUser } from '../lib/UserContext';
 import { getImageUrl } from '@/app/lib/imageUrl';
@@ -47,6 +46,10 @@ export default function ChatWidget() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [showConversations, setShowConversations] = useState(false);
   const [loadingConversations, setLoadingConversations] = useState(false);
+  // Pixel offsets read from the messages bell button at open-time so the
+  // dropdown lines up under the icon (the bell is rendered in the navbar,
+  // so we can't anchor the dropdown via CSS alone).
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number } | null>(null);
   const conversationsRef = useRef<HTMLDivElement>(null);
   const justMarkedAllReadRef = useRef(false);
   
@@ -59,7 +62,7 @@ export default function ChatWidget() {
     showConversationsRef.current = showConversations;
   }, [showConversations]);
   
-  const { onNewMessage } = useSocketContext();
+  const { onNewMessage, socket } = useSocketContext();
 
   // Fetch conversations
   const fetchConversations = useCallback(async () => {
@@ -87,6 +90,22 @@ export default function ChatWidget() {
   useEffect(() => {
     fetchConversationsRef.current = fetchConversations;
   }, [fetchConversations]);
+
+  // Live-update the conversations list while the dropdown is open. Subscribes
+  // directly to socket.on (separate listener — the SocketContext's
+  // onNewMessage is a single-callback ref already owned by the chat-window
+  // routing handler below). Without this, the unread badge bumps live but
+  // last-message previews stay stale until the dropdown is reopened.
+  useEffect(() => {
+    if (!socket) return;
+    const handler = () => {
+      if (showConversationsRef.current) {
+        fetchConversationsRef.current();
+      }
+    };
+    socket.on('newMessage', handler);
+    return () => { socket.off('newMessage', handler); };
+  }, [socket]);
 
   // Expose toggle function globally - bypasses event listener issues
   useEffect(() => {
@@ -141,6 +160,39 @@ export default function ChatWidget() {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
+  }, [showConversations]);
+
+  // Recompute dropdown position whenever it opens, and keep it in sync if the
+  // viewport changes while open (resize / scroll). On desktop we anchor the
+  // dropdown's left edge under the bell button. On mobile we let Tailwind
+  // classes (left-2 right-2) span the full width — the JS only fills `top`.
+  useEffect(() => {
+    if (!showConversations) {
+      setDropdownPos(null);
+      return;
+    }
+    const SM_BREAKPOINT = 640;
+    const place = () => {
+      const btn = document.querySelector('[data-messages-bell]') as HTMLElement | null;
+      if (!btn) return;
+      const rect = btn.getBoundingClientRect();
+      const isMobile = window.innerWidth < SM_BREAKPOINT;
+      if (isMobile) {
+        setDropdownPos({ top: rect.bottom + 8, left: -1 });
+        return;
+      }
+      // Desktop: anchor LEFT edge to button's left edge. Clamp so it can't
+      // overflow the right edge.
+      const left = Math.max(8, Math.min(rect.left, window.innerWidth - 384 - 8));
+      setDropdownPos({ top: rect.bottom + 8, left });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
   }, [showConversations]);
 
   // Listen for new messages
@@ -352,11 +404,20 @@ export default function ChatWidget() {
 
   return (
     <>
-      {/* Conversations Dropdown - positioned at top right of page */}
+      {/* Conversations Dropdown — runtime-positioned on desktop (anchors
+          to the messages bell button), full-bleed on mobile. The mobile
+          fallback uses CSS classes so we never hit the off-viewport corner
+          cases of the JS clamp on tiny widths. */}
       {showConversations && (
-        <div 
+        <div
           ref={conversationsRef}
-          className="fixed top-16 left-2 right-2 sm:left-8 sm:right-auto sm:w-80 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden"
+          className="fixed bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden left-2 right-2 sm:right-auto sm:left-auto"
+          style={{
+            top: dropdownPos?.top ?? 64,
+            ...(dropdownPos && dropdownPos.left >= 0
+              ? { left: dropdownPos.left, right: 'auto', width: 384 }
+              : {}),
+          }}
           dir="rtl"
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
@@ -373,15 +434,6 @@ export default function ChatWidget() {
                   </svg>
                 </button>
               )}
-              <button 
-                onClick={() => setShowConversations(false)}
-                className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
             </div>
           </div>
           <div className="max-h-[400px] overflow-y-auto">
@@ -408,7 +460,7 @@ export default function ChatWidget() {
                 return (
                   <div
                     key={conv.id}
-                    className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition cursor-pointer text-right ${
+                    className={`group w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition cursor-pointer text-right ${
                       (conv.unreadCount || 0) > 0 ? 'bg-[#FCFCFC]' : ''
                     }`}
                   >
@@ -418,11 +470,13 @@ export default function ChatWidget() {
                       className="relative flex-shrink-0 hover:opacity-80 transition"
                     >
                       {other.profileImage ? (
-                        <Image
+                        // Plain <img> instead of next/image — at 40px the
+                        // optimizer was downsampling and rendering soft.
+                        // Matches the crisp NotificationBell avatars.
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
                           src={getImageUrl(other.profileImage)}
                           alt={other.name}
-                          width={40}
-                          height={40}
                           className="w-10 h-10 rounded-full object-cover"
                         />
                       ) : (
@@ -446,22 +500,22 @@ export default function ChatWidget() {
                     </button>
                     {(conv.unreadCount || 0) > 0 && (
                       <>
-                        <span className="bg-[#A7EA7B] text-black text-xs font-semibold rounded-full min-w-[24px] h-6 flex items-center justify-center px-2">
-                          {conv.unreadCount}
-                        </span>
                         <button
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
                             markConversationAsRead(conv.id);
                           }}
-                          className="p-1 text-gray-400 hover:text-[#65A30D] hover:bg-[#A7EA7B]/20 rounded-full transition"
+                          className="p-1 text-gray-400 hover:text-[#65A30D] hover:bg-[#A7EA7B]/20 rounded-full transition opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
                           title="סמן כנקרא"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                           </svg>
                         </button>
+                        <span className="bg-[#A7EA7B] text-black text-xs font-semibold rounded-full min-w-[24px] h-6 flex items-center justify-center px-2">
+                          {conv.unreadCount}
+                        </span>
                       </>
                     )}
                   </div>
@@ -486,11 +540,10 @@ export default function ChatWidget() {
               title={chat.recipientName}
             >
               {chat.recipientImage ? (
-                <Image
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
                   src={getImageUrl(chat.recipientImage)}
                   alt={chat.recipientName}
-                  width={24}
-                  height={24}
                   className="w-6 h-6 rounded-full object-cover"
                 />
               ) : (
@@ -598,11 +651,10 @@ function ChatWindow({
             className="hover:opacity-80 transition"
           >
             {chat.recipientImage ? (
-              <Image
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
                 src={getImageUrl(chat.recipientImage)}
                 alt={chat.recipientName}
-                width={32}
-                height={32}
                 className="w-8 h-8 rounded-full object-cover"
               />
             ) : (
@@ -783,8 +835,32 @@ function ChatWindow({
 // Messages Bell Component - for chat messages icon in navbar
 export function MessagesBell() {
   const { user } = useUser();
+  const { socket } = useSocketContext();
   const [unreadCount, setUnreadCount] = useState(0);
   const justMarkedReadRef = useRef(false);
+
+  // Live-update the badge when a new message arrives via socket. We refetch
+  // the authoritative count from the server rather than `prev + 1` — the JS
+  // counter drifts when the chat window auto-marks messages as read while
+  // the socket event also fires (and other edge cases). Refetching keeps
+  // the bell in sync with the conversation rows' counts.
+  useEffect(() => {
+    if (!socket || !user) return;
+    const handler = async (message: SocketMessage) => {
+      if (message.senderId === user.userId) return; // Ignore echoes of own sends
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/messages/unread-count`);
+        if (res.ok) {
+          const data = await res.json();
+          setUnreadCount(data.unreadCount || 0);
+        }
+      } catch {
+        // Best-effort — the 30s poll will catch up.
+      }
+    };
+    socket.on('newMessage', handler);
+    return () => { socket.off('newMessage', handler); };
+  }, [socket, user]);
 
   useEffect(() => {
     const fetchUnreadCount = async () => {

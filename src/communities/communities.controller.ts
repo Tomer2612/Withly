@@ -12,6 +12,7 @@ import {
   CreateCommunityDto,
   UpdateCommunityDto,
   UpdateMemberRoleDto,
+  UpdatePaymentInfoDto,
   UpdateRulesDto,
   UpdateSlugDto,
 } from './dto/communities.dto';
@@ -146,19 +147,11 @@ export class CommunitiesController {
       galleryImages,
       galleryVideos,
       price,
-      body.trialCancelled,
       body.cardLastFour,
       body.cardBrand,
       body.showOnlineMembers !== undefined ? body.showOnlineMembers === 'true' : undefined,
       body.status,
     );
-  }
-
-  @UseGuards(AuthGuard('jwt'))
-  @Delete(':id')
-  delete(@Param('id') id: string, @Req() req) {
-    const userId = req.user.userId;
-    return this.communitiesService.delete(id, userId);
   }
 
   @UseGuards(AuthGuard('jwt'))
@@ -308,5 +301,60 @@ export class CommunitiesController {
     @Body() body: UpdateSlugDto,
   ) {
     return this.communitiesService.updateSlug(id, body.slug);
+  }
+
+  // Owner-only: announce a community price change. Stores the new price as
+  // pending; existing members keep paying current price until effectiveAt.
+  // Rate-limited to one change per month server-side.
+  @UseGuards(AuthGuard('jwt'))
+  @Post(':id/payment/announce-price')
+  announcePriceChange(
+    @Param('id') id: string,
+    @Body() body: { newPrice: number },
+    @Req() req,
+  ) {
+    const userId = req.user.userId;
+    return this.communitiesService.announcePriceChange(id, userId, Number(body.newPrice));
+  }
+
+  // Member-side: dismiss the price-change announcement popup. Idempotent.
+  @UseGuards(AuthGuard('jwt'))
+  @Post(':id/acknowledge-price-change')
+  acknowledgePriceChange(@Param('id') id: string, @Req() req) {
+    const userId = req.user.userId;
+    return this.communitiesService.acknowledgePriceChange(id, userId);
+  }
+
+  // Member-side: dismiss the scheduled-suspension popup. Idempotent.
+  @UseGuards(AuthGuard('jwt'))
+  @Post(':id/acknowledge-suspension-scheduled')
+  acknowledgeSuspensionScheduled(@Param('id') id: string, @Req() req) {
+    const userId = req.user.userId;
+    return this.communitiesService.acknowledgeSuspensionScheduled(id, userId);
+  }
+
+  // Owner-only payment update — separate from PUT /:id so a SUSPENDED
+  // community can still complete the renewal flow.
+  @UseGuards(AuthGuard('jwt'))
+  @Patch(':id/payment')
+  updatePaymentInfo(
+    @Param('id') id: string,
+    @Body() body: UpdatePaymentInfoDto,
+    @Req() req,
+  ) {
+    const userId = req.user.userId;
+    const price = body.price !== undefined ? parseFloat(body.price) : undefined;
+    const subscriptionCancelledAt =
+      body.subscriptionCancelledAt === undefined
+        ? undefined
+        : body.subscriptionCancelledAt === null
+          ? null
+          : new Date(body.subscriptionCancelledAt);
+    return this.communitiesService.updatePaymentInfo(id, userId, {
+      price,
+      cardLastFour: body.cardLastFour,
+      cardBrand: body.cardBrand,
+      subscriptionCancelledAt,
+    });
   }
 }

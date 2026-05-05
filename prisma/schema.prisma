@@ -26,12 +26,11 @@ model User {
   coverImage               String?
   location                 String?
   notifyComments           Boolean             @default(false)
-  notifyCommunityJoins     Boolean             @default(false)
-  notifyFollows            Boolean             @default(false)
+  notifyCommunityJoins     Boolean             @default(true)
+  notifyFollows            Boolean             @default(true)
   notifyLikes              Boolean             @default(false)
-  notifyMentions           Boolean             @default(false)
+  notifyMentions           Boolean             @default(true)
   notifyNewPosts           Boolean             @default(false)
-  notifyMessages           Boolean             @default(false)
   refreshTokens            RefreshToken[]
   posts                    Post[]
   comments                 Comment[]
@@ -106,8 +105,6 @@ model Notification {
   actorId     String?
   postId      String?
   communityId String?
-  commentId   String?
-  message     String?
   isRead      Boolean          @default(false)
   createdAt   DateTime         @default(now())
   actor       User?            @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
@@ -138,10 +135,15 @@ model Community {
   logo           String?
   cardBrand      String?
   cardLastFour   String?
-  trialCancelled    Boolean           @default(false)
   trialStartDate   DateTime?
   showOnlineMembers Boolean          @default(true)
   status            CommunityStatus  @default(DRAFT)
+  subscriptionStatus CommunitySubscriptionStatus @default(ACTIVE)
+  suspendedAt       DateTime?
+  subscriptionCancelledAt DateTime?
+  pendingPrice      Float?
+  pendingPriceEffectiveAt DateTime?
+  priceChangeAnnouncedAt DateTime?
   slug             String?           @unique
   posts          Post[]
   owner          User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
@@ -159,6 +161,13 @@ model CommunityMember {
   communityId String
   joinedAt    DateTime   @default(now())
   role        MemberRole @default(USER)
+  // Set to community.pendingPriceEffectiveAt when the member dismisses the
+  // price-change announcement popup. Compared against the community's
+  // pendingPriceEffectiveAt to decide whether to show the popup again.
+  priceChangeSeenForEffectiveAt DateTime?
+  // Set to community.subscriptionCancelledAt when the member dismisses the
+  // scheduled-suspension popup. Same compare-and-show pattern as above.
+  suspensionScheduledSeenAt DateTime?
   community   Community  @relation(fields: [communityId], references: [id], onDelete: Cascade)
   user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -487,12 +496,20 @@ enum NotificationType {
   COMMUNITY_JOIN
   COMMUNITY_BAN
   COMMUNITY_BAN_LIFTED
+  COMMUNITY_SCHEDULED_FOR_SUSPENSION
+  COMMUNITY_SUSPENDED
+  COMMUNITY_REACTIVATED
 }
 
 enum CommunityStatus {
   DRAFT
   PRIVATE
   PUBLIC
+}
+
+enum CommunitySubscriptionStatus {
+  ACTIVE
+  SUSPENDED
 }
 
 enum MemberRole {

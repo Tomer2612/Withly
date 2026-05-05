@@ -48,6 +48,8 @@ export class CoursesService {
       throw new ForbiddenException(ERROR_MESSAGES.NO_PERMISSION_CREATE_COURSE);
     }
 
+    await this.communitiesService.assertActive(communityId);
+
     return this.prisma.course.create({
       data: {
         title: data.title,
@@ -284,6 +286,8 @@ export class CoursesService {
       throw new NotFoundException(ERROR_MESSAGES.COURSE_NOT_FOUND);
     }
 
+    await this.communitiesService.assertActive(course.communityId);
+
     // Use upsert with try-catch to handle race conditions
     try {
       return await this.prisma.courseEnrollment.upsert({
@@ -315,11 +319,14 @@ export class CoursesService {
       where: {
         userId_courseId: { userId, courseId },
       },
+      include: { course: { select: { communityId: true } } },
     });
 
     if (!enrollment) {
       throw new NotFoundException(ERROR_MESSAGES.NOT_ENROLLED_IN_COURSE);
     }
+
+    await this.communitiesService.assertActive(enrollment.course.communityId);
 
     // Delete lesson progress for this user and course
     await this.prisma.lessonProgress.deleteMany({
@@ -357,6 +364,8 @@ export class CoursesService {
     if (!lesson) {
       throw new NotFoundException(ERROR_MESSAGES.LESSON_NOT_FOUND);
     }
+
+    await this.communitiesService.assertActive(lesson.chapter.course.communityId);
 
     // Create or update lesson progress
     const progress = await this.prisma.lessonProgress.upsert({
@@ -397,6 +406,8 @@ export class CoursesService {
     if (!lesson) {
       throw new NotFoundException(ERROR_MESSAGES.LESSON_NOT_FOUND);
     }
+
+    await this.communitiesService.assertActive(lesson.chapter.course.communityId);
 
     // Update lesson progress to incomplete
     const progress = await this.prisma.lessonProgress.upsert({
@@ -484,6 +495,8 @@ export class CoursesService {
       throw new ForbiddenException(ERROR_MESSAGES.NO_PERMISSION_EDIT_COURSE);
     }
 
+    await this.communitiesService.assertActive(course.communityId);
+
     // Get max order
     const lastChapter = await this.prisma.chapter.findFirst({
       where: { courseId },
@@ -540,6 +553,8 @@ export class CoursesService {
     if (chapter.course.authorId !== userId) {
       throw new ForbiddenException(ERROR_MESSAGES.NO_PERMISSION_EDIT_COURSE);
     }
+
+    await this.communitiesService.assertActive(chapter.course.communityId);
 
     // Get max order
     const lastLesson = await this.prisma.lesson.findFirst({
@@ -644,6 +659,8 @@ export class CoursesService {
       throw new ForbiddenException(ERROR_MESSAGES.NO_PERMISSION_EDIT_COURSE);
     }
 
+    await this.communitiesService.assertActive(course.communityId);
+
     return this.prisma.course.update({
       where: { id: courseId },
       data,
@@ -680,6 +697,8 @@ export class CoursesService {
     if (chapter.course.authorId !== userId) {
       throw new ForbiddenException(ERROR_MESSAGES.NO_PERMISSION_EDIT_COURSE);
     }
+
+    await this.communitiesService.assertActive(chapter.course.communityId);
 
     return this.prisma.chapter.update({
       where: { id: chapterId },
@@ -736,6 +755,8 @@ export class CoursesService {
     if (lesson.chapter.course.authorId !== userId) {
       throw new ForbiddenException(ERROR_MESSAGES.NO_PERMISSION_EDIT_COURSE);
     }
+
+    await this.communitiesService.assertActive(lesson.chapter.course.communityId);
 
     // Handle quiz update separately
     if (data.quiz && data.lessonType === 'quiz') {
@@ -829,6 +850,8 @@ export class CoursesService {
       throw new ForbiddenException(ERROR_MESSAGES.NO_PERMISSION_DELETE_COURSE);
     }
 
+    await this.communitiesService.assertActive(course.community.id);
+
     await this.prisma.course.delete({
       where: { id: courseId },
     });
@@ -850,6 +873,8 @@ export class CoursesService {
     if (chapter.course.authorId !== userId) {
       throw new ForbiddenException(ERROR_MESSAGES.NO_PERMISSION_EDIT_COURSE);
     }
+
+    await this.communitiesService.assertActive(chapter.course.communityId);
 
     await this.prisma.chapter.delete({
       where: { id: chapterId },
@@ -876,6 +901,8 @@ export class CoursesService {
     if (lesson.chapter.course.authorId !== userId) {
       throw new ForbiddenException(ERROR_MESSAGES.NO_PERMISSION_EDIT_COURSE);
     }
+
+    await this.communitiesService.assertActive(lesson.chapter.course.communityId);
 
     await this.prisma.lesson.delete({
       where: { id: lessonId },

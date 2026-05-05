@@ -3,10 +3,9 @@
 import { useEffect, useState, useRef, Fragment } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
 import { FaSave } from 'react-icons/fa';
 import { compressImage, compressImages, MAX_IMAGE_SIZE_BYTES } from '../../../../lib/imageCompression';
-import { isValidVideoUrl, getVideoProvider, MAX_VIDEO_SIZE_BYTES } from '../../../../lib/videoUtils';
+import { isValidVideoUrl, MAX_VIDEO_SIZE_BYTES } from '../../../../lib/videoUtils';
 import CommunityNavbar from '../../../../components/CommunityNavbar';
 import { useUser } from '../../../../lib/UserContext';
 import LinkIcon from '../../../../components/icons/LinkIcon';
@@ -94,7 +93,6 @@ export default function CreateCoursePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [mounted, setMounted] = useState(false);
   const { user } = useUser();
   const userId = user?.userId ?? null;
   const userEmail = user?.email ?? null;
@@ -142,8 +140,6 @@ export default function CreateCoursePage() {
   };
 
   useEffect(() => {
-    setMounted(true);
-
     if (!user) {
       router.push('/login');
       return;
@@ -646,8 +642,11 @@ export default function CreateCoursePage() {
                         className="w-full sm:w-96 aspect-video object-cover rounded-lg border border-gray-200"
                       />
                     ) : (
-                      <div className={`w-full sm:w-96 aspect-video border rounded-lg flex items-center justify-center bg-white ${errors.image ? 'border-red-400' : 'border-gray-200'}`}>
-                        <ImageIcon size={32} color={errors.image ? '#F87171' : '#D1D5DB'} />
+                      <div
+                        className="w-full sm:w-96 aspect-video border rounded-lg flex items-center justify-center bg-white"
+                        style={{ borderColor: errors.image ? 'var(--color-error)' : '#E5E7EB' }}
+                      >
+                        <ImageIcon size={32} color={errors.image ? '#B3261E' : '#D1D5DB'} />
                       </div>
                     )}
                     <div className="flex flex-col gap-2">
@@ -663,8 +662,8 @@ export default function CreateCoursePage() {
                         <button
                           type="button"
                           onClick={() => setCourse({ ...course, image: null, imagePreview: null })}
-                          className="flex items-center justify-center gap-2 px-4 py-2.5 border border-[#B3261E] text-[#B3261E] hover:bg-red-50 transition text-base font-normal w-44"
-                          style={{ borderRadius: '8px' }}
+                          className="flex items-center justify-center gap-2 px-4 py-2.5 border hover:bg-gray-50 transition text-base font-normal w-44"
+                          style={{ borderRadius: '8px', borderColor: 'var(--color-error)', color: 'var(--color-error)' }}
                         >
                           <TrashIcon className="w-4 h-4" />
                           <span>מחק תמונה נוכחית</span>
@@ -799,10 +798,6 @@ export default function CreateCoursePage() {
                               lesson.files?.length > 0,
                               lesson.links?.length > 0,
                             ].filter(Boolean).length > 1;
-                            
-                            const lessonLabel = lesson.lessonType === 'quiz' 
-                              ? 'בוחן' 
-                              : 'שיעור';
                             
                             // Determine lesson type icon and label
                             const getLessonIcon = () => {

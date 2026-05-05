@@ -11,9 +11,8 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './e2e-tests',
-  // Don't pick up the seed script as a test
   testMatch: '**/*.spec.ts',
-  fullyParallel: false, // auth flow tests share state; keep serial for now
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: 0,
   workers: 1,

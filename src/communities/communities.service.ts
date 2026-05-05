@@ -2,10 +2,32 @@ import { Injectable, InternalServerErrorException, NotFoundException, ForbiddenE
 import { Prisma, CommunityStatus } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { canManageCommunity, getEffectiveRole } from '../common/community-roles.helper';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class CommunitiesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService,
+  ) {}
+
+  // Throws ForbiddenException('COMMUNITY_SUSPENDED') if the community's
+  // subscription is suspended. Used to gate writes against community-scoped
+  // content (posts, comments, events, courses, joins). Reads stay open so the
+  // frontend popup can render and the owner can navigate manage tabs.
+  async assertActive(idOrSlug: string): Promise<void> {
+    const id = await this.resolveId(idOrSlug);
+    const community = await this.prisma.community.findUnique({
+      where: { id },
+      select: { subscriptionStatus: true },
+    });
+    if (!community) {
+      throw new NotFoundException('Community not found');
+    }
+    if (community.subscriptionStatus === 'SUSPENDED') {
+      throw new ForbiddenException('COMMUNITY_SUSPENDED');
+    }
+  }
 
   async create(
     name: string,
@@ -54,6 +76,12 @@ export class CommunitiesService {
       const communities = await this.prisma.community.findMany({
         where: {
           status: 'PUBLIC',
+          // Mirror the DRAFT pattern — SUSPENDED *and* pending-cancellation
+          // communities disappear from public discovery. They stay reachable
+          // via direct URL (popup handles the experience) and the user's
+          // personal lists (created/joined).
+          subscriptionStatus: 'ACTIVE',
+          subscriptionCancelledAt: null,
         },
         orderBy: {
           createdAt: 'desc',
@@ -117,6 +145,48 @@ export class CommunitiesService {
         }
       }
 
+      // Lazy flip ACTIVE → SUSPENDED when the owner-set cancellation date has
+      // passed. Done on read because we don't want a cron yet — HYP step will
+      // own the time-based transition properly. Only fires if the date is
+      // actually past; HYP webhook owns the SUSPENDED → ACTIVE direction.
+      if (
+        community.subscriptionStatus === 'ACTIVE'
+        && community.subscriptionCancelledAt
+        && community.subscriptionCancelledAt <= new Date()
+      ) {
+        const ownerId = community.ownerId;
+        community = await this.prisma.community.update({
+          where: { id: community.id },
+          data: {
+            subscriptionStatus: 'SUSPENDED',
+            suspendedAt: new Date(),
+          },
+          include,
+        });
+        // Fire-and-forget: members get notified that the community went down.
+        void this.notifyCommunitySuspended(community.id, ownerId).catch(() => {});
+      }
+
+      // Lazy flip pending price → price when its effective date has passed.
+      // Same placeholder pattern as the suspension flip. Real billing /
+      // grandfathering moves to HYP later.
+      if (
+        community.pendingPrice !== null
+        && community.pendingPriceEffectiveAt
+        && community.pendingPriceEffectiveAt <= new Date()
+      ) {
+        community = await this.prisma.community.update({
+          where: { id: community.id },
+          data: {
+            price: community.pendingPrice,
+            pendingPrice: null,
+            pendingPriceEffectiveAt: null,
+            priceChangeAnnouncedAt: null,
+          },
+          include,
+        });
+      }
+
       // Surface a memberCount field derived from _count, keeping the same
       // wire shape callers expect after the column was dropped.
       return { ...community, memberCount: community._count.members + 1 };
@@ -160,7 +230,6 @@ export class CommunitiesService {
     galleryImages?: string[],
     galleryVideos?: string[],
     price?: number | null,
-    trialCancelled?: boolean,
     cardLastFour?: string | null,
     cardBrand?: string | null,
     showOnlineMembers?: boolean,
@@ -168,7 +237,7 @@ export class CommunitiesService {
   ) {
     try {
       const id = await this.resolveId(idOrSlug);
-      
+
       const community = await this.prisma.community.findUnique({
         where: { id },
       });
@@ -180,6 +249,27 @@ export class CommunitiesService {
       // Check if user has permission to edit (owner or manager)
       if (!canManageCommunity(await getEffectiveRole(this.prisma, id, userId))) {
         throw new ForbiddenException('Only owners and managers can update the community');
+      }
+
+      // Block edits when SUSPENDED, except payment-only updates (renewal flow).
+      // The dedicated PATCH /:id/payment endpoint is preferred; this branch
+      // keeps legacy callers working until the frontend migrates.
+      const hasNonPaymentChange =
+        name !== undefined ||
+        description !== undefined ||
+        image !== undefined ||
+        logo !== undefined ||
+        topic !== undefined ||
+        youtubeUrl !== undefined ||
+        whatsappUrl !== undefined ||
+        facebookUrl !== undefined ||
+        instagramUrl !== undefined ||
+        galleryImages !== undefined ||
+        galleryVideos !== undefined ||
+        showOnlineMembers !== undefined ||
+        status !== undefined;
+      if (hasNonPaymentChange) {
+        await this.assertActive(id);
       }
 
       const updateData: Prisma.CommunityUpdateInput = {};
@@ -219,9 +309,6 @@ export class CommunitiesService {
       if (price !== undefined) {
         updateData.price = price;
       }
-      if (trialCancelled !== undefined) {
-        updateData.trialCancelled = trialCancelled;
-      }
       if (cardLastFour !== undefined) {
         updateData.cardLastFour = cardLastFour;
       }
@@ -236,6 +323,19 @@ export class CommunitiesService {
         // a Prisma type error at query time (proper DTO validation lands with S10).
         if (!Object.values(CommunityStatus).includes(status as CommunityStatus)) {
           throw new BadRequestException(`Invalid status: ${status}`);
+        }
+        // Block PUBLIC → DRAFT (or PRIVATE → DRAFT) when there are non-owner
+        // members. Drafting a community with members would zombie them — they
+        // can't see the community (canViewDraft excludes USER role) and the
+        // app silently bounces them home. The owner's escape is to switch to
+        // PRIVATE (members keep access) or cancel the subscription.
+        if (status === 'DRAFT' && community.status !== 'DRAFT') {
+          const memberCount = await this.prisma.communityMember.count({
+            where: { communityId: id },
+          });
+          if (memberCount > 0) {
+            throw new ForbiddenException('CANNOT_DRAFT_WITH_MEMBERS');
+          }
         }
         updateData.status = status as CommunityStatus;
       }
@@ -256,32 +356,244 @@ export class CommunitiesService {
     }
   }
 
-  async delete(idOrSlug: string, userId: string) {
+  // Announce a community price change. Owner only. Stores the new price
+  // as `pendingPrice` with an effective date 1 month out — existing members
+  // keep paying `community.price` until then; new joiners pay the new price
+  // (handled at billing time by HYP). One change per month: if either
+  // `pendingPriceEffectiveAt` is still in the future OR the last
+  // announcement was less than 1 month ago, the call is rejected.
+  async announcePriceChange(idOrSlug: string, userId: string, newPrice: number) {
+    if (!Number.isFinite(newPrice) || newPrice < 0 || newPrice > 1000) {
+      throw new ForbiddenException('Invalid price');
+    }
+    const id = await this.resolveId(idOrSlug);
+    const community = await this.prisma.community.findUnique({
+      where: { id },
+      select: {
+        ownerId: true,
+        price: true,
+        pendingPriceEffectiveAt: true,
+        priceChangeAnnouncedAt: true,
+      },
+    });
+    if (!community) {
+      throw new NotFoundException('Community not found');
+    }
+    if (community.ownerId !== userId) {
+      throw new ForbiddenException('Only the owner can change the community price');
+    }
+
+    const now = new Date();
+    const pendingStillActive =
+      community.pendingPriceEffectiveAt && community.pendingPriceEffectiveAt > now;
+    const oneMonthAgo = new Date(now);
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+    const announcedRecently =
+      community.priceChangeAnnouncedAt && community.priceChangeAnnouncedAt > oneMonthAgo;
+
+    if (pendingStillActive || announcedRecently) {
+      throw new ForbiddenException('PRICE_CHANGE_RATE_LIMIT');
+    }
+
+    const effectiveAt = new Date(now);
+    effectiveAt.setMonth(effectiveAt.getMonth() + 1);
+
+    return this.prisma.community.update({
+      where: { id },
+      data: {
+        pendingPrice: newPrice,
+        pendingPriceEffectiveAt: effectiveAt,
+        priceChangeAnnouncedAt: now,
+      },
+    });
+  }
+
+  // Member-side ack of the price-change popup. Sets the membership row's
+  // priceChangeSeenForEffectiveAt to whatever the community currently has,
+  // so the popup won't re-trigger for this member on the same announcement.
+  async acknowledgePriceChange(idOrSlug: string, userId: string) {
+    const communityId = await this.resolveId(idOrSlug);
+    const community = await this.prisma.community.findUnique({
+      where: { id: communityId },
+      select: { pendingPriceEffectiveAt: true },
+    });
+    if (!community) {
+      throw new NotFoundException('Community not found');
+    }
+    await this.prisma.communityMember.updateMany({
+      where: { userId, communityId },
+      data: { priceChangeSeenForEffectiveAt: community.pendingPriceEffectiveAt },
+    });
+    return { ok: true };
+  }
+
+  // Owner-only payment update — separate endpoint so it works while the
+  // community is SUSPENDED (renewal flow). The general update() asserts active.
+  async updatePaymentInfo(
+    idOrSlug: string,
+    userId: string,
+    data: {
+      price?: number | null;
+      cardLastFour?: string | null;
+      cardBrand?: string | null;
+      subscriptionCancelledAt?: Date | null;
+    },
+  ) {
     try {
       const id = await this.resolveId(idOrSlug);
 
       const community = await this.prisma.community.findUnique({
         where: { id },
+        select: { ownerId: true, subscriptionStatus: true },
       });
 
       if (!community) {
         throw new NotFoundException('Community not found');
       }
 
-      // Check if user is owner
       if (community.ownerId !== userId) {
-        throw new ForbiddenException('Only community owner can delete');
+        throw new ForbiddenException('Only the community owner can update payment info');
       }
 
-      return await this.prisma.community.delete({
+      const updateData: Prisma.CommunityUpdateInput = {};
+      if (data.price !== undefined) updateData.price = data.price;
+      if (data.cardLastFour !== undefined) updateData.cardLastFour = data.cardLastFour;
+      if (data.cardBrand !== undefined) updateData.cardBrand = data.cardBrand;
+
+      // Owner-initiated cancel/uncancel. No rate limit — the popup ack is
+      // already deduped per-recipient, and we sweep stale "scheduled for
+      // suspension" bell notifications on uncancel so members never see a
+      // warning for a cancellation that no longer exists.
+      let firingScheduledForSuspension = false;
+      let firingReactivated = false;
+      let clearingScheduledNotifications = false;
+      if (data.subscriptionCancelledAt !== undefined) {
+        if (data.subscriptionCancelledAt !== null) {
+          firingScheduledForSuspension = true;
+        } else {
+          clearingScheduledNotifications = true;
+        }
+        updateData.subscriptionCancelledAt = data.subscriptionCancelledAt;
+      }
+
+      // Pre-HYP placeholder: if the owner is saving a card while the community
+      // is SUSPENDED, treat that as the renewal action and reactivate.
+      // When HYP lands this branch is removed — only the successful charge
+      // webhook flips SUSPENDED → ACTIVE.
+      const savingCard = data.cardLastFour !== undefined || data.cardBrand !== undefined;
+      if (savingCard && community.subscriptionStatus === 'SUSPENDED') {
+        updateData.subscriptionStatus = 'ACTIVE';
+        updateData.suspendedAt = null;
+        updateData.subscriptionCancelledAt = null;
+        firingReactivated = true;
+      }
+
+      const updated = await this.prisma.community.update({
         where: { id },
+        data: updateData,
       });
+
+      // Side-effects after successful write. Fire-and-forget — failures here
+      // shouldn't roll back the state change.
+      if (firingScheduledForSuspension) {
+        void this.notifyCommunityScheduledForSuspension(id, userId).catch(() => {});
+      }
+      if (clearingScheduledNotifications) {
+        void this.clearScheduledSuspensionNotifications(id).catch(() => {});
+      }
+      if (firingReactivated) {
+        void this.notifyCommunityReactivated(id, userId).catch(() => {});
+      }
+
+      return updated;
     } catch (err) {
       if (err instanceof NotFoundException || err instanceof ForbiddenException) {
         throw err;
       }
-      throw new InternalServerErrorException('Could not delete community');
+      throw new InternalServerErrorException('Could not update payment info');
     }
+  }
+
+  // Fanout helpers — notify every member (and manager) of the community,
+  // skipping the owner who triggered the action.
+  // For the scheduled-suspension fanout we also skip recipients who already
+  // have an unread notification of the same type on this community, so a
+  // toggle storm of cancel/uncancel doesn't pile up duplicates in the bell.
+  private async notifyCommunityScheduledForSuspension(communityId: string, ownerId: string) {
+    const [memberships, alreadyNotified] = await Promise.all([
+      this.prisma.communityMember.findMany({
+        where: { communityId },
+        select: { userId: true },
+      }),
+      this.prisma.notification.findMany({
+        where: {
+          communityId,
+          type: 'COMMUNITY_SCHEDULED_FOR_SUSPENSION',
+          isRead: false,
+        },
+        select: { recipientId: true },
+      }),
+    ]);
+    const skip = new Set([ownerId, ...alreadyNotified.map(n => n.recipientId)]);
+    await Promise.all(
+      memberships
+        .filter(m => !skip.has(m.userId))
+        .map(m => this.notificationsService.notifyCommunityScheduledForSuspension(m.userId, ownerId, communityId)),
+    );
+  }
+
+  // When the owner uncancels, the prior "scheduled for suspension" warnings
+  // in members' bells are no longer accurate — sweep them. Only unread ones,
+  // so we don't rewrite history if a member already saw the original.
+  private async clearScheduledSuspensionNotifications(communityId: string) {
+    await this.prisma.notification.deleteMany({
+      where: {
+        communityId,
+        type: 'COMMUNITY_SCHEDULED_FOR_SUSPENSION',
+        isRead: false,
+      },
+    });
+  }
+
+  private async notifyCommunityReactivated(communityId: string, ownerId: string) {
+    const memberships = await this.prisma.communityMember.findMany({
+      where: { communityId },
+      select: { userId: true },
+    });
+    await Promise.all(
+      memberships
+        .filter(m => m.userId !== ownerId)
+        .map(m => this.notificationsService.notifyCommunityReactivated(m.userId, ownerId, communityId)),
+    );
+  }
+
+  private async notifyCommunitySuspended(communityId: string, ownerId: string) {
+    const memberships = await this.prisma.communityMember.findMany({
+      where: { communityId },
+      select: { userId: true },
+    });
+    await Promise.all(
+      memberships
+        .filter(m => m.userId !== ownerId)
+        .map(m => this.notificationsService.notifyCommunitySuspended(m.userId, ownerId, communityId)),
+    );
+  }
+
+  // Member-side ack of the scheduled-suspension popup.
+  async acknowledgeSuspensionScheduled(idOrSlug: string, userId: string) {
+    const communityId = await this.resolveId(idOrSlug);
+    const community = await this.prisma.community.findUnique({
+      where: { id: communityId },
+      select: { subscriptionCancelledAt: true },
+    });
+    if (!community) {
+      throw new NotFoundException('Community not found');
+    }
+    await this.prisma.communityMember.updateMany({
+      where: { userId, communityId },
+      data: { suspensionScheduledSeenAt: community.subscriptionCancelledAt },
+    });
+    return { ok: true };
   }
 
   async joinCommunity(communityIdOrSlug: string, userId: string) {
@@ -293,10 +605,21 @@ export class CommunitiesService {
       // reach this check via the join flow.
       const community = await this.prisma.community.findUnique({
         where: { id: communityId },
-        select: { status: true },
+        select: { status: true, subscriptionCancelledAt: true },
       });
       if (!community || community.status === 'DRAFT') {
         throw new NotFoundException('Community not found');
+      }
+
+      // Block joins on SUSPENDED communities — popup + redirect at the
+      // frontend handles members; this is the API-side guard.
+      await this.assertActive(communityId);
+
+      // Block joins during pending-cancellation too. Existing members are
+      // grandfathered until the suspension date; new joiners shouldn't sign
+      // up just to get kicked next month.
+      if (community.subscriptionCancelledAt && community.subscriptionCancelledAt > new Date()) {
+        throw new ForbiddenException('COMMUNITY_PENDING_SUSPENSION');
       }
 
       // Check if user is banned from this community.
@@ -423,6 +746,9 @@ export class CommunitiesService {
         canManageRoles: false,
         isBanned: false,
         banReason: null,
+        joinedAt: membership.joinedAt,
+        priceChangeSeenForEffectiveAt: membership.priceChangeSeenForEffectiveAt,
+        suspensionScheduledSeenAt: membership.suspensionScheduledSeenAt,
       };
     }
 
@@ -457,6 +783,8 @@ export class CommunitiesService {
     if (targetUserId === community.ownerId) {
       throw new ForbiddenException('Cannot change owner role');
     }
+
+    await this.assertActive(communityId);
 
     // Check target membership exists
     const targetMembership = await this.prisma.communityMember.findUnique({
@@ -511,6 +839,8 @@ export class CommunitiesService {
     if (!requesterIsOwner && !requesterIsManager) {
       throw new ForbiddenException('Only owners and managers can remove members');
     }
+
+    await this.assertActive(communityId);
 
     // Check target membership exists
     const targetMembership = await this.prisma.communityMember.findUnique({
@@ -836,6 +1166,8 @@ export class CommunitiesService {
       throw new ForbiddenException('Only owners and managers can lift bans');
     }
 
+    await this.assertActive(communityId);
+
     // Find the ban
     const ban = await this.prisma.communityBan.findFirst({
       where: { id: banId, communityId },
@@ -931,6 +1263,8 @@ export class CommunitiesService {
       if (!canManageCommunity(await getEffectiveRole(this.prisma, communityId, userId))) {
         throw new ForbiddenException('Only owners and managers can update community rules');
       }
+
+      await this.assertActive(communityId);
 
       return await this.prisma.community.update({
         where: { id: communityId },

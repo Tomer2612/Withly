@@ -84,7 +84,8 @@ export default function UserProfileDropdown({
             <div className="border-t border-gray-100 my-1 mx-1"></div>
             <button
               onClick={handleLogout}
-              className="w-full text-right px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition flex items-center gap-2 rounded-lg"
+              className="w-full text-right px-3 py-2 text-sm hover:bg-red-50 transition flex items-center gap-2 rounded-lg"
+              style={{ color: 'var(--color-error)' }}
             >
               <LogoutIcon className="w-4 h-4" />
               התנתקות

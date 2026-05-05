@@ -5,12 +5,11 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { FaExternalLinkAlt } from 'react-icons/fa';
 import { compressImages, MAX_IMAGE_SIZE_BYTES } from '../../../lib/imageCompression';
-import { isValidVideoUrl, getVideoProvider, MAX_VIDEO_SIZE_BYTES } from '../../../lib/videoUtils';
+import { getVideoProvider, MAX_VIDEO_SIZE_BYTES } from '../../../lib/videoUtils';
 import ImageIcon from '../../../components/icons/ImageIcon';
 import LinkIcon from '../../../components/icons/LinkIcon';
 import { useCommunityContext } from '../CommunityContext';
 import { authFetch } from '../../../lib/auth';
-import FormSelect from '../../../components/FormSelect';
 import FilterDropdown from '../../../components/FilterDropdown';
 import SearchXIcon from '../../../components/icons/SearchXIcon';
 import ClipboardCheckIcon from '../../../components/icons/ClipboardCheckIcon';
@@ -19,7 +18,6 @@ import AwardIcon from '../../../components/icons/AwardIcon';
 import CheckIcon from '../../../components/icons/CheckIcon';
 import UsersIcon from '../../../components/icons/UsersIcon';
 import CloseIcon from '../../../components/icons/CloseIcon';
-import TrashCircleIcon from '../../../components/icons/TrashCircleIcon';
 import TrashIcon from '../../../components/icons/TrashIcon';
 import MoreDotsIcon from '../../../components/icons/MoreDotsIcon';
 import BookmarkIcon from '../../../components/icons/BookmarkIcon';
@@ -51,6 +49,8 @@ interface Community {
   rules?: string[];
   showOnlineMembers?: boolean;
   status?: string;
+  subscriptionStatus?: 'ACTIVE' | 'SUSPENDED';
+  subscriptionCancelledAt?: string | null;
 }
 
 interface Comment {
@@ -138,8 +138,6 @@ function CommunityFeedContent() {
   const params = useParams();
   const communityId = params.id as string;
 
-  const [mounted, setMounted] = useState(false);
-  const [communities, setCommunities] = useState<Community[]>([]);
   const [community, setCommunity] = useState<Community | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [newPostContent, setNewPostContent] = useState('');
@@ -160,7 +158,6 @@ function CommunityFeedContent() {
   const [postSubmitting, setPostSubmitting] = useState(false);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [addingLink, setAddingLink] = useState(false);
-  const [addingEditLink, setAddingEditLink] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'mostLiked' | 'mostCommented'>('newest');
   
@@ -173,19 +170,23 @@ function CommunityFeedContent() {
   const [editLinks, setEditLinks] = useState<string[]>([]); // Existing links
   const [newEditImages, setNewEditImages] = useState<File[]>([]); // New images to add
   const [newEditFiles, setNewEditFiles] = useState<File[]>([]); // New files to add
-  const [newEditImagePreviews, setNewEditImagePreviews] = useState<string[]>([]);
-  const [newEditFilePreviews, setNewEditFilePreviews] = useState<{ name: string }[]>([]);
-  const [editLinkInput, setEditLinkInput] = useState('');
-  const [showEditLinkInput, setShowEditLinkInput] = useState(false);
+  // newEditImagePreviews/newEditFilePreviews/showEditLinkInput are
+  // currently set but never read — the setter calls are kept since
+  // there's no behavior change, but the values are dropped.
+  const [, setNewEditImagePreviews] = useState<string[]>([]);
+  const [, setNewEditFilePreviews] = useState<{ name: string }[]>([]);
+  const [, setEditLinkInput] = useState('');
+  const [, setShowEditLinkInput] = useState(false);
   const [imagesToRemove, setImagesToRemove] = useState<string[]>([]);
   const [filesToRemove, setFilesToRemove] = useState<string[]>([]);
   const [linksToRemove, setLinksToRemove] = useState<string[]>([]);
   const [pollToRemove, setPollToRemove] = useState(false);
   const [editPollQuestion, setEditPollQuestion] = useState('');
   const [editPollOptions, setEditPollOptions] = useState<{ id: string; text: string }[]>([]);
-  const [showEditPollCreator, setShowEditPollCreator] = useState(false);
-  const [newEditPollQuestion, setNewEditPollQuestion] = useState('');
-  const [newEditPollOptions, setNewEditPollOptions] = useState<string[]>(['', '']);
+  // Unused state values, setters still called below.
+  const [, setShowEditPollCreator] = useState(false);
+  const [, setNewEditPollQuestion] = useState('');
+  const [, setNewEditPollOptions] = useState<string[]>(['', '']);
   const [menuOpenPostId, setMenuOpenPostId] = useState<string | null>(null);
   
   // Filter state
@@ -193,7 +194,7 @@ function CommunityFeedContent() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   
   // Get searchQuery and user data from layout context
-  const { searchQuery, setSearchQuery, userEmail, userId, userProfile, isOwner, isManager, isMember: contextIsMember, community: layoutCommunity, loading: contextLoading } = useCommunityContext();
+  const { searchQuery, userEmail, userId, userProfile, isOwner, isManager, isMember: contextIsMember, loading: contextLoading } = useCommunityContext();
   
   // Comments state
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
@@ -207,7 +208,6 @@ function CommunityFeedContent() {
   
   // Mention autocomplete state
   const [mentionSuggestions, setMentionSuggestions] = useState<{ id: string; name: string; profileImage: string | null }[]>([]);
-  const [mentionQuery, setMentionQuery] = useState('');
   const [showMentionDropdown, setShowMentionDropdown] = useState<string | null>(null); // postId where dropdown is shown
   const [mentionCursorPos, setMentionCursorPos] = useState(0);
   
@@ -223,9 +223,7 @@ function CommunityFeedContent() {
   const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
   const [votingPollId, setVotingPollId] = useState<string | null>(null);
   
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const isMember = contextIsMember;
-  const [userMemberships, setUserMemberships] = useState<string[]>([]);
   const [topMembers, setTopMembers] = useState<TopMember[]>([]);
   const [onlineCount, setOnlineCount] = useState<number>(0);
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
@@ -274,34 +272,6 @@ function CommunityFeedContent() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showLightbox, lightboxImages.length]);
 
-  useEffect(() => {
-    setMounted(true);
-
-    if (userEmail) {
-      // Fetch user's community memberships
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/user/memberships`)
-        .then(res => res.ok ? res.json() : [])
-        .then(data => {
-          setUserMemberships(data);
-        })
-        .catch(console.error);
-    }
-  }, [userEmail]);
-
-  useEffect(() => {
-    const fetchCommunities = async () => {
-      try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities`);
-        if (!res.ok) throw new Error('Failed to fetch communities');
-        const data = await res.json();
-        setCommunities(data);
-      } catch (err) {
-        console.error('Error fetching communities:', err);
-      }
-    };
-
-    fetchCommunities();
-  }, [communityId]);
 
   useEffect(() => {
     const fetchCommunityDetails = async () => {
@@ -408,7 +378,11 @@ function CommunityFeedContent() {
     };
 
     fetchCommunityDetails();
-  }, [communityId, userId, communities, contextLoading, isMember]);
+    // `communities` was previously in deps but the function doesn't read it —
+    // the unused dep caused a second full feed refetch the moment the sidebar's
+    // communities list arrived. Removed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [communityId, userId, contextLoading, isMember]);
 
   // Refresh online count every 30 seconds
   useEffect(() => {
@@ -532,12 +506,12 @@ function CommunityFeedContent() {
     // Validate poll if poll creator is open
     if (showPollCreator) {
       if (!pollQuestion.trim()) {
-        alert('נא להזין שאלה לסקר');
+        alert('יש להזין שאלה לסקר');
         return;
       }
       const validOptions = pollOptions.filter(o => o.trim());
       if (validOptions.length < 2) {
-        alert('נא להזין לפחות 2 אפשרויות לסקר');
+        alert('יש להזין לפחות 2 אפשרויות לסקר');
         return;
       }
     }
@@ -904,61 +878,6 @@ function CommunityFeedContent() {
     setNewEditPollOptions(['', '']);
   };
 
-  const handleEditFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    const maxImages = 6;
-    const maxFiles = 6;
-    
-    // Calculate current totals
-    const currentImageCount = editImages.length - imagesToRemove.length + newEditImages.length;
-    const currentFileCount = editFiles.length - filesToRemove.length + newEditFiles.length;
-    
-    // Collect valid images and files
-    const validImages: File[] = [];
-    const validFiles: File[] = [];
-    
-    for (const file of files) {
-      if (file.type.startsWith('image/')) {
-        validImages.push(file);
-      } else {
-        validFiles.push(file);
-      }
-    }
-    
-    // Process images - limit to max allowed
-    const imagesToAdd = validImages.slice(0, Math.max(0, maxImages - currentImageCount));
-    if (imagesToAdd.length > 0) {
-      setNewEditImages(prev => [...prev, ...imagesToAdd]);
-      
-      imagesToAdd.forEach(file => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setNewEditImagePreviews(prev => [...prev, reader.result as string]);
-        };
-        reader.readAsDataURL(file);
-      });
-    }
-    
-    // Process files - limit to max allowed
-    const filesToAdd = validFiles.slice(0, Math.max(0, maxFiles - currentFileCount));
-    if (filesToAdd.length > 0) {
-      setNewEditFiles(prev => [...prev, ...filesToAdd]);
-      setNewEditFilePreviews(prev => [...prev, ...filesToAdd.map(f => ({ name: f.name }))]);
-    }
-    
-    e.target.value = '';
-  };
-
-  const removeNewEditImage = (index: number) => {
-    setNewEditImages(prev => prev.filter((_, i) => i !== index));
-    setNewEditImagePreviews(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const removeNewEditFile = (index: number) => {
-    setNewEditFiles(prev => prev.filter((_, i) => i !== index));
-    setNewEditFilePreviews(prev => prev.filter((_, i) => i !== index));
-  };
-
   const undoRemoveImage = (image: string) => {
     // Check if undoing would exceed limit
     const currentKept = editImages.length - imagesToRemove.length + 1; // +1 for the one being restored
@@ -979,26 +898,6 @@ function CommunityFeedContent() {
       return;
     }
     setFilesToRemove(prev => prev.filter(f => f !== fileUrl));
-  };
-
-  const addEditLink = () => {
-    if (addingEditLink) return;
-    const trimmedLink = editLinkInput.trim();
-    if (trimmedLink) {
-      const currentTotal = editLinks.length - linksToRemove.length;
-      if (currentTotal >= 3) {
-        alert('ניתן להוסיף עד 3 קישורים');
-        return;
-      }
-      if (editLinks.includes(trimmedLink) && !linksToRemove.includes(trimmedLink)) {
-        alert('קישור זה כבר קיים');
-        return;
-      }
-      setAddingEditLink(true);
-      setEditLinks(prev => [...prev, trimmedLink]);
-      setEditLinkInput('');
-      setAddingEditLink(false);
-    }
   };
 
   const removeEditLink = (link: string) => {
@@ -1211,7 +1110,6 @@ function CommunityFeedContent() {
     
     if (mentionMatch) {
       const query = mentionMatch[1];
-      setMentionQuery(query);
       setMentionCursorPos(cursorPosition);
       setShowMentionDropdown(postId);
       searchUsersForMention(query);
@@ -1280,35 +1178,6 @@ function CommunityFeedContent() {
       alert('שגיאה בהצבעה');
     } finally {
       setVotingPollId(null);
-    }
-  };
-
-  // Delete poll handler
-  const handleDeletePoll = async (pollId: string, postId: string) => {
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/posts/polls/${pollId}`, {
-        method: 'DELETE',
-      });
-
-      if (res.ok) {
-        // Remove poll from the post
-        setPosts((prev) =>
-          prev.map((p) =>
-            p.id === postId ? { ...p, poll: null } : p
-          )
-        );
-        // Reset poll creator state so user can create a new poll
-        setEditPollQuestion('');
-        setEditPollOptions([]);
-        setShowEditPollCreator(false);
-        setNewEditPollQuestion('');
-        setNewEditPollOptions(['', '']);
-      } else {
-        alert('שגיאה במחיקת הסקר');
-      }
-    } catch (err) {
-      console.error('Delete poll error:', err);
-      alert('שגיאה במחיקת הסקר');
     }
   };
 
@@ -1510,6 +1379,35 @@ function CommunityFeedContent() {
         {/* Main content area */}
         <div className="flex-1 py-6 px-4 lg:px-6">
 
+          {/* Pending-suspension Banner — sits above the feed grid so it's
+              visible on every viewport (the desktop sidebar is collapsed
+              behind a toggle on mobile). Shown to everyone; owner gets an
+              inline link to undo from manage. */}
+          {community?.subscriptionCancelledAt
+            && community?.subscriptionStatus === 'ACTIVE'
+            && new Date(community.subscriptionCancelledAt) > new Date() && (
+            <div className="rounded-2xl p-5 max-w-5xl mx-auto mb-6" style={{ backgroundColor: '#FEE2E2' }}>
+              <h3 className="font-semibold text-error" style={{ fontSize: '18px' }}>
+                הקהילה תושבת
+              </h3>
+              <p className="font-normal mt-1" style={{ fontSize: '16px', color: 'var(--color-error)' }}>
+                {`הקהילה הוגדרה להשבתה בתאריך ${new Date(community.subscriptionCancelledAt).toLocaleDateString('he-IL')}. עד אז הכל ימשיך כרגיל.`}
+                {isOwner && (
+                  <>
+                    {' '}
+                    <a
+                      href={`/communities/${communityId}/manage?tab=payments`}
+                      className="font-normal underline"
+                      style={{ color: 'var(--color-error)' }}
+                    >
+                      ביטול השבתה
+                    </a>
+                  </>
+                )}
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px] max-w-5xl mx-auto">
 
           {/* CENTER: Posts feed */}
@@ -1595,7 +1493,7 @@ function CommunityFeedContent() {
                         <span className="text-sm text-gray-700 max-w-[150px] truncate">{file.name}</span>
                         <button
                           onClick={() => removeSelectedFile(index)}
-                          className="text-red-500 hover:text-red-600"
+                          className="hover:opacity-80" style={{ color: 'var(--color-error)' }}
                         >
                           <CloseIcon size={12} />
                         </button>
@@ -1614,7 +1512,7 @@ function CommunityFeedContent() {
                       <div key={`vf-${index}`} className="relative flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
                         <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5 text-gray-500"><rect x="2" y="4" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none"/><path d="M14 8.5L18 6V14L14 11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                         <span className="text-sm text-gray-700 max-w-[150px] truncate">{file.name}</span>
-                        <button onClick={() => setNewPostVideoFiles(prev => prev.filter((_, i) => i !== index))} className="text-red-500 hover:text-red-600">
+                        <button onClick={() => setNewPostVideoFiles(prev => prev.filter((_, i) => i !== index))} className="hover:opacity-80" style={{ color: 'var(--color-error)' }}>
                           <CloseIcon size={12} />
                         </button>
                       </div>
@@ -1623,7 +1521,7 @@ function CommunityFeedContent() {
                       <div key={`vu-${index}`} className="relative flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
                         <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5 text-gray-500"><rect x="2" y="4" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none"/><path d="M14 8.5L18 6V14L14 11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                         <span className="text-sm text-gray-700 max-w-[200px] truncate" dir="ltr">{url}</span>
-                        <button onClick={() => setNewPostVideoUrls(prev => prev.filter((_, i) => i !== index))} className="text-red-500 hover:text-red-600">
+                        <button onClick={() => setNewPostVideoUrls(prev => prev.filter((_, i) => i !== index))} className="hover:opacity-80" style={{ color: 'var(--color-error)' }}>
                           <CloseIcon size={12} />
                         </button>
                       </div>
@@ -1945,7 +1843,7 @@ function CommunityFeedContent() {
                 
                 return filteredPosts.length > 0 ? (
                   filteredPosts.map((post) => (
-                  <div key={post.id} className={`bg-white border rounded-2xl p-5 ${post.isPinned ? 'border-[#3F3F46] border-2' : 'border-gray-200'}`}>
+                  <div key={post.id} className={`bg-white border rounded-2xl p-5 ${post.isPinned ? 'border-[#3F3F46]' : 'border-gray-200'}`}>
                     {/* Post Header */}
                     <div className="flex items-start gap-3 mb-4">
                       {/* Profile picture - rightmost (RTL) */}
@@ -2148,7 +2046,7 @@ function CommunityFeedContent() {
                                     ) : (
                                       <button
                                         onClick={() => setFilesToRemove(prev => [...prev, file.url])}
-                                        className="text-red-500 hover:text-red-600"
+                                        className="hover:opacity-80" style={{ color: 'var(--color-error)' }}
                                       >
                                         <CloseIcon size={12} />
                                       </button>
@@ -2178,7 +2076,7 @@ function CommunityFeedContent() {
                                     ) : (
                                       <button
                                         onClick={() => removeEditLink(link)}
-                                        className="text-red-500 hover:text-red-600"
+                                        className="hover:opacity-80" style={{ color: 'var(--color-error)' }}
                                       >
                                         <CloseIcon size={12} />
                                       </button>
@@ -2224,7 +2122,7 @@ function CommunityFeedContent() {
                                 ) : (
                                   <button
                                     onClick={() => setPollToRemove(true)}
-                                    className="text-gray-400 hover:text-red-500 transition p-1 mr-2"
+                                    className="text-gray-400 transition p-1 mr-2 hover:[color:var(--color-error)]"
                                     title="מחק סקר"
                                   >
                                     <TrashIcon size={14} />
@@ -2301,7 +2199,6 @@ function CommunityFeedContent() {
                             <div className="space-y-2">
                               {post.poll.options.map((option) => {
                                 const isVoted = post.poll?.userVotedOptionId === option.id;
-                                const hasVoted = !!post.poll?.userVotedOptionId;
                                 const isVoting = votingPollId === post.poll?.id;
                                 
                                 return (
@@ -2738,8 +2635,8 @@ function CommunityFeedContent() {
                           strokeLinejoin="round"
                         />
                       </svg>
-                      <p className="font-normal text-gray-800" style={{ fontSize: '18px' }}>עדיין אין לכם פוסטים שמורים</p>
-                      <p className="font-normal text-gray-800" style={{ fontSize: '18px' }}>לחצו על סימן השמירה בפוסט כדי לשמור אותו</p>
+                      <p className="font-normal text-gray-800" style={{ fontSize: '18px' }}>עוד אין לך פוסטים שמורים</p>
+                      <p className="font-normal text-gray-800" style={{ fontSize: '18px' }}>אפשר לשמור פוסטים בלחיצה על סימן השמירה והם יופיעו כאן</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -2798,7 +2695,7 @@ function CommunityFeedContent() {
                 קהילה במצב טיוטה
               </h3>
               <p className="font-normal mt-1" style={{ fontSize: '16px', color: '#3F3F46' }}>
-                הקהילה לא זמינה לחברים עדיין. תוכלו להפעיל אותה בכל שלב מ<a href={`/communities/${communityId}/manage`} className="font-normal underline" style={{ color: '#3F3F46' }}>הגדרות הקהילה</a>.
+                הקהילה עדיין לא זמינה לחברים. ניתן להפעיל אותה בכל שלב דרך <a href={`/communities/${communityId}/manage`} className="font-normal underline" style={{ color: '#3F3F46' }}>הגדרות הקהילה</a>.
               </p>
             </div>
             )}
@@ -3033,33 +2930,32 @@ function CommunityFeedContent() {
 
       {/* Delete Post Confirmation Modal */}
       {deletePostModalId && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/30"
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           onClick={() => setDeletePostModalId(null)}
         >
-          <div 
-            className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl"
+          <div
+            className="bg-white p-6 shadow-xl"
+            style={{ borderRadius: '16px', width: 'fit-content', maxWidth: 'min(90vw, 640px)' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-center">
-              <div className="flex justify-center mb-4">
-                <TrashCircleIcon className="w-12 h-12" />
-              </div>
-              <h3 className="text-lg font-bold text-black mb-2">מחיקת פוסט</h3>
-              <p className="text-[#3F3F46] mb-1">האם אתם בטוחים שברצונכם למחוק את הפוסט?</p>
-              <p className="text-[#3F3F46] mb-6">פעולה זו לא ניתנת לביטול.</p>
-              <div className="flex gap-3">
+            <div className="text-center" dir="rtl">
+              <h3 className="font-semibold text-black mb-2" style={{ fontSize: '21px' }}>מחיקת פוסט</h3>
+              <p className="mb-6" style={{ fontSize: '18px', color: 'var(--color-gray-10)' }}>האם למחוק את הפוסט?</p>
+              <div className="flex gap-3 justify-center">
                 <button
                   onClick={() => setDeletePostModalId(null)}
-                  className="flex-1 px-4 py-2.5 border border-black rounded-xl text-black font-medium hover:bg-gray-50 transition"
+                  className="bg-white text-black border hover:bg-gray-50 transition"
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
                 >
                   ביטול
                 </button>
                 <button
                   onClick={() => handleDeletePost(deletePostModalId)}
-                  className="flex-1 px-4 py-2.5 bg-[#B3261E] text-white rounded-xl font-medium hover:opacity-90 transition"
+                  className="bg-error text-white hover:opacity-90 transition"
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
                 >
-                  מחיקה
+                  מחיקת הפוסט
                 </button>
               </div>
             </div>
@@ -3091,12 +2987,12 @@ function CommunityFeedContent() {
                 <MagicWandIcon className="w-5 h-5 text-black" />
               </div>
             </div>
-            <h2 className="font-semibold mb-3" style={{ fontSize: '21px', color: '#000000' }}>ברוכים הבאים לקהילה שלכם!</h2>
+            <h2 className="font-semibold mb-3" style={{ fontSize: '21px', color: '#000000' }}>הקהילה שלך באוויר!</h2>
             <p className="mb-0.5" style={{ fontSize: '18px', lineHeight: '1.6', color: '#1D1D20' }}>
-              הקהילה שלכם נוצרה במצב טיוטה, כדי שתוכלו להגדיר אותה בזמנכם לפני שהיא תהיה זמינה לכולם.
+              הקהילה נוצרה במצב טיוטה, כדי לאפשר לך להגדיר אותה בקצב שלך.
             </p>
             <p className="mb-5" style={{ fontSize: '18px', lineHeight: '1.6', color: '#1D1D20' }}>
-              תוכלו להפעיל אותה בכל שלב מ<span className="font-semibold">הגדרות הקהילה</span>.
+              ניתן להפעיל אותה בכל שלב דרך <span className="font-semibold">הגדרות הקהילה</span>.
             </p>
             <button
               onClick={() => { handleCloseWelcome(); router.push(`/communities/${communityId}/manage`); }}

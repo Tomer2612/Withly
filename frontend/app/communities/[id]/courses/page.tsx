@@ -13,8 +13,6 @@ import StopwatchIcon from '../../../components/icons/StopwatchIcon';
 import EditIcon from '../../../components/icons/EditIcon';
 import TrashIcon from '../../../components/icons/TrashIcon';
 import NotebookCircleIcon from '../../../components/icons/NotebookCircleIcon';
-import TrashCircleIcon from '../../../components/icons/TrashCircleIcon';
-import CloseIcon from '../../../components/icons/CloseIcon';
 import ChevronLeftIcon from '../../../components/icons/ChevronLeftIcon';
 import ChevronRightIcon from '../../../components/icons/ChevronRightIcon';
 import { getImageUrl } from '@/app/lib/imageUrl';
@@ -40,14 +38,6 @@ interface Course {
   _count: {
     enrollments: number;
   };
-}
-
-interface Community {
-  id: string;
-  name: string;
-  slug?: string | null;
-  ownerId: string;
-  logo?: string | null;
 }
 
 // Helper function to get visible page numbers (max 10, sliding window)
@@ -80,14 +70,11 @@ export default function CoursesPage() {
   const communityId = params.id as string;
 
   const [courses, setCourses] = useState<Course[]>([]);
-  const [community, setCommunity] = useState<Community | null>(null);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'all' | 'in-progress' | 'completed' | 'my-courses'>('all');
-  const [mounted, setMounted] = useState(false);
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; courseId: string | null; courseTitle: string }>({ open: false, courseId: null, courseTitle: '' });
-  
+
   // Get user data and searchQuery from layout context
-  const { searchQuery, setSearchQuery, userEmail, userId, userProfile, isOwner, isOwnerOrManager } = useCommunityContext();
+  const { searchQuery, userId, isOwner } = useCommunityContext();
   const [deleting, setDeleting] = useState(false);
 
   // Pagination state
@@ -98,7 +85,6 @@ export default function CoursesPage() {
   const coursesPerPage = 3;
 
   useEffect(() => {
-    setMounted(true);
     fetchCommunity();
     fetchCourses();
   }, [communityId]);
@@ -117,14 +103,11 @@ export default function CoursesPage() {
       const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
       if (res.ok) {
         const data = await res.json();
-        
         // Redirect to slug URL if community has a slug and we're using ID
         if (data.slug && communityId !== data.slug) {
           router.replace(`/communities/${data.slug}/courses`);
           return;
         }
-        
-        setCommunity(data);
       }
     } catch (err) {
       console.error('Failed to fetch community:', err);
@@ -133,15 +116,13 @@ export default function CoursesPage() {
 
   const fetchCourses = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/community/${communityId}`, );
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/community/${communityId}`);
       if (res.ok) {
         const data = await res.json();
         setCourses(data);
       }
     } catch (err) {
       console.error('Failed to fetch courses:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -483,20 +464,16 @@ export default function CoursesPage() {
 
       {/* Delete Confirmation Modal */}
       {deleteModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => !deleting && setDeleteModal({ open: false, courseId: null, courseTitle: '' })} />
-          <div className="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4" dir="rtl">
-            <button
-              onClick={() => !deleting && setDeleteModal({ open: false, courseId: null, courseTitle: '' })}
-              className="absolute top-4 left-4 p-1 hover:bg-gray-100 rounded-full transition"
-              disabled={deleting}
-            >
-              <CloseIcon className="w-5 h-5" />
-            </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="absolute inset-0" onClick={() => !deleting && setDeleteModal({ open: false, courseId: null, courseTitle: '' })} />
+          <div
+            className="relative bg-white shadow-xl p-6"
+            style={{ borderRadius: '16px', width: 'fit-content', maxWidth: 'min(90vw, 640px)' }}
+            dir="rtl"
+          >
             <div className="text-center">
-              <TrashCircleIcon className="w-12 h-12 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-black mb-2">מחיקת קורס</h3>
-              <p className="text-[#3F3F46] mb-6">
+              <h3 className="font-semibold text-black mb-2" style={{ fontSize: '21px' }}>מחיקת קורס</h3>
+              <p className="mb-6" style={{ fontSize: '18px', color: 'var(--color-gray-10)' }}>
                 האם אתה בטוח שברצונך למחוק את הקורס <span className="font-semibold">"{deleteModal.courseTitle}"</span>?
                 <br />
                 פעולה זו לא ניתנת לביטול.
@@ -505,16 +482,18 @@ export default function CoursesPage() {
                 <button
                   onClick={() => setDeleteModal({ open: false, courseId: null, courseTitle: '' })}
                   disabled={deleting}
-                  className="px-6 py-2.5 border border-black text-black rounded-xl font-medium hover:bg-gray-50 transition disabled:opacity-50"
+                  className="bg-white text-black border hover:bg-gray-50 transition disabled:opacity-50"
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
                 >
                   ביטול
                 </button>
                 <button
                   onClick={handleDeleteCourse}
                   disabled={deleting}
-                  className="px-6 py-2.5 bg-[#B3261E] text-white rounded-xl font-medium hover:bg-[#9C2019] transition disabled:opacity-50 flex items-center gap-2"
+                  className="bg-error text-white hover:opacity-90 transition disabled:opacity-50"
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
                 >
-                  {deleting ? 'מוחק...' : 'מחיקה'}
+                  {deleting ? 'מוחק...' : 'מחיקת הקורס'}
                 </button>
               </div>
             </div>

@@ -18,8 +18,6 @@ export class NotificationsService {
     actorId?: string;
     postId?: string;
     communityId?: string;
-    commentId?: string;
-    message?: string;
   }) {
     // Don't notify yourself
     if (data.actorId && data.actorId === data.recipientId) {
@@ -119,7 +117,9 @@ export class NotificationsService {
       communityIds.length > 0
         ? this.prisma.community.findMany({
             where: { id: { in: communityIds as string[] } },
-            select: { id: true, name: true },
+            // slug is included so the bell can link to the canonical URL
+            // and avoid a slug-redirect refetch on the destination page.
+            select: { id: true, name: true, slug: true },
           })
         : [],
     ]);
@@ -167,6 +167,13 @@ export class NotificationsService {
     });
   }
 
+  // Delete every notification for this user — bell "clear all" action.
+  async deleteAll(userId: string) {
+    return this.prisma.notification.deleteMany({
+      where: { recipientId: userId },
+    });
+  }
+
   // Helper methods to create specific notification types
   async notifyLike(postAuthorId: string, actorId: string, postId: string, communityId: string) {
     return this.create({
@@ -178,14 +185,13 @@ export class NotificationsService {
     });
   }
 
-  async notifyComment(postAuthorId: string, actorId: string, postId: string, communityId: string, commentId: string) {
+  async notifyComment(postAuthorId: string, actorId: string, postId: string, communityId: string) {
     return this.create({
       type: 'COMMENT',
       recipientId: postAuthorId,
       actorId,
       postId,
       communityId,
-      commentId,
     });
   }
 
@@ -284,6 +290,37 @@ export class NotificationsService {
     });
   }
 
+  // Owner scheduled the community for suspension (cancelled subscription).
+  // Members can't opt out — they need to know access is going away.
+  async notifyCommunityScheduledForSuspension(recipientUserId: string, actorId: string, communityId: string) {
+    return this.createUnconditional({
+      type: 'COMMUNITY_SCHEDULED_FOR_SUSPENSION',
+      recipientId: recipientUserId,
+      actorId,
+      communityId,
+    });
+  }
+
+  // Cancellation date passed (or HYP charge failed) — community is now suspended.
+  async notifyCommunitySuspended(recipientUserId: string, actorId: string, communityId: string) {
+    return this.createUnconditional({
+      type: 'COMMUNITY_SUSPENDED',
+      recipientId: recipientUserId,
+      actorId,
+      communityId,
+    });
+  }
+
+  // Owner reactivated a suspended community (placeholder pre-HYP, charge-success post-HYP).
+  async notifyCommunityReactivated(recipientUserId: string, actorId: string, communityId: string) {
+    return this.createUnconditional({
+      type: 'COMMUNITY_REACTIVATED',
+      recipientId: recipientUserId,
+      actorId,
+      communityId,
+    });
+  }
+
   // Internal: create + emit without checking the user's preference flags.
   // Used for moderation events the recipient cannot opt out of.
   private async createUnconditional(data: {
@@ -319,24 +356,22 @@ export class NotificationsService {
   }
 
   // Notify a user when they are mentioned in a comment
-  async notifyMention(mentionedUserId: string, actorId: string, postId: string, communityId: string, commentId: string) {
+  async notifyMention(mentionedUserId: string, actorId: string, postId: string, communityId: string) {
     return this.create({
       type: 'MENTION',
       recipientId: mentionedUserId,
       actorId,
       postId,
       communityId,
-      commentId,
     });
   }
 
   // Parse @mentions from text and notify mentioned users
   async processMentions(
-    content: string, 
-    actorId: string, 
-    postId: string, 
-    communityId: string, 
-    commentId: string
+    content: string,
+    actorId: string,
+    postId: string,
+    communityId: string,
   ) {
     // Match @username pattern (Hebrew and English characters, numbers, underscores, spaces)
     const mentionRegex = /@([\w\u0590-\u05FF][\w\u0590-\u05FF\s]*)/g;
@@ -369,7 +404,7 @@ export class NotificationsService {
       const chunk = users.slice(i, i + BATCH_SIZE);
       const chunkResults = await Promise.all(
         chunk.map(user =>
-          this.notifyMention(user.id, actorId, postId, communityId, commentId),
+          this.notifyMention(user.id, actorId, postId, communityId),
         ),
       );
       notifications.push(...chunkResults);

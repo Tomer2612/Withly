@@ -6,14 +6,23 @@ interface ComingSoonTooltipProps {
   children: React.ReactNode;
   /** Direction the tail arrow points from the tooltip toward the trigger */
   tailDirection: 'up' | 'right';
+  /** Tooltip body. Defaults to the "feature coming soon" message. */
+  text?: string;
+  /** Override the wrapper sizing — defaults to w-fit (content-sized).
+   *  Pass "w-full" / "flex-1" etc. when used inside a flex parent that
+   *  expects the tooltip wrapper to expand. */
+  wrapperClassName?: string;
 }
 
-export default function ComingSoonTooltip({ children, tailDirection }: ComingSoonTooltipProps) {
+const DEFAULT_TEXT = 'הפיצ’ר הזה בדרך! אנחנו עובדים על זה.';
+
+export default function ComingSoonTooltip({ children, tailDirection, text, wrapperClassName }: ComingSoonTooltipProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const message = text ?? DEFAULT_TEXT;
 
   return (
     <div
-      className="relative w-fit"
+      className={`relative ${wrapperClassName ?? 'w-fit'}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => setIsHovered((prev) => !prev)}
@@ -41,13 +50,17 @@ export default function ComingSoonTooltip({ children, tailDirection }: ComingSoo
             </div>
           )}
 
-          <div className="relative flex items-center justify-center" style={{ width: '284px', height: '40px' }}>
-            <svg viewBox="0 0 284 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute inset-0 w-full h-full">
-              <rect width="284" height="40" rx="8" fill="#A7EA7B" />
-            </svg>
-            <span className="relative text-black font-normal" style={{ fontSize: '16px' }}>
-              הפיצ&apos;ר הזה בדרך! אנחנו עובדים על זה.
-            </span>
+          <div
+            className="relative flex items-center justify-center text-black font-normal whitespace-nowrap"
+            style={{
+              backgroundColor: '#A7EA7B',
+              borderRadius: '8px',
+              padding: '10px 16px',
+              fontSize: '16px',
+              minWidth: '160px',
+            }}
+          >
+            {message}
 
             {/* Tail arrow - right (for sidebar item, pointing right toward trigger) */}
             {tailDirection === 'right' && (

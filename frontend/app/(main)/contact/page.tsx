@@ -42,7 +42,7 @@ export default function ContactPage() {
   const validateEmail = () => {
     setEmailTouched(true);
     if (!contactEmail) {
-      setEmailError('נא להזין אימייל');
+      setEmailError('יש להזין אימייל');
     } else if (!isValidEmail(contactEmail)) {
       setEmailError('כתובת אימייל לא תקינה');
     } else {
@@ -154,7 +154,7 @@ export default function ContactPage() {
                       setContactEmail(e.target.value);
                       if (emailTouched) {
                         if (!e.target.value) {
-                          setEmailError('נא להזין אימייל');
+                          setEmailError('יש להזין אימייל');
                         } else if (!isValidEmail(e.target.value)) {
                           setEmailError('כתובת אימייל לא תקינה');
                         } else {

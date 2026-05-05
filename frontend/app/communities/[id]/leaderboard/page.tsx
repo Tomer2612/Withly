@@ -11,13 +11,6 @@ import AwardIcon from '../../../components/icons/AwardIcon';
 import UsersIcon from '../../../components/icons/UsersIcon';
 import { getImageUrl } from '@/app/lib/imageUrl';
 
-interface Community {
-  id: string;
-  name: string;
-  slug?: string | null;
-  topic: string | null;
-  logo: string | null;
-}
 
 interface LeaderboardMember {
   rank: number;
@@ -32,16 +25,9 @@ export default function LeaderboardPage() {
   const router = useRouter();
   const params = useParams();
   const communityId = params.id as string;
-  const { userEmail, userId, userProfile, isOwner, isManager } = useCommunityContext();
+  const { userId } = useCommunityContext();
 
-  const [mounted, setMounted] = useState(false);
-  const [community, setCommunity] = useState<Community | null>(null);
   const [members, setMembers] = useState<LeaderboardMember[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -59,7 +45,6 @@ export default function LeaderboardPage() {
             return;
           }
 
-          setCommunity(communityData);
         }
 
         // Fetch leaderboard (top 10 members)
@@ -72,8 +57,6 @@ export default function LeaderboardPage() {
         }
       } catch (err) {
         console.error('Error fetching data:', err);
-      } finally {
-        setLoading(false);
       }
     };
 

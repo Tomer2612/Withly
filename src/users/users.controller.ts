@@ -6,6 +6,7 @@ import { UsersService } from './users.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../common/storage.service';
 import { imageFileFilter } from '../common/upload-filters';
+import { getUserIdFromRequest } from '../common/jwt.helper';
 import {
   UpdateProfileDto,
   ToggleOnlineStatusDto,
@@ -128,14 +129,19 @@ export class UsersController {
 
   // Public — profile pages render for anonymous viewers, who see the
   // user's created/joined communities and follower stats as social proof.
+  // Viewer identity (if logged in) is used to widen visibility for the
+  // user viewing their own profile (sees DRAFT/PRIVATE/SUSPENDED/pending);
+  // outside viewers only see fully-public, active, non-cancelled rows.
   @Get(':userId/communities/created')
-  async getCreatedCommunities(@Param('userId') userId: string) {
-    return this.usersService.getCreatedCommunities(userId);
+  async getCreatedCommunities(@Param('userId') userId: string, @Req() req) {
+    const viewerUserId = getUserIdFromRequest(req);
+    return this.usersService.getCreatedCommunities(userId, viewerUserId);
   }
 
   @Get(':userId/communities/member')
-  async getMemberCommunities(@Param('userId') userId: string) {
-    return this.usersService.getMemberCommunities(userId);
+  async getMemberCommunities(@Param('userId') userId: string, @Req() req) {
+    const viewerUserId = getUserIdFromRequest(req);
+    return this.usersService.getMemberCommunities(userId, viewerUserId);
   }
 
   // Get user profile stats (followers, following, community members)

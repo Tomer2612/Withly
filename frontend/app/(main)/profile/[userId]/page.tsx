@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { authFetch } from '../../../lib/auth';
 import { useUser } from '../../../lib/UserContext';
-import { FaMapMarkerAlt, FaSignInAlt } from 'react-icons/fa';
+import { FaMapMarkerAlt } from 'react-icons/fa';
 import ChevronLeftIcon from '../../../components/icons/ChevronLeftIcon';
 import ChevronRightIcon from '../../../components/icons/ChevronRightIcon';
 import CameraIcon from '../../../components/icons/CameraIcon';
@@ -75,9 +75,13 @@ interface Community {
   logo?: string | null;
   memberCount?: number | null;
   price?: number | null;
+  pendingPrice?: number | null;
   topic?: string | null;
   createdAt?: string;
 }
+
+const joinPrice = (c: { price?: number | null; pendingPrice?: number | null }): number =>
+  c.pendingPrice ?? c.price ?? 0;
 
 export default function MemberProfilePage() {
   const params = useParams();
@@ -88,7 +92,6 @@ export default function MemberProfilePage() {
   const [createdCommunities, setCreatedCommunities] = useState<Community[]>([]);
   const [memberCommunities, setMemberCommunities] = useState<Community[]>([]);
   const [activeTab, setActiveTab] = useState<'created' | 'member'>('created');
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Stats state
@@ -115,7 +118,6 @@ export default function MemberProfilePage() {
   useEffect(() => {
     const fetchProfileData = async () => {
       try {
-        setLoading(true);
         setError(null);
 
         // Fetch all data in parallel for faster loading
@@ -172,8 +174,6 @@ export default function MemberProfilePage() {
       } catch (err) {
         console.error('Error fetching profile:', err);
         setError('שגיאה בטעינת הפרופיל');
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -548,20 +548,21 @@ export default function MemberProfilePage() {
                                   : `${formatMemberCount(community.memberCount ?? 0)}+ משתמשים`}
                             </span>
                             
-                            {/* Free/Paid badge */}
-                            {(community.price ?? 0) === 0 ? (
-                              <span 
+                            {/* Free/Paid badge — joinPrice so pending price
+                                changes show immediately for new joiners. */}
+                            {joinPrice(community) === 0 ? (
+                              <span
                                 className="rounded-full font-normal"
                                 style={{ backgroundColor: '#A7EA7B', color: '#163300', fontSize: '1rem', padding: '0.5rem 1rem' }}
                               >
                                 חינם
                               </span>
                             ) : (
-                              <span 
+                              <span
                                 className="rounded-full font-normal"
                                 style={{ backgroundColor: '#91DCED', color: '#003233', fontSize: '1rem', padding: '0.5rem 1rem' }}
                               >
-                                ₪{community.price} לחודש
+                                ₪{joinPrice(community)} לחודש
                               </span>
                             )}
                           </div>
@@ -684,20 +685,21 @@ export default function MemberProfilePage() {
                                   : `${formatMemberCount(community.memberCount ?? 0)}+ משתמשים`}
                             </span>
                             
-                            {/* Free/Paid badge */}
-                            {(community.price ?? 0) === 0 ? (
-                              <span 
+                            {/* Free/Paid badge — joinPrice so pending price
+                                changes show immediately for new joiners. */}
+                            {joinPrice(community) === 0 ? (
+                              <span
                                 className="rounded-full font-normal"
                                 style={{ backgroundColor: '#A7EA7B', color: '#163300', fontSize: '1rem', padding: '0.5rem 1rem' }}
                               >
                                 חינם
                               </span>
                             ) : (
-                              <span 
+                              <span
                                 className="rounded-full font-normal"
                                 style={{ backgroundColor: '#91DCED', color: '#003233', fontSize: '1rem', padding: '0.5rem 1rem' }}
                               >
-                                ₪{community.price} לחודש
+                                ₪{joinPrice(community)} לחודש
                               </span>
                             )}
                           </div>

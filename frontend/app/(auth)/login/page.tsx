@@ -3,8 +3,6 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
-import Image from 'next/image';
-import Link from 'next/link';
 import GoogleIcon from '../../components/icons/GoogleIcon';
 import MailIcon from '../../components/icons/MailIcon';
 import KeyIcon from '../../components/icons/KeyIcon';
@@ -30,7 +28,7 @@ function LoginContent() {
     // Check for Google auth error
     const errorParam = searchParams.get('error');
     if (errorParam === 'account_exists') {
-      setMessage('חשבון עם כתובת האימייל הזו כבר קיים. אנא התחבר עם האימייל והסיסמא שלך.');
+      setMessage('חשבון עם כתובת האימייל הזו כבר קיים. אנא התחבר עם האימייל והסיסמה שלך.');
       setMessageType('error');
     } else if (errorParam === 'google_failed') {
       setMessage('שגיאה בהתחברות עם Google. אנא נסה שוב.');

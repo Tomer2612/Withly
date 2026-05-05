@@ -125,7 +125,6 @@ export class UsersService {
         notifyNewPosts: true,
         notifyMentions: true,
         notifyCommunityJoins: true,
-        notifyMessages: true,
       },
     });
 
@@ -143,7 +142,6 @@ export class UsersService {
     notifyNewPosts?: boolean;
     notifyMentions?: boolean;
     notifyCommunityJoins?: boolean;
-    notifyMessages?: boolean;
   }) {
     const user = await this.findByIdWithAuth(userId);
     if (!user) {
@@ -160,7 +158,6 @@ export class UsersService {
         notifyNewPosts: true,
         notifyMentions: true,
         notifyCommunityJoins: true,
-        notifyMessages: true,
       },
     });
   }
@@ -224,10 +221,26 @@ export class UsersService {
     return user;
   }
 
+  // Visibility scopes for profile cards. The owner viewing their own profile
+  // (or a member viewing their own joined-list) sees everything. An outside
+  // viewer only sees PUBLIC + ACTIVE + non-cancellation-pending.
+  private profileVisibilityFilter(isOwnProfile: boolean): Prisma.CommunityWhereInput {
+    if (isOwnProfile) return {};
+    return {
+      status: 'PUBLIC',
+      subscriptionStatus: 'ACTIVE',
+      subscriptionCancelledAt: null,
+    };
+  }
+
   // Get communities created by user
-  async getCreatedCommunities(userId: string) {
+  async getCreatedCommunities(userId: string, viewerUserId?: string) {
+    const where: Prisma.CommunityWhereInput = {
+      ownerId: userId,
+      ...this.profileVisibilityFilter(viewerUserId === userId),
+    };
     const communities = await this.prisma.community.findMany({
-      where: { ownerId: userId },
+      where,
       select: {
         id: true,
         name: true,
@@ -235,6 +248,10 @@ export class UsersService {
         image: true,
         logo: true,
         price: true,
+        // pendingPrice is what new joiners pay immediately on announcement.
+        // Public-facing cards should display this when present.
+        pendingPrice: true,
+        pendingPriceEffectiveAt: true,
         topic: true,
         _count: { select: { members: true } },
       },
@@ -244,9 +261,12 @@ export class UsersService {
   }
 
   // Get communities user is a member of
-  async getMemberCommunities(userId: string) {
+  async getMemberCommunities(userId: string, viewerUserId?: string) {
     const memberships = await this.prisma.communityMember.findMany({
-      where: { userId },
+      where: {
+        userId,
+        community: this.profileVisibilityFilter(viewerUserId === userId),
+      },
       include: {
         community: {
           select: {
@@ -256,6 +276,10 @@ export class UsersService {
             image: true,
             logo: true,
             price: true,
+            // pendingPrice — what new joiners pay immediately. Public-facing
+            // cards should display this when present.
+            pendingPrice: true,
+            pendingPriceEffectiveAt: true,
             topic: true,
             _count: { select: { members: true } },
           },

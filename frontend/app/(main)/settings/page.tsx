@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { compressImage, MAX_IMAGE_SIZE_BYTES } from '../../lib/imageCompression';
 import { useUser } from '../../lib/UserContext';
 import FormSelect from '../../components/FormSelect';
-import { HiOutlineUser, HiOutlineCamera, HiOutlineCog6Tooth, HiOutlineArrowRightOnRectangle, HiOutlineLink, HiOutlineLockClosed, HiOutlineEye, HiOutlineEyeSlash, HiOutlineBell, HiOutlineShieldCheck, HiOutlineHeart, HiOutlineChatBubbleLeft, HiOutlineChatBubbleOvalLeft, HiOutlineUserPlus, HiOutlineUsers, HiOutlineEnvelope, HiOutlineMapPin, HiOutlineDocumentText, HiOutlineAtSymbol, HiOutlineCreditCard } from 'react-icons/hi2';
+import { HiOutlineUser, HiOutlineCamera, HiOutlineCog6Tooth, HiOutlineEye, HiOutlineEyeSlash, HiOutlineHeart, HiOutlineChatBubbleOvalLeft, HiOutlineUserPlus, HiOutlineUsers, HiOutlineEnvelope, HiOutlineDocumentText, HiOutlineAtSymbol, HiOutlineCreditCard } from 'react-icons/hi2';
 import CloseIcon from '../../components/icons/CloseIcon';
 import PowerIcon from '../../components/icons/PowerIcon';
 import PowerOffIcon from '../../components/icons/PowerOffIcon';
@@ -100,9 +100,7 @@ export default function SettingsPage() {
   const userId = user?.userId ?? null;
   const userEmail = user?.email ?? null;
   const [activeTab, setActiveTab] = useState<TabType>('profile');
-  const [mounted, setMounted] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settingOffline, setSettingOffline] = useState(false);
   const [showOnline, setShowOnline] = useState(true);
@@ -118,8 +116,6 @@ export default function SettingsPage() {
   const [notifyNewPosts, setNotifyNewPosts] = useState(false);
   const [notifyMentions, setNotifyMentions] = useState(false);
   const [notifyCommunityJoins, setNotifyCommunityJoins] = useState(false);
-  const [notifyMessages, setNotifyMessages] = useState(false);
-  const [savingNotifications, setSavingNotifications] = useState(false);
   
   // Form state
   const [name, setName] = useState('');
@@ -256,7 +252,13 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    setMounted(true);
+    // Open a specific tab when redirected with a hash (e.g. /settings#payment).
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.replace(/^#/, '');
+      if (hash === 'profile' || hash === 'security' || hash === 'notifications' || hash === 'payment') {
+        setActiveTab(hash);
+      }
+    }
 
     if (!user) {
       router.push('/login');
@@ -285,8 +287,7 @@ export default function SettingsPage() {
           setImagePreview(getImageUrl(data.profileImage));
         }
       })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+      .catch(console.error);
 
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/online-status`)
       .then(res => res.json())
@@ -302,7 +303,6 @@ export default function SettingsPage() {
         setNotifyNewPosts(data.notifyNewPosts ?? true);
         setNotifyMentions(data.notifyMentions ?? true);
         setNotifyCommunityJoins(data.notifyCommunityJoins ?? true);
-        setNotifyMessages(data.notifyMessages ?? true);
       })
       .catch(console.error);
 
@@ -485,12 +485,6 @@ export default function SettingsPage() {
     saveNotificationPreference('notifyCommunityJoins', newValue);
   };
 
-  const toggleNotifyMessages = () => {
-    const newValue = !notifyMessages;
-    setNotifyMessages(newValue);
-    saveNotificationPreference('notifyMessages', newValue);
-  };
-
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -556,7 +550,7 @@ export default function SettingsPage() {
   const handleDeleteAccount = async () => {
     if (!user) return;
 
-    if (deleteConfirmText !== 'מחק את החשבון שלי') {
+    if (deleteConfirmText !== 'מחיקת חשבון') {
       setMessage('יש להקליד את הטקסט המדויק לאישור');
       setMessageType('error');
       return;
@@ -725,7 +719,7 @@ export default function SettingsPage() {
                       className="hidden"
                     />
                     <div className="text-sm" style={{ color: '#71717A' }}>
-                      <p>לחצו על האייקון לשינוי התמונה</p>
+                      <p>כדי לשנות את תמונת הפרופיל, אפשר ללחוץ על סימן המצלמה</p>
                       <p className="text-xs" style={{ color: '#A1A1AA' }}>JPG, PNG עד 5MB</p>
                     </div>
                   </div>
@@ -840,16 +834,16 @@ export default function SettingsPage() {
               <div className="bg-white rounded-xl border p-6 space-y-6" style={{ borderColor: '#E1E1E2' }}>
                 {/* Change Password Section */}
                 <div className={userProfile?.isGoogleAccount ? 'opacity-50 pointer-events-none' : ''}>
-                  <h3 className="text-base font-semibold mb-4" style={{ color: '#1D1D20' }}>שינוי סיסמא</h3>
+                  <h3 className="text-base font-semibold mb-4" style={{ color: '#1D1D20' }}>שינוי סיסמה</h3>
                   {userProfile?.isGoogleAccount && (
-                    <p className="text-sm mb-4" style={{ color: '#71717A' }}>לא ניתן לשנות סיסמא עבור חשבונות Google</p>
+                    <p className="text-sm mb-4" style={{ color: '#71717A' }}>לא ניתן לשנות סיסמה עבור חשבונות Google</p>
                   )}
                 
                   {/* Current Password */}
                   <div className="flex items-center gap-8 mb-4">
                     <div className="w-40 flex-shrink-0">
-                      <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>סיסמא נוכחית</h4>
-                      <p className="text-sm" style={{ color: '#71717A' }}>הזינו את הסיסמא הנוכחית</p>
+                      <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>סיסמה נוכחית</h4>
+                      <p className="text-sm" style={{ color: '#71717A' }}>יש להזין את הסיסמה הנוכחית</p>
                     </div>
                     <div className="relative flex-1">
                       <input
@@ -875,8 +869,8 @@ export default function SettingsPage() {
                   {/* New Password */}
                   <div className="flex items-center gap-8 mb-4">
                     <div className="w-40 flex-shrink-0">
-                      <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>סיסמא חדשה</h4>
-                      <p className="text-sm" style={{ color: '#71717A' }}>הזינו את הסיסמא החדשה</p>
+                      <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>סיסמה חדשה</h4>
+                      <p className="text-sm" style={{ color: '#71717A' }}>יש להזין סיסמה חדשה</p>
                     </div>
                     <div className="relative flex-1">
                       <input
@@ -902,8 +896,8 @@ export default function SettingsPage() {
                   {/* Confirm Password */}
                   <div className="flex items-center gap-8 mb-4">
                     <div className="w-40 flex-shrink-0">
-                      <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>אישור סיסמא חדשה</h4>
-                      <p className="text-sm" style={{ color: '#71717A' }}>הזינו שוב את הסיסמא החדשה</p>
+                      <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>אישור סיסמה חדשה</h4>
+                      <p className="text-sm" style={{ color: '#71717A' }}>יש להזין את הסיסמה שוב</p>
                     </div>
                     <div className="relative flex-1">
                       <input
@@ -934,7 +928,7 @@ export default function SettingsPage() {
                       disabled={changingPassword || userProfile?.isGoogleAccount}
                       className="px-6 py-2.5 bg-black text-white rounded-lg font-medium hover:opacity-90 transition disabled:opacity-50 text-sm"
                     >
-                      {changingPassword ? 'משנה...' : 'שנה סיסמא'}
+                      {changingPassword ? 'משנה...' : 'שינוי סיסמה'}
                     </button>
                   </div>
                 </div>
@@ -983,9 +977,9 @@ export default function SettingsPage() {
                       className="flex items-center gap-2 px-3 py-2 rounded-full border bg-white text-sm font-medium transition"
                       style={{ borderColor: '#E1E1E2', color: '#3F3F46' }}
                     >
-                      <div 
-                        className="w-2.5 h-2.5 rounded-full border" 
-                        style={{ borderColor: '#1D1D20', backgroundColor: notifyLikes ? '#A7EA7B' : '#D1D5DB' }} 
+                      <div
+                        className="w-2.5 h-2.5 rounded-full border"
+                        style={{ borderColor: '#1D1D20', backgroundColor: notifyLikes ? '#A7EA7B' : '#D1D5DB' }}
                       />
                       {notifyLikes ? 'בטל התראות' : 'הפעל התראות'}
                       <HiOutlineHeart className="w-5 h-5" style={{ color: '#A1A1AA' }} />
@@ -1004,54 +998,12 @@ export default function SettingsPage() {
                       className="flex items-center gap-2 px-3 py-2 rounded-full border bg-white text-sm font-medium transition"
                       style={{ borderColor: '#E1E1E2', color: '#3F3F46' }}
                     >
-                      <div 
-                        className="w-2.5 h-2.5 rounded-full border" 
-                        style={{ borderColor: '#1D1D20', backgroundColor: notifyComments ? '#A7EA7B' : '#D1D5DB' }} 
+                      <div
+                        className="w-2.5 h-2.5 rounded-full border"
+                        style={{ borderColor: '#1D1D20', backgroundColor: notifyComments ? '#A7EA7B' : '#D1D5DB' }}
                       />
                       {notifyComments ? 'בטל התראות' : 'הפעל התראות'}
                       <HiOutlineChatBubbleOvalLeft className="w-5 h-5" style={{ color: '#A1A1AA' }} />
-                    </button>
-                  </div>
-
-                  {/* New Followers */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>עוקבים חדשים</h4>
-                      <p className="text-sm" style={{ color: '#71717A' }}>קבל התראה כשמישהו מתחיל לעקוב אחריך</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={toggleNotifyFollows}
-                      className="flex items-center gap-2 px-3 py-2 rounded-full border bg-white text-sm font-medium transition"
-                      style={{ borderColor: '#E1E1E2', color: '#3F3F46' }}
-                    >
-                      <div 
-                        className="w-2.5 h-2.5 rounded-full border" 
-                        style={{ borderColor: '#1D1D20', backgroundColor: notifyFollows ? '#A7EA7B' : '#D1D5DB' }} 
-                      />
-                      {notifyFollows ? 'בטל התראות' : 'הפעל התראות'}
-                      <HiOutlineUsers className="w-5 h-5" style={{ color: '#A1A1AA' }} />
-                    </button>
-                  </div>
-
-                  {/* New Posts */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>פוסטים חדשים</h4>
-                      <p className="text-sm" style={{ color: '#71717A' }}>קבל התראה כשמישהו שאתה עוקב אחריו מפרסם</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={toggleNotifyNewPosts}
-                      className="flex items-center gap-2 px-3 py-2 rounded-full border bg-white text-sm font-medium transition"
-                      style={{ borderColor: '#E1E1E2', color: '#3F3F46' }}
-                    >
-                      <div 
-                        className="w-2.5 h-2.5 rounded-full border" 
-                        style={{ borderColor: '#1D1D20', backgroundColor: notifyNewPosts ? '#A7EA7B' : '#D1D5DB' }} 
-                      />
-                      {notifyNewPosts ? 'בטל התראות' : 'הפעל התראות'}
-                      <HiOutlineDocumentText className="w-5 h-5" style={{ color: '#A1A1AA' }} />
                     </button>
                   </div>
 
@@ -1067,9 +1019,9 @@ export default function SettingsPage() {
                       className="flex items-center gap-2 px-3 py-2 rounded-full border bg-white text-sm font-medium transition"
                       style={{ borderColor: '#E1E1E2', color: '#3F3F46' }}
                     >
-                      <div 
-                        className="w-2.5 h-2.5 rounded-full border" 
-                        style={{ borderColor: '#1D1D20', backgroundColor: notifyMentions ? '#A7EA7B' : '#D1D5DB' }} 
+                      <div
+                        className="w-2.5 h-2.5 rounded-full border"
+                        style={{ borderColor: '#1D1D20', backgroundColor: notifyMentions ? '#A7EA7B' : '#D1D5DB' }}
                       />
                       {notifyMentions ? 'בטל התראות' : 'הפעל התראות'}
                       <HiOutlineAtSymbol className="w-5 h-5" style={{ color: '#A1A1AA' }} />
@@ -1088,35 +1040,59 @@ export default function SettingsPage() {
                       className="flex items-center gap-2 px-3 py-2 rounded-full border bg-white text-sm font-medium transition"
                       style={{ borderColor: '#E1E1E2', color: '#3F3F46' }}
                     >
-                      <div 
-                        className="w-2.5 h-2.5 rounded-full border" 
-                        style={{ borderColor: '#1D1D20', backgroundColor: notifyCommunityJoins ? '#A7EA7B' : '#D1D5DB' }} 
+                      <div
+                        className="w-2.5 h-2.5 rounded-full border"
+                        style={{ borderColor: '#1D1D20', backgroundColor: notifyCommunityJoins ? '#A7EA7B' : '#D1D5DB' }}
                       />
                       {notifyCommunityJoins ? 'בטל התראות' : 'הפעל התראות'}
                       <HiOutlineUserPlus className="w-5 h-5" style={{ color: '#A1A1AA' }} />
                     </button>
                   </div>
 
-                  {/* Private Messages */}
+                  {/* New Followers */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>הודעות פרטיות</h4>
-                      <p className="text-sm" style={{ color: '#71717A' }}>קבל התראה כשמישהו שולח לך הודעה</p>
+                      <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>עוקבים חדשים</h4>
+                      <p className="text-sm" style={{ color: '#71717A' }}>קבל התראה כשמישהו מתחיל לעקוב אחריך</p>
                     </div>
                     <button
                       type="button"
-                      onClick={toggleNotifyMessages}
+                      onClick={toggleNotifyFollows}
                       className="flex items-center gap-2 px-3 py-2 rounded-full border bg-white text-sm font-medium transition"
                       style={{ borderColor: '#E1E1E2', color: '#3F3F46' }}
                     >
-                      <div 
-                        className="w-2.5 h-2.5 rounded-full border" 
-                        style={{ borderColor: '#1D1D20', backgroundColor: notifyMessages ? '#A7EA7B' : '#D1D5DB' }} 
+                      <div
+                        className="w-2.5 h-2.5 rounded-full border"
+                        style={{ borderColor: '#1D1D20', backgroundColor: notifyFollows ? '#A7EA7B' : '#D1D5DB' }}
                       />
-                      {notifyMessages ? 'בטל התראות' : 'הפעל התראות'}
-                      <HiOutlineChatBubbleLeft className="w-5 h-5" style={{ color: '#A1A1AA' }} />
+                      {notifyFollows ? 'בטל התראות' : 'הפעל התראות'}
+                      <HiOutlineUsers className="w-5 h-5" style={{ color: '#A1A1AA' }} />
                     </button>
                   </div>
+
+                  {/* New Posts */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>פוסטים חדשים</h4>
+                      <p className="text-sm" style={{ color: '#71717A' }}>קבל התראה כשמישהו שאתה עוקב אחריו מפרסם</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={toggleNotifyNewPosts}
+                      className="flex items-center gap-2 px-3 py-2 rounded-full border bg-white text-sm font-medium transition"
+                      style={{ borderColor: '#E1E1E2', color: '#3F3F46' }}
+                    >
+                      <div
+                        className="w-2.5 h-2.5 rounded-full border"
+                        style={{ borderColor: '#1D1D20', backgroundColor: notifyNewPosts ? '#A7EA7B' : '#D1D5DB' }}
+                      />
+                      {notifyNewPosts ? 'בטל התראות' : 'הפעל התראות'}
+                      <HiOutlineDocumentText className="w-5 h-5" style={{ color: '#A1A1AA' }} />
+                    </button>
+                  </div>
+                  {/* "הודעות פרטיות" used to live here. Removed — message
+                      visibility is already conveyed by the bell badge on the
+                      messages icon, no need for a per-user toggle. */}
                 </div>
               </div>
             )}
@@ -1403,38 +1379,44 @@ export default function SettingsPage() {
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6" dir="rtl">
-            <h3 className="text-xl font-bold mb-4" style={{ color: '#1D1D20' }}>אישור מחיקת חשבון</h3>
-            <p className="mb-4" style={{ color: '#52525B' }}>
-              פעולה זו בלתי הפיכה. כדי לאשר, הקלידו: <strong>&quot;מחק את החשבון שלי&quot;</strong>
-            </p>
-            <input
-              type="text"
-              value={deleteConfirmText}
-              onChange={(e) => setDeleteConfirmText(e.target.value)}
-              placeholder="הקלידו כאן"
-              className="w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 text-sm mb-4"
-              style={{ borderColor: '#E1E1E2' }}
-            />
-            <div className="flex gap-3">
-              <button
-                onClick={handleDeleteAccount}
-                disabled={deletingAccount || deleteConfirmText !== 'מחק את החשבון שלי'}
-                className="flex-1 py-2.5 text-white rounded-lg font-medium hover:opacity-90 transition disabled:opacity-50"
-                style={{ backgroundColor: '#B3261E' }}
-              >
-                {deletingAccount ? 'מוחק...' : 'מחק לצמיתות'}
-              </button>
-              <button
-                onClick={() => {
-                  setShowDeleteConfirm(false);
-                  setDeleteConfirmText('');
-                }}
-                className="flex-1 py-2.5 rounded-lg font-medium transition"
-                style={{ backgroundColor: '#F4F4F5', color: '#3F3F46' }}
-              >
-                ביטול
-              </button>
+          <div
+            className="bg-white p-6"
+            style={{ borderRadius: '16px', width: 'fit-content', maxWidth: 'min(90vw, 640px)' }}
+            dir="rtl"
+          >
+            <div className="text-center">
+              <h3 className="font-semibold text-black mb-2" style={{ fontSize: '21px' }}>אישור מחיקת חשבון</h3>
+              <p className="mb-4" style={{ fontSize: '18px', color: 'var(--color-gray-10)' }}>
+                פעולה זו בלתי הפיכה. לאישור, יש להקליד: <strong>&quot;מחיקת חשבון&quot;</strong>
+              </p>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="להקליד כאן"
+                className="w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 text-sm mb-4 text-right"
+                style={{ borderColor: '#E1E1E2' }}
+              />
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    setDeleteConfirmText('');
+                  }}
+                  className="bg-white text-black border hover:bg-gray-50 transition"
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
+                >
+                  חזרה
+                </button>
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={deletingAccount || deleteConfirmText !== 'מחיקת חשבון'}
+                  className="bg-error text-white hover:opacity-90 transition disabled:opacity-50"
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
+                >
+                  {deletingAccount ? 'מוחק...' : 'מחיקת החשבון'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

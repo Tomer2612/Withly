@@ -53,7 +53,13 @@ export function UserProvider({ initialUser, children }: UserProviderProps) {
   // different first renders and React would flag a hydration mismatch.
   // Cache hydration happens in the effect below, after mount.
   const [user, setUser] = useState<User | null>(initialUser);
-  const [loading, setLoading] = useState(false);
+  // Default to true so consumers can distinguish "probe in flight" from
+  // "confirmed anonymous" — both have user=null. The mount-effect calls
+  // refresh() which flips this to false once /users/me settles. Without
+  // this default, the brief window between mount and the refresh effect
+  // running would look indistinguishable from "definitely anonymous",
+  // causing dependent effects to fire prematurely.
+  const [loading, setLoading] = useState(true);
 
   // Post-hydration: merge cached profile into the user object so the
   // avatar/name appear immediately without waiting for the /users/me

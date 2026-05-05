@@ -40,13 +40,6 @@ interface Community {
   };
 }
 
-interface UserProfile {
-  id: string;
-  email: string;
-  name?: string;
-  profileImage?: string;
-}
-
 // Gallery media item type
 interface GalleryItem {
   type: 'image' | 'video';
@@ -175,12 +168,11 @@ export default function CommunityAboutPage() {
   const router = useRouter();
   const params = useParams();
   const communityId = params.id as string;
-  const { userEmail, userId, userProfile, userRole, isMember, loading: contextLoading } = useCommunityContext();
+  const { userEmail, userId, isMember, loading: contextLoading } = useCommunityContext();
 
   const [community, setCommunity] = useState<Community | null>(null);
   const [ownerData, setOwnerData] = useState<{ id: string; name: string; profileImage?: string | null; coverImage?: string | null; bio?: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mounted, setMounted] = useState(false);
   const [managerCount, setManagerCount] = useState(0);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [leavingCommunity, setLeavingCommunity] = useState(false);
@@ -211,10 +203,6 @@ export default function CommunityAboutPage() {
       setShowLeaveModal(false);
     }
   };
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     const fetchCommunity = async () => {
@@ -450,8 +438,8 @@ export default function CommunityAboutPage() {
                   }}
                   className="w-full py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 transition text-sm flex items-center justify-center gap-2"
                 >
-                  <span>{inviteCopied ? 'הועתק!' : 'העתק לינק'}</span>
                   <LinkIcon size={16} color="white" />
+                  <span>{inviteCopied ? 'הועתק!' : 'העתק לינק'}</span>
                 </button>
               </div>
             </div>
@@ -462,10 +450,10 @@ export default function CommunityAboutPage() {
                 <button
                   onClick={() => setShowLeaveModal(true)}
                   className="w-full flex items-center justify-center gap-2 py-3 px-4 hover:bg-red-50 rounded-xl transition font-medium"
-                  style={{ color: '#B3261E' }}
+                  style={{ color: 'var(--color-error)' }}
                 >
-                  עזוב את הקהילה
                   <LogoutIcon size={16} />
+                  עזוב את הקהילה
                 </button>
               </div>
             )}
@@ -496,35 +484,42 @@ export default function CommunityAboutPage() {
 
       {/* Leave Community Confirmation Modal */}
       {showLeaveModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-lg" dir="rtl">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">עזיבת הקהילה</h3>
-            <p className="text-gray-600 mb-6">
-              האם אתה בטוח שברצונך לעזוב את הקהילה <span className="font-semibold">{community?.name}</span>?
-              לאחר העזיבה, לא תהיה לך גישה לפוסטים ולא תוכל להשתתף בדיונים, עד להצטרפות מחדש
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowLeaveModal(false)}
-                className="flex-1 py-3 px-4 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition"
-              >
-                ביטול
-              </button>
-              <button
-                onClick={handleLeaveCommunity}
-                disabled={leavingCommunity}
-                className="flex-1 py-3 px-4 text-white rounded-xl font-medium transition disabled:opacity-50 flex items-center justify-center gap-2"
-                style={{ backgroundColor: '#B3261E' }}
-              >
-                {leavingCommunity ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    עוזב...
-                  </>
-                ) : (
-                  'עזוב את הקהילה'
-                )}
-              </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div
+            className="bg-white p-6 shadow-lg"
+            style={{ borderRadius: '16px', width: 'fit-content', maxWidth: 'min(90vw, 640px)' }}
+            dir="rtl"
+          >
+            <div className="text-center">
+              <h3 className="font-semibold text-black mb-2" style={{ fontSize: '21px' }}>עזיבת הקהילה</h3>
+              <p className="mb-6" style={{ fontSize: '18px', color: 'var(--color-gray-10)' }}>
+                האם אתה בטוח שברצונך לעזוב את הקהילה <span className="font-semibold">{community?.name}</span>?
+                לאחר העזיבה, לא תהיה לך גישה לפוסטים ולא תוכל להשתתף בדיונים, עד להצטרפות מחדש
+              </p>
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={() => setShowLeaveModal(false)}
+                  className="bg-white text-black border hover:bg-gray-50 transition"
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
+                >
+                  חזרה
+                </button>
+                <button
+                  onClick={handleLeaveCommunity}
+                  disabled={leavingCommunity}
+                  className="bg-error text-white hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
+                >
+                  {leavingCommunity ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      עוזב...
+                    </>
+                  ) : (
+                    'עזיבת הקהילה'
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

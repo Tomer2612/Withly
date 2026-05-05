@@ -303,9 +303,8 @@ export class PostsController {
         userId,
         postId,
         comment.post.communityId,
-        comment.id,
       );
-      
+
       // Process @mentions in the comment. Fire-and-forget for the same
       // reason as notifyNewPost above.
       this.notificationsService.processMentions(
@@ -313,7 +312,6 @@ export class PostsController {
         userId,
         postId,
         comment.post.communityId,
-        comment.id,
       ).catch(() => {});
     }
     

@@ -1,9 +1,7 @@
 'use client';
 
-import { Suspense, useEffect, useState, forwardRef, useRef } from 'react';
+import { Suspense, useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { compressImage, MAX_IMAGE_SIZE_BYTES } from '../../../lib/imageCompression';
 import { useCommunityContext } from '../CommunityContext';
 import { authFetch } from '../../../lib/auth';
 import FormSelect from '../../../components/FormSelect';
@@ -11,10 +9,13 @@ import CalendarSelect from '../../../components/CalendarSelect';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import { he } from 'date-fns/locale';
 import { getMonth, getYear } from 'date-fns';
-import { 
-  FaMapMarkerAlt,
-  FaQuestion
-} from 'react-icons/fa';
+
+// Register the Hebrew locale once at module load so the three
+// `<DatePicker locale="he" />` instances below find it. Without this,
+// react-datepicker logs "A locale object was not found for ['he']" and
+// falls back to en-US.
+registerLocale('he', he);
+import { FaMapMarkerAlt } from 'react-icons/fa';
 import CalendarIcon from '../../../components/icons/CalendarIcon';
 import PlusIcon from '../../../components/icons/PlusIcon';
 import ChevronRightIcon from '../../../components/icons/ChevronRightIcon';
@@ -23,7 +24,6 @@ import ChevronDownIcon from '../../../components/icons/ChevronDownIcon';
 import VideoIcon from '../../../components/icons/VideoIcon';
 import ClockIcon from '../../../components/icons/ClockIcon';
 import UsersIcon from '../../../components/icons/UsersIcon';
-import CheckIcon from '../../../components/icons/CheckIcon';
 import CloseIcon from '../../../components/icons/CloseIcon';
 import EditIcon from '../../../components/icons/EditIcon';
 import TrashIcon from '../../../components/icons/TrashIcon';
@@ -373,14 +373,6 @@ interface Event {
   };
 }
 
-interface Community {
-  id: string;
-  name: string;
-  slug?: string | null;
-  image?: string;
-  logo?: string;
-}
-
 const EVENT_CATEGORIES = [
   { value: 'workshop', label: 'סדנה' },
   { value: 'meetup', label: 'מפגש' },
@@ -402,26 +394,21 @@ function EventsPageContent() {
   const router = useRouter();
   const communityId = params.id as string;
 
-  const { userEmail, userId, userProfile, isOwnerOrManager } = useCommunityContext();
-  
+  const { isOwnerOrManager } = useCommunityContext();
+
   const [events, setEvents] = useState<Event[]>([]);
   const [allEvents, setAllEvents] = useState<Event[]>([]);
-  const [community, setCommunity] = useState<Community | null>(null);
-  const [communities, setCommunities] = useState<Community[]>([]);
-  const [userMemberships, setUserMemberships] = useState<string[]>([]);
-  const [mounted, setMounted] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [deleteEventId, setDeleteEventId] = useState<string | null>(null);
-  const [rsvpLoading, setRsvpLoading] = useState<string | null>(null);
+  // rsvpLoading is read but never set — kept as a no-op constant via the
+  // single-element destructure (setter is never called anywhere).
+  const [rsvpLoading] = useState<string | null>(null);
   const [addEventDate, setAddEventDate] = useState<Date | null>(null);
 
   // Double-tap detection for mobile (onDoubleClick doesn't work on touch)
   const lastTapRef = useRef<{ time: number; day: number }>({ time: 0, day: 0 });
-  const [showMonthDropdown, setShowMonthDropdown] = useState(false);
-  const [showYearDropdown, setShowYearDropdown] = useState(false);
   const [showSidebarDatePicker, setShowSidebarDatePicker] = useState(false);
 
   // Calendar state
@@ -429,45 +416,25 @@ function EventsPageContent() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
 
-  useEffect(() => {
-    setMounted(true);
-
-    if (userEmail) {
-      // Fetch communities user is member of
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/user/memberships`).then(res => res.ok ? res.json() : [])
-        .then(data => {
-          setCommunities(data);
-          setUserMemberships(data.map((c: Community) => c.id));
-        });
-    }
-  }, [userEmail]);
 
   useEffect(() => {
     if (!communityId) return;
 
     const fetchData = async () => {
-      setLoading(true);
-      
       try {
-        // Fetch community
+        // Fetch community — only need it for the slug redirect.
         const communityRes = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
         if (communityRes.ok) {
           const communityData = await communityRes.json();
-          
-          // Redirect to slug URL if community has a slug and we're using ID
           if (communityData.slug && communityId !== communityData.slug) {
             router.replace(`/communities/${communityData.slug}/events`);
           }
-          
-          setCommunity(communityData);
         }
 
         // Fetch events for current month (calendar view)
         await fetchEventsForMonth(currentDate.getFullYear(), currentDate.getMonth() + 1);
       } catch (err) {
         console.error('Error fetching data:', err);
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -534,22 +501,6 @@ function EventsPageContent() {
     }
     setCurrentDate(newDate);
     fetchEventsForMonth(newDate.getFullYear(), newDate.getMonth() + 1);
-  };
-
-  const handleMonthSelect = (month: number) => {
-    const newDate = new Date(currentDate);
-    newDate.setMonth(month);
-    setCurrentDate(newDate);
-    setShowMonthDropdown(false);
-    fetchEventsForMonth(newDate.getFullYear(), month + 1);
-  };
-
-  const handleYearSelect = (year: number) => {
-    const newDate = new Date(currentDate);
-    newDate.setFullYear(year);
-    setCurrentDate(newDate);
-    setShowYearDropdown(false);
-    fetchEventsForMonth(year, newDate.getMonth() + 1);
   };
 
   const handleDeleteEvent = async (eventId: string) => {
@@ -706,23 +657,6 @@ function EventsPageContent() {
   };
 
   // Format date as "23 בדצמבר 2025" for sidebar display
-  const formatSidebarDate = (date: Date) => {
-    const day = date.getDate();
-    const monthName = HEBREW_MONTHS[date.getMonth()];
-    const year = date.getFullYear();
-    return `${day} ב${monthName} ${year}`;
-  };
-
-  const formatDateFull = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('he-IL', { 
-      weekday: 'long', 
-      day: 'numeric', 
-      month: 'long',
-      year: 'numeric'
-    });
-  };
-
   const renderCalendar = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -1008,7 +942,7 @@ function EventsPageContent() {
                 <h3 className="font-bold text-black mb-4 flex-shrink-0">
                   {selectedDate 
                     ? formatDate(selectedDate.toISOString())
-                    : 'בחרו תאריך'
+                    : 'בחירת תאריך'
                   }
                 </h3>
                 
@@ -1034,7 +968,7 @@ function EventsPageContent() {
                     <p className="text-gray-500 text-sm">אין אירועים בתאריך זה</p>
                   )
                 ) : (
-                  <p className="text-gray-500 text-sm">לחצו על תאריך בלוח השנה</p>
+                  <p className="text-gray-500 text-sm">יש לבחור תאריך מהלוח</p>
                 )}
               </div>
             </div>
@@ -1126,7 +1060,6 @@ function EventsPageContent() {
       {showEditModal && editingEvent && (
         <EditEventModal
           event={editingEvent}
-          communityId={communityId}
           onClose={() => {
             setShowEditModal(false);
             setEditingEvent(null);
@@ -1142,32 +1075,32 @@ function EventsPageContent() {
 
       {/* Delete Event Confirmation Modal */}
       {deleteEventId && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/30"
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           onClick={() => setDeleteEventId(null)}
         >
-          <div 
-            className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl"
+          <div
+            className="bg-white p-6 shadow-xl"
+            style={{ borderRadius: '16px', width: 'fit-content', maxWidth: 'min(90vw, 640px)' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-center" dir="rtl">
-              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
-                <TrashIcon size={20} color="#DC2626" />
-              </div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">מחיקת אירוע</h3>
-              <p className="text-gray-600 mb-6">האם אתם בטוחים שברצונכם למחוק את האירוע? פעולה זו לא ניתנת לביטול.</p>
-              <div className="flex gap-3">
+              <h3 className="font-semibold text-black mb-2" style={{ fontSize: '21px' }}>מחיקת אירוע</h3>
+              <p className="mb-6" style={{ fontSize: '18px', color: 'var(--color-gray-10)' }}>האם למחוק את האירוע? לא ניתן יהיה לשחזר אותו.</p>
+              <div className="flex gap-3 justify-center">
                 <button
                   onClick={() => setDeleteEventId(null)}
-                  className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-gray-700 font-medium hover:bg-gray-50 transition"
+                  className="bg-white text-black border hover:bg-gray-50 transition"
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
                 >
                   ביטול
                 </button>
                 <button
                   onClick={() => handleDeleteEvent(deleteEventId)}
-                  className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition"
+                  className="bg-error text-white transition hover:opacity-90"
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
                 >
-                  מחיקה
+                  מחיקת האירוע
                 </button>
               </div>
             </div>
@@ -1214,15 +1147,6 @@ function EventCard({
     if (minutes === 120) return 'שעתיים';
     if (minutes >= 60) return `${minutes / 60} שעות`;
     return `${minutes} דקות`;
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('he-IL', { 
-      weekday: 'short', 
-      day: 'numeric', 
-      month: 'short'
-    });
   };
 
   const getDateParts = (dateString: string) => {
@@ -1280,7 +1204,8 @@ function EventCard({
                     setShowMenu(false);
                     onDelete?.(event.id);
                   }}
-                  className="w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 rounded-md"
+                  className="w-full px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 rounded-md"
+                  style={{ color: 'var(--color-error)' }}
                 >
                   <TrashIcon size={14} className="flex-shrink-0" />
                   <span>מחק</span>
@@ -1365,7 +1290,7 @@ function EventCard({
               }`}
               style={{ fontSize: '16px', fontWeight: 400 }}
             >
-              מגיע/ה
+              אגיע
             </button>
             <button
               onClick={() => onRsvp(event.id, 'MAYBE')}
@@ -1389,7 +1314,7 @@ function EventCard({
               }`}
               style={{ fontSize: '16px', fontWeight: 400 }}
             >
-              לא מגיע/ה
+              לא אגיע
             </button>
           </div>
         </div>
@@ -1417,7 +1342,8 @@ function AddEventModal({
   const [date, setDate] = useState(initialDate ? initialDate.toISOString().split('T')[0] : '');
   const [time, setTime] = useState('');
   const [duration, setDuration] = useState('60');
-  const [timezone, setTimezone] = useState('Asia/Jerusalem');
+  // timezone is used in formData but never changed in this form's UI.
+  const [timezone] = useState('Asia/Jerusalem');
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurringType, setRecurringType] = useState('weekly');
   const [locationType, setLocationType] = useState('online');
@@ -1428,39 +1354,13 @@ function AddEventModal({
   const [sendReminders, setSendReminders] = useState(true);
   const [reminderDays, setReminderDays] = useState('1');
   const [attendeeType, setAttendeeType] = useState('all');
-  const [coverImage, setCoverImage] = useState<File | null>(null);
-  const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null);
-
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        setError('ניתן להעלות רק קבצי תמונה');
-        e.target.value = '';
-        return;
-      }
-      if (file.size > MAX_IMAGE_SIZE_BYTES) {
-        setError('גודל התמונה חורג מ-20MB');
-        e.target.value = '';
-        return;
-      }
-      // Compress image before setting
-      const compressedFile = await compressImage(file);
-      setCoverImage(compressedFile);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setCoverImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(compressedFile);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
     if (!title || !date || !time) {
-      setError('אנא מלאו את כל השדות הנדרשים');
+      setError('יש למלא את כל שדות החובה');
       return;
     }
 
@@ -1491,7 +1391,6 @@ function AddEventModal({
       formData.append('sendReminders', String(sendReminders));
       formData.append('reminderDays', reminderDays);
       formData.append('attendeeType', attendeeType);
-      if (coverImage) formData.append('coverImage', coverImage);
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/events/community/${communityId}`, {
         method: 'POST',
@@ -1528,7 +1427,7 @@ function AddEventModal({
           <form onSubmit={handleSubmit} className="p-6 space-y-5" dir="rtl">
           {/* Title */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">כותרת <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">כותרת <span style={{ color: 'var(--color-error)' }}>*</span></label>
             <input
               type="text"
               value={title}
@@ -1544,7 +1443,7 @@ function AddEventModal({
           {/* Date, Time, Duration Row */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">תאריך <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">תאריך <span style={{ color: 'var(--color-error)' }}>*</span></label>
               <DateInput 
                 value={date} 
                 onChange={(isoDate) => setDate(isoDate)}
@@ -1611,7 +1510,7 @@ function AddEventModal({
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">שעה <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">שעה <span style={{ color: 'var(--color-error)' }}>*</span></label>
               <TimePicker value={time} onChange={setTime} selectedDate={date} />
             </div>
             <div>
@@ -1841,7 +1740,7 @@ function AddEventModal({
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
+            <div className="px-4 py-3 rounded-lg text-sm" style={{ backgroundColor: '#FEF2F2', borderWidth: '1px', borderStyle: 'solid', borderColor: '#FECACA', color: 'var(--color-error)' }}>
               {error}
             </div>
           )}
@@ -1873,12 +1772,10 @@ function AddEventModal({
 // Edit Event Modal Component
 function EditEventModal({
   event,
-  communityId,
   onClose,
   onSuccess,
 }: {
   event: Event;
-  communityId: string;
   onClose: () => void;
   onSuccess: () => void;
 }) {
@@ -1890,7 +1787,8 @@ function EditEventModal({
   const [date, setDate] = useState(eventDate.toISOString().split('T')[0]);
   const [time, setTime] = useState(eventDate.toTimeString().slice(0, 5));
   const [duration, setDuration] = useState(String(event.duration || 60));
-  const [timezone, setTimezone] = useState(event.timezone || 'Asia/Jerusalem');
+  // timezone is used in formData but never changed in this form's UI.
+  const [timezone] = useState(event.timezone || 'Asia/Jerusalem');
   const [isRecurring, setIsRecurring] = useState(event.isRecurring || false);
   const [recurringType, setRecurringType] = useState(event.recurringType || 'weekly');
   const [locationType, setLocationType] = useState(event.locationType || 'online');
@@ -1901,37 +1799,13 @@ function EditEventModal({
   const [sendReminders, setSendReminders] = useState(event.sendReminders ?? true);
   const [reminderDays, setReminderDays] = useState(String(event.reminderDays || 1));
   const [attendeeType, setAttendeeType] = useState(event.attendeeType || 'all');
-  const [coverImage, setCoverImage] = useState<File | null>(null);
-  const [coverImagePreview, setCoverImagePreview] = useState<string | null>(
-    event.coverImage ? `${event.coverImage}` : null
-  );
-
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        setError('ניתן להעלות רק קבצי תמונה');
-        e.target.value = '';
-        return;
-      }
-      if (file.size > MAX_IMAGE_SIZE_BYTES) {
-        setError('גודל התמונה חורג מ-20MB');
-        e.target.value = '';
-        return;
-      }
-      // Compress image before setting
-      const compressedFile = await compressImage(file);
-      setCoverImage(compressedFile);
-      setCoverImagePreview(URL.createObjectURL(compressedFile));
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
     if (!title || !date || !time) {
-      setError('אנא מלאו את כל השדות הנדרשים');
+      setError('יש למלא את כל שדות החובה');
       return;
     }
 
@@ -1962,7 +1836,6 @@ function EditEventModal({
       formData.append('sendReminders', String(sendReminders));
       formData.append('reminderDays', reminderDays);
       formData.append('attendeeType', attendeeType);
-      if (coverImage) formData.append('coverImage', coverImage);
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/events/${event.id}`, {
         method: 'PUT',
@@ -1999,7 +1872,7 @@ function EditEventModal({
           <form onSubmit={handleSubmit} className="p-6 space-y-5" dir="rtl">
           {/* Title */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">כותרת <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">כותרת <span style={{ color: 'var(--color-error)' }}>*</span></label>
             <input
               type="text"
               value={title}
@@ -2015,7 +1888,7 @@ function EditEventModal({
           {/* Date, Time, Duration Row */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">תאריך <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">תאריך <span style={{ color: 'var(--color-error)' }}>*</span></label>
               <DateInput 
                 value={date} 
                 onChange={(isoDate) => setDate(isoDate)}
@@ -2082,7 +1955,7 @@ function EditEventModal({
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">שעה <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">שעה <span style={{ color: 'var(--color-error)' }}>*</span></label>
               <TimePicker value={time} onChange={setTime} selectedDate={date} />
             </div>
             <div>
@@ -2312,7 +2185,7 @@ function EditEventModal({
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
+            <div className="px-4 py-3 rounded-lg text-sm" style={{ backgroundColor: '#FEF2F2', borderWidth: '1px', borderStyle: 'solid', borderColor: '#FECACA', color: 'var(--color-error)' }}>
               {error}
             </div>
           )}

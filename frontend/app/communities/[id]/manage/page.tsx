@@ -25,6 +25,7 @@ import CreditCardIcon from '../../../components/icons/CreditCardIcon';
 import EditIcon from '../../../components/icons/EditIcon';
 import LinkIcon from '../../../components/icons/LinkIcon';
 import GlobeIcon from '../../../components/icons/GlobeIcon';
+import ComingSoonTooltip from '../../../components/ComingSoonTooltip';
 import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface Community {
@@ -45,10 +46,51 @@ interface Community {
   galleryVideos: string[];
   rules: string[];
   trialStartDate: string | null;
-  trialCancelled: boolean;
   cardLastFour: string | null;
   cardBrand: string | null;
+  subscriptionCancelledAt: string | null;
 }
+
+// Withly platform fee per community per month. Hardcoded for the single-plan
+// rollout — when we introduce tiers this becomes a per-plan lookup.
+const WITHLY_MONTHLY_PRICE = 99;
+const TRIAL_LENGTH_MONTHS = 3;
+
+const addMonths = (d: Date, n: number): Date => {
+  const r = new Date(d);
+  r.setMonth(r.getMonth() + n);
+  return r;
+};
+const formatHebrewDate = (d: Date): string => d.toLocaleDateString('he-IL');
+// Slash-style d/m/yyyy date format used in the revenue card (no leading zeros).
+const formatSlashDate = (d: Date): string =>
+  `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+// In trial: trial start exists AND trial end is still in the future.
+// Cancellation intent is expressed by subscriptionCancelledAt (separate flow).
+const getTrialEnd = (trialStart: Date | null): Date | null =>
+  trialStart ? addMonths(trialStart, TRIAL_LENGTH_MONTHS) : null;
+const isInTrial = (trialStart: Date | null): boolean => {
+  const end = getTrialEnd(trialStart);
+  return !!end && end > new Date();
+};
+// "Next billing" = trial end while in trial; otherwise the next monthly anchor
+// after now, computed from the trial-start cycle. Placeholder until HYP gives
+// us authoritative billing dates.
+const getNextBillingDate = (trialStart: Date | null): Date => {
+  const now = new Date();
+  if (!trialStart) return addMonths(now, 1);
+  let candidate = addMonths(trialStart, TRIAL_LENGTH_MONTHS);
+  while (candidate <= now) candidate = addMonths(candidate, 1);
+  return candidate;
+};
+// Cancellation effective date: end of current paid period.
+// While in trial → trial end (so the user keeps the rest of their trial).
+// Otherwise → today + 1 month (so members keep a full final month).
+const getCancellationEffectiveDate = (trialStart: Date | null): Date => {
+  const trialEnd = getTrialEnd(trialStart);
+  if (trialEnd && trialEnd > new Date()) return trialEnd;
+  return addMonths(new Date(), 1);
+};
 
 interface ImageFile {
   file?: File;
@@ -75,12 +117,10 @@ export default function ManageCommunityPage() {
   const [messageType, setMessageType] = useState<'error' | 'success'>('error');
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
-  const [mounted, setMounted] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  
+
   // Get user data from layout context
-  const { userEmail, userId, userProfile, isOwner, isOwnerOrManager, loading: contextLoading } = useCommunityContext();
+  const { userEmail, userId, isOwner, isOwnerOrManager, loading: contextLoading, community: contextCommunity, refreshCommunity } = useCommunityContext();
+  const isSuspended = contextCommunity?.subscriptionStatus === 'SUSPENDED';
   
   // Slug
   const [slug, setSlug] = useState('');
@@ -125,12 +165,31 @@ export default function ManageCommunityPage() {
   
   // Trial and payment
   const [trialStartDate, setTrialStartDate] = useState<Date | null>(null);
-  const [trialCancelled, setTrialCancelled] = useState(false);
   const [cardLastFour, setCardLastFour] = useState<string | null>(null);
   const [cardBrand, setCardBrand] = useState<string | null>(null);
   const [showCardModal, setShowCardModal] = useState(false);
-  const [showCancelTrialModal, setShowCancelTrialModal] = useState(false);
-  const [cancellingTrial, setCancellingTrial] = useState(false);
+  const [subscriptionCancelledAt, setSubscriptionCancelledAt] = useState<Date | null>(null);
+  const [showCancelSubscriptionModal, setShowCancelSubscriptionModal] = useState(false);
+  const [cancellingSubscription, setCancellingSubscription] = useState(false);
+  const [undoingCancellation, setUndoingCancellation] = useState(false);
+  // Pending community-price change announcement (owner sets new price; takes
+  // effect for existing members 1 month later). Lives on Community.
+  const [pendingPrice, setPendingPrice] = useState<number | null>(null);
+  const [pendingPriceEffectiveAt, setPendingPriceEffectiveAt] = useState<Date | null>(null);
+  const [priceChangeAnnouncedAt, setPriceChangeAnnouncedAt] = useState<Date | null>(null);
+  const [showPriceChangeConfirmModal, setShowPriceChangeConfirmModal] = useState(false);
+  const [announcingPrice, setAnnouncingPrice] = useState(false);
+  // Server-stored price snapshot, separate from the editable `price` input.
+  // Used for revenue calc and the recent-paid list so they don't twitch
+  // while the owner is mid-edit (or while a change is pending).
+  const [currentCommunityPrice, setCurrentCommunityPrice] = useState<number>(0);
+  // Recent members for the "הכנסות הקהילה" card. Owner is filtered out client-side.
+  const [recentMembers, setRecentMembers] = useState<Array<{ id: string; name: string; joinedAt: string }>>([]);
+  // Totals for revenue calc — driven by the same /members fetch as recentMembers.
+  const [totalPayingMembers, setTotalPayingMembers] = useState<number>(0);
+  // Members who joined on/after the announcement date — they pay the new
+  // (pending) price; the rest are grandfathered until the effective date.
+  const [newPriceMembers, setNewPriceMembers] = useState<number>(0);
   const [newCardNumber, setNewCardNumber] = useState('');
   const [newCardExpiry, setNewCardExpiry] = useState('');
   const [newCardCvv, setNewCardCvv] = useState('');
@@ -189,13 +248,26 @@ export default function ManageCommunityPage() {
     shouldBlockRef.current = hasUnsavedChanges();
   });
 
+  // After the owner confirms a price change in the popup we re-fire the form
+  // submit. This ref tells handleUpdateCommunity to skip the price-change
+  // intercept and the FormData price field for that one re-entry.
+  const skipPriceRef = useRef(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
   useEffect(() => {
-    setMounted(true);
     const tab = searchParams.get('tab');
     if (tab === 'rules' || tab === 'social' || tab === 'payments') {
       setActiveTab(tab);
     }
   }, [searchParams]);
+
+  // When the subscription is suspended, force the owner onto Payments — the
+  // other tabs are dimmed and edits would 403 server-side anyway.
+  useEffect(() => {
+    if (isSuspended && isOwner) {
+      setActiveTab('payments');
+    }
+  }, [isSuspended, isOwner]);
 
   // Warn user about unsaved changes when leaving (browser close/refresh + client-side navigation)
   useEffect(() => {
@@ -302,7 +374,11 @@ export default function ManageCommunityPage() {
           // If no trial start date, set it to community creation date (or now)
           setTrialStartDate(data.createdAt ? new Date(data.createdAt) : new Date());
         }
-        setTrialCancelled(data.trialCancelled || false);
+        setSubscriptionCancelledAt(data.subscriptionCancelledAt ? new Date(data.subscriptionCancelledAt) : null);
+        setPendingPrice(typeof data.pendingPrice === 'number' ? data.pendingPrice : null);
+        setPendingPriceEffectiveAt(data.pendingPriceEffectiveAt ? new Date(data.pendingPriceEffectiveAt) : null);
+        setPriceChangeAnnouncedAt(data.priceChangeAnnouncedAt ? new Date(data.priceChangeAnnouncedAt) : null);
+        setCurrentCommunityPrice(typeof data.price === 'number' ? data.price : 0);
         setCardLastFour(data.cardLastFour || null);
         setCardBrand(data.cardBrand || null);
         setShowOnlineMembers(data.showOnlineMembers !== false);
@@ -360,10 +436,44 @@ export default function ManageCommunityPage() {
         }
         
         setImages(loadedImages);
-        
+
         // Load gallery videos
         if (data.galleryVideos && Array.isArray(data.galleryVideos)) {
           setGalleryVideos(data.galleryVideos);
+        }
+
+        // Recent members for the "הכנסות הקהילה" card. Backend already
+        // sorts by joinedAt desc and includes the owner — drop the owner
+        // and take the last 4. Fire-and-forget; failure shouldn't break
+        // the rest of the manage page.
+        try {
+          const membersRes = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/members`);
+          if (membersRes.ok) {
+            const all = await membersRes.json();
+            // Sort purely by joinedAt desc (the API sorts by role first,
+            // which would push managers above newer regular members).
+            const onlyMembers: Array<{ id: string; name: string; joinedAt: string }> =
+              (Array.isArray(all) ? all : [])
+                .filter((m: { isOwner?: boolean }) => !m.isOwner)
+                .sort((a: { joinedAt: string }, b: { joinedAt: string }) =>
+                  new Date(b.joinedAt).getTime() - new Date(a.joinedAt).getTime(),
+                )
+                .map((m: { id: string; name: string; joinedAt: string }) => ({
+                  id: m.id,
+                  name: m.name,
+                  joinedAt: m.joinedAt,
+                }));
+            setRecentMembers(onlyMembers.slice(0, 4));
+            setTotalPayingMembers(onlyMembers.length);
+            const announcedAt = data.priceChangeAnnouncedAt ? new Date(data.priceChangeAnnouncedAt) : null;
+            setNewPriceMembers(
+              announcedAt
+                ? onlyMembers.filter(m => new Date(m.joinedAt) >= announcedAt).length
+                : 0,
+            );
+          }
+        } catch {
+          // Non-fatal; the card just renders without the recent-paid list.
         }
       } catch (err) {
         console.error('Error fetching community:', err);
@@ -447,7 +557,7 @@ export default function ManageCommunityPage() {
     // Compress all images
     const compressedFiles = await compressImages(filesToProcess);
     
-    compressedFiles.forEach((file, idx) => {
+    compressedFiles.forEach((file) => {
       const reader = new FileReader();
       reader.onloadend = () => {
         const newImage: ImageFile = {
@@ -496,10 +606,36 @@ export default function ManageCommunityPage() {
     e.preventDefault();
 
     if (!name.trim() || !description.trim()) {
-      setMessage('אנא מלאו את כל השדות החובה');
+      setMessage('יש למלא את כל שדות החובה');
       setMessageType('error');
       return;
     }
+
+    if (isPaidCommunity && (price < 10 || price > 1000)) {
+      setMessage('המחיר חייב להיות בין ₪10 ל-₪1000');
+      setMessageType('error');
+      return;
+    }
+
+    // Owner price-change interception. If the price input differs from what
+    // it was on load AND no announcement is currently pending, show the
+    // confirm popup. The popup's confirm path runs the announce flow and
+    // then re-triggers the save (skipping price this time via skipPriceRef).
+    const initialPrice = initialFormRef.current?.price ?? 0;
+    const initialIsPaid = initialFormRef.current?.isPaidCommunity ?? false;
+    const effectivePrice = isPaidCommunity ? price : 0;
+    const effectiveInitialPrice = initialIsPaid ? initialPrice : 0;
+    if (
+      isOwner
+      && effectivePrice !== effectiveInitialPrice
+      && !pendingPriceEffectiveAt
+      && !skipPriceRef.current
+    ) {
+      setShowPriceChangeConfirmModal(true);
+      return;
+    }
+    const skipPriceFieldThisSave = skipPriceRef.current;
+    skipPriceRef.current = false;
 
     try {
       setLoading(true);
@@ -527,8 +663,14 @@ export default function ManageCommunityPage() {
       formData.append('facebookUrl', facebookUrl);
       formData.append('instagramUrl', instagramUrl);
       
-      // Price
-      formData.append('price', isPaidCommunity ? price.toString() : '0');
+      // Price — skip when an announcement is pending so we don't overwrite
+      // the grandfathered current price. The pending price flips into place
+      // server-side on the effective date (lazy flip in findById).
+      // Also skip on the post-announce re-save so we don't undo what
+      // announce-price just stored.
+      if (!pendingPriceEffectiveAt && !skipPriceFieldThisSave) {
+        formData.append('price', isPaidCommunity ? price.toString() : '0');
+      }
       
       // Find primary image
       const primaryImage = images.find(img => img.isPrimary);
@@ -597,8 +739,16 @@ export default function ManageCommunityPage() {
       setMessageType('success');
       initialFormRef.current = null; // Reset so beforeunload won't trigger
     } catch (err: any) {
-      console.error('Community update error:', err);
-      setMessage(err.message || 'שגיאה בעדכון הקהילה');
+      // Suppress the noisy console.error for known business rules — the UI
+      // toast is the user-visible signal, no need to red-flag the console.
+      const isBusinessError = err?.message === 'CANNOT_DRAFT_WITH_MEMBERS';
+      if (!isBusinessError) {
+        console.error('Community update error:', err);
+      }
+      const msg = err?.message === 'CANNOT_DRAFT_WITH_MEMBERS'
+        ? 'לא ניתן להעביר למצב טיוטה כשיש חברים בקהילה. ניתן להעביר לפרטית או לבטל את המנוי.'
+        : (err.message || 'שגיאה בעדכון הקהילה');
+      setMessage(msg);
       setMessageType('error');
     } finally {
       setLoading(false);
@@ -691,28 +841,6 @@ export default function ManageCommunityPage() {
     setRules(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleDeleteCommunity = async () => {
-    try {
-      setDeleting(true);
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`, {
-        method: 'DELETE',
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to delete community');
-      }
-
-      router.push('/');
-    } catch (err) {
-      console.error('Delete error:', err);
-      setMessage('שגיאה במחיקת הקהילה');
-      setMessageType('error');
-      setShowDeleteConfirm(false);
-    } finally {
-      setDeleting(false);
-    }
-  };
-
   if (pageLoading || !userEmail) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center px-4 bg-gray-100">
@@ -730,20 +858,26 @@ export default function ManageCommunityPage() {
           { key: 'rules' as const, label: 'כללי הקהילה' },
           { key: 'social' as const, label: 'רשתות חברתיות' },
           ...(isOwner ? [{ key: 'payments' as const, label: 'תשלומים' }] : []),
-        ].map(tab => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2 text-sm rounded-lg whitespace-nowrap transition ${
-              activeTab === tab.key
-                ? 'bg-gray-900 text-white font-medium'
-                : 'text-gray-600 hover:bg-gray-100 font-normal'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+        ].map(tab => {
+          // While suspended, only Payments is interactive — the other tabs
+          // would 403 server-side on save, so dim them and skip the click.
+          const tabDisabled = isSuspended && tab.key !== 'payments';
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => { if (!tabDisabled) setActiveTab(tab.key); }}
+              aria-disabled={tabDisabled}
+              className={`px-4 py-2 text-sm rounded-lg whitespace-nowrap transition ${
+                activeTab === tab.key
+                  ? 'bg-gray-900 text-white font-medium'
+                  : 'text-gray-600 hover:bg-gray-100 font-normal'
+              } ${tabDisabled ? 'opacity-40 cursor-not-allowed hover:bg-transparent' : ''}`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Main Layout with Sidebar */}
@@ -758,36 +892,39 @@ export default function ManageCommunityPage() {
           <nav className="space-y-1">
             <button
               type="button"
-              onClick={() => setActiveTab('general')}
+              onClick={() => { if (!isSuspended) setActiveTab('general'); }}
+              aria-disabled={isSuspended}
               className={`w-full text-right px-4 py-2.5 rounded-lg font-medium transition ${
                 activeTab === 'general'
                   ? 'bg-gray-100 text-gray-900'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              }`}
+              } ${isSuspended ? 'opacity-40 cursor-not-allowed hover:bg-transparent hover:text-gray-600' : ''}`}
               style={{ fontSize: '16px' }}
             >
               כללי
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('rules')}
+              onClick={() => { if (!isSuspended) setActiveTab('rules'); }}
+              aria-disabled={isSuspended}
               className={`w-full text-right px-4 py-2.5 rounded-lg font-medium transition ${
                 activeTab === 'rules'
                   ? 'bg-gray-100 text-gray-900'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              }`}
+              } ${isSuspended ? 'opacity-40 cursor-not-allowed hover:bg-transparent hover:text-gray-600' : ''}`}
               style={{ fontSize: '16px' }}
             >
               כללי הקהילה
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('social')}
+              onClick={() => { if (!isSuspended) setActiveTab('social'); }}
+              aria-disabled={isSuspended}
               className={`w-full text-right px-4 py-2.5 rounded-lg font-medium transition ${
                 activeTab === 'social'
                   ? 'bg-gray-100 text-gray-900'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              }`}
+              } ${isSuspended ? 'opacity-40 cursor-not-allowed hover:bg-transparent hover:text-gray-600' : ''}`}
               style={{ fontSize: '16px' }}
             >
               רשתות חברתיות
@@ -811,8 +948,8 @@ export default function ManageCommunityPage() {
 
         {/* Main Content */}
         <main className="flex-1 p-4 md:p-6 overflow-auto">
-          <form onSubmit={handleUpdateCommunity} className="max-w-5xl">
-            
+          <form ref={formRef} onSubmit={handleUpdateCommunity} className="max-w-5xl">
+
             {/* General Tab */}
             {activeTab === 'general' && (
               <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-8 space-y-8">
@@ -1196,32 +1333,58 @@ export default function ManageCommunityPage() {
                     <p className="mt-1" style={{ fontSize: '14px', color: '#3F3F46', fontWeight: 400 }}>קובע מי יכול לראות את הקהילה ולהצטרף אליה</p>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-3">
-                    {/* Draft */}
-                    <button
-                      type="button"
-                      onClick={() => communityStatus !== 'DRAFT' && setPendingStatus('DRAFT')}
-                      className={`group flex-1 flex flex-col justify-start p-4 border-2 text-right transition relative ${
-                        communityStatus === 'DRAFT'
-                          ? 'border-black bg-gray-50'
-                          : 'bg-white hover:border-gray-300'
-                      }`}
-                      style={{ borderColor: communityStatus === 'DRAFT' ? '#000000' : '#D0D0D4', borderRadius: '16px' }}
-                    >
-                      <div className="absolute top-4 left-4">
-                        {communityStatus === 'DRAFT' ? (
-                          <div className="w-5 h-5 rounded-full bg-black flex items-center justify-center">
-                            <CheckIcon size={12} color="#FFFFFF" />
+                    {/* Draft — disabled when there are non-owner members
+                        (would zombie them since canViewDraft excludes USER role) */}
+                    {(() => {
+                      // memberCount returned by the API includes the owner, so
+                      // non-owner members = memberCount - 1.
+                      const draftBlocked = (community?.memberCount ?? 1) > 1 && communityStatus !== 'DRAFT';
+                      const draftButton = (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (draftBlocked) return;
+                            if (communityStatus !== 'DRAFT') setPendingStatus('DRAFT');
+                          }}
+                          aria-disabled={draftBlocked}
+                          className={`group w-full flex flex-col justify-start p-4 border-2 text-right transition relative ${
+                            communityStatus === 'DRAFT'
+                              ? 'border-black bg-gray-50'
+                              : draftBlocked
+                                ? 'bg-white opacity-50 cursor-not-allowed'
+                                : 'bg-white hover:border-gray-300'
+                          }`}
+                          style={{ borderColor: communityStatus === 'DRAFT' ? '#000000' : '#D0D0D4', borderRadius: '16px' }}
+                        >
+                          <div className="absolute top-4 left-4">
+                            {communityStatus === 'DRAFT' ? (
+                              <div className="w-5 h-5 rounded-full bg-black flex items-center justify-center">
+                                <CheckIcon size={12} color="#FFFFFF" />
+                              </div>
+                            ) : (
+                              <div className={`w-5 h-5 rounded-full border ${draftBlocked ? '' : 'opacity-0 group-hover:opacity-100'} transition`} style={{ borderColor: '#D0D0D4' }} />
+                            )}
                           </div>
-                        ) : (
-                          <div className="w-5 h-5 rounded-full border opacity-0 group-hover:opacity-100 transition" style={{ borderColor: '#D0D0D4' }} />
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <EditIcon size={16} color={communityStatus === 'DRAFT' ? '#000000' : '#3F3F46'} />
-                        <span style={{ fontSize: '16px', fontWeight: 400, color: communityStatus === 'DRAFT' ? '#000000' : '#3F3F46' }}>טיוטה</span>
-                      </div>
-                      <p style={{ fontSize: '14px', fontWeight: 400, color: communityStatus === 'DRAFT' ? '#000000' : '#3F3F46' }}>רק אתם רואים את הקהילה ואף אחד אחר לא יכול להיכנס.</p>
-                    </button>
+                          <div className="flex items-center gap-2 mb-1">
+                            <EditIcon size={16} color={communityStatus === 'DRAFT' ? '#000000' : '#3F3F46'} />
+                            <span style={{ fontSize: '16px', fontWeight: 400, color: communityStatus === 'DRAFT' ? '#000000' : '#3F3F46' }}>טיוטה</span>
+                          </div>
+                          <p style={{ fontSize: '14px', fontWeight: 400, color: communityStatus === 'DRAFT' ? '#000000' : '#3F3F46' }}>רק אתם רואים את הקהילה ואף אחד אחר לא יכול להיכנס.</p>
+                        </button>
+                      );
+                      if (draftBlocked) {
+                        return (
+                          <ComingSoonTooltip
+                            tailDirection="up"
+                            text="לא ניתן להעביר למצב טיוטה כשיש חברים בקהילה"
+                            wrapperClassName="flex-1"
+                          >
+                            {draftButton}
+                          </ComingSoonTooltip>
+                        );
+                      }
+                      return <div className="flex-1">{draftButton}</div>;
+                    })()}
                     {/* Private */}
                     <button
                       type="button"
@@ -1297,23 +1460,6 @@ export default function ManageCommunityPage() {
                   </button>
                 </div>
 
-                {/* Delete Community - Only for owners */}
-                {isOwner && (
-                  <div className="flex items-center justify-between gap-6 pt-6 border-t border-gray-200">
-                    <div className="flex-1">
-                      <h3 className="font-medium text-base text-black">מחיקת קהילה</h3>
-                      <p className="text-sm text-gray-500 mt-1">מחיקת הקהילה תמחוק את כל התוכן, החברים, התגובות והתשלומים שנעשו בתוכה. הפעולה הזאת לא הפיכה</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowDeleteConfirm(true)}
-                      className="py-3 px-6 text-white rounded-lg font-medium transition-colors text-base hover:opacity-90 flex-shrink-0"
-                      style={{ backgroundColor: '#B3261E' }}
-                    >
-                      <span>מחק קהילה לצמיתות</span>
-                    </button>
-                  </div>
-                )}
               </div>
             )}
 
@@ -1388,7 +1534,7 @@ export default function ManageCommunityPage() {
                 <div className="flex flex-col md:flex-row gap-4 md:gap-8">
                   <div className="md:w-48 flex-shrink-0 text-right">
                     <h3 className="font-medium text-gray-900 text-base">רשתות חברתיות</h3>
-                    <p className="text-sm text-gray-500 mt-1">קישורים לפרופילים החברתיים שלכם</p>
+                    <p className="text-sm text-gray-500 mt-1">קישורים לפרופילים החברתיים שלך</p>
                   </div>
                   <div className="flex-1 space-y-3">
                     <div>
@@ -1474,127 +1620,353 @@ export default function ManageCommunityPage() {
 
             {/* Payments Tab */}
             {activeTab === 'payments' && isOwner && (
-              <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                  <div>
-                    <h3 className="font-medium text-gray-900 text-base">מחיר חודשי</h3>
-                    <p className="text-sm text-gray-500 mt-1">בחר/י אם להצטרפות לקהילה יש עלות</p>
+              <>
+                {isSuspended && (
+                  <div
+                    className="rounded-lg p-4 text-right mb-6"
+                    style={{
+                      borderWidth: '1px',
+                      borderStyle: 'solid',
+                      borderColor: 'var(--color-error)',
+                      backgroundColor: '#FEE2E2',
+                    }}
+                  >
+                    <h4 className="font-semibold text-[16px] mb-1 text-error">
+                      המנוי שלך מושבת
+                    </h4>
+                    <p className="text-[16px] leading-relaxed text-error">
+                      תקופת המנוי הסתיימה והקהילה כרגע לא זמינה לחברים. לחידוש המנוי, יש לעדכן כרטיס אשראי תקין.
+                    </p>
                   </div>
-                  <div className="flex-shrink-0">
-                    <div className="inline-flex flex-col sm:flex-row gap-3">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsPaidCommunity(false);
-                          setPrice(0);
-                        }}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-base font-normal border transition ${
-                          !isPaidCommunity
-                            ? 'border-black bg-white text-gray-600'
-                            : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
-                        }`}
-                      >
-                        <NoFeeIcon className="w-4.5 h-4.5 text-gray-600" />
-                        <span>חינם להצטרפות</span>
-                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center bg-white ${
-                          !isPaidCommunity ? 'border-black' : 'border-gray-300'
-                        }`}>
-                          {!isPaidCommunity && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#A7EA7B' }} />}
-                        </div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsPaidCommunity(true);
-                          if (price < 10) setPrice(10);
-                        }}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-base font-normal border transition ${
-                          isPaidCommunity
-                            ? 'border-black bg-white text-gray-600'
-                            : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
-                        }`}
-                      >
-                        <DollarIcon className="w-4.5 h-4.5 text-gray-600" />
-                        <span>מנוי בתשלום</span>
-                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center bg-white ${
-                          isPaidCommunity ? 'border-black' : 'border-gray-300'
-                        }`}>
-                          {isPaidCommunity && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#91DCED' }} />}
-                        </div>
-                      </button>
+                )}
+
+                {/* Card 1 — community pricing (what the owner charges members) */}
+                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                    <div>
+                      <h3 className="font-medium text-gray-900 text-base">מחיר חודשי</h3>
+                      <p className="text-sm text-gray-500 mt-1">כאן קובעים אם ההצטרפות לקהילה כרוכה בתשלום.</p>
+                    </div>
+                    <div className="flex-shrink-0">
+                      <div className="inline-flex flex-col sm:flex-row gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsPaidCommunity(false);
+                            setPrice(0);
+                          }}
+                          className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-base font-normal border transition ${
+                            !isPaidCommunity
+                              ? 'border-black bg-white text-gray-600'
+                              : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                          }`}
+                        >
+                          <NoFeeIcon className="w-4.5 h-4.5 text-gray-600" />
+                          <span>חינם להצטרפות</span>
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center bg-white ${
+                            !isPaidCommunity ? 'border-black' : 'border-gray-300'
+                          }`}>
+                            {!isPaidCommunity && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#A7EA7B' }} />}
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsPaidCommunity(true);
+                            if (price < 10) setPrice(10);
+                          }}
+                          className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-base font-normal border transition ${
+                            isPaidCommunity
+                              ? 'border-black bg-white text-gray-600'
+                              : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                          }`}
+                        >
+                          <DollarIcon className="w-4.5 h-4.5 text-gray-600" />
+                          <span>מנוי בתשלום</span>
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center bg-white ${
+                            isPaidCommunity ? 'border-black' : 'border-gray-300'
+                          }`}>
+                            {isPaidCommunity && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#91DCED' }} />}
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4 pt-6 border-t border-gray-200">
+                    <div className={`flex-shrink-0 ${!isPaidCommunity ? 'opacity-50' : ''}`}>
+                      <h3 className="font-medium text-gray-900 text-base">עלות מנוי חודשי</h3>
+                      <p className="text-sm text-gray-500 mt-1">סכום החיוב החודשי בשקלים לכל חבר קהילה</p>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden w-full">
+                        <span className={`px-5 py-3.5 bg-gray-50 text-lg font-medium border-l border-gray-300 ${
+                          isPaidCommunity && !pendingPriceEffectiveAt ? 'text-gray-600' : 'text-gray-300'
+                        }`}>₪</span>
+                        <input
+                          type="number"
+                          step="1"
+                          placeholder=""
+                          className={`flex-1 p-3.5 text-right text-lg focus:outline-none ${
+                            isPaidCommunity && !pendingPriceEffectiveAt
+                              ? 'bg-white'
+                              : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                          }`}
+                          value={isPaidCommunity ? (price === 0 ? '' : price) : ''}
+                          onKeyDown={(e) => {
+                            // Block characters <input type=number> accepts but we don't want.
+                            if (['.', ',', 'e', 'E', '+', '-'].includes(e.key)) {
+                              e.preventDefault();
+                            }
+                          }}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            if (raw === '') {
+                              setPrice(0);
+                              return;
+                            }
+                            // Strip any non-digit/minus chars that slipped through
+                            // (paste, IME, etc.).
+                            const intRaw = raw.replace(/[^\d-]/g, '');
+                            if (intRaw === '' || intRaw === '-') {
+                              setPrice(0);
+                              return;
+                            }
+                            const v = parseInt(intRaw, 10);
+                            if (Number.isFinite(v)) {
+                              setPrice(v);
+                            }
+                          }}
+                          disabled={!isPaidCommunity || !!pendingPriceEffectiveAt}
+                        />
+                      </div>
+                      {pendingPriceEffectiveAt && pendingPrice !== null && (
+                        <p className="text-sm mt-2" style={{ color: 'var(--color-gray-7)' }}>
+                          {`שינוי המחיר ל-₪${pendingPrice} ייכנס לתוקף בתאריך ${formatHebrewDate(pendingPriceEffectiveAt)}.`}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-6 border-t border-gray-200">
-                  <div className={`flex-1 ${!isPaidCommunity ? 'opacity-50' : ''}`}>
-                    <h3 className="font-medium text-gray-900 text-base">עלות מנוי חודשי</h3>
-                    <p className="text-sm text-gray-500 mt-1">סכום החיוב החודשי (בשקלים) לכל חבר קהילה (ניתן לשנות בהמשך)</p>
-                  </div>
-                  <div className="flex-shrink-0">
-                    <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden w-fit">
-                      <span className={`px-5 py-3.5 bg-gray-50 text-lg font-medium border-l border-gray-300 ${
-                        isPaidCommunity ? 'text-gray-600' : 'text-gray-300'
-                      }`}>₪</span>
-                      <input
-                        type="number"
-                        min="10"
-                        max="1000"
-                        step="1"
-                        placeholder=""
-                        className={`w-24 p-3.5 text-right text-lg focus:outline-none ${
-                          isPaidCommunity
-                            ? 'bg-white'
-                            : 'bg-gray-50 text-gray-400 cursor-not-allowed'
-                        }`}
-                        value={isPaidCommunity ? price : ''}
-                        onChange={(e) => setPrice(Math.max(10, Math.min(1000, parseInt(e.target.value) || 10)))}
-                        disabled={!isPaidCommunity}
-                      />
-                    </div>
-                  </div>
-                </div>
+                {/* Card 3 — community revenue (paid communities only) */}
+                {isPaidCommunity && (
+                  <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 mt-6">
+                    <h3 className="text-[18px] font-semibold text-black">הכנסות הקהילה</h3>
 
-                <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
-                  <div className="flex-1">
-                    <h3 className="font-medium text-gray-900 text-base">חיוב ותשלומים</h3>
-                    {!trialCancelled && trialStartDate ? (
-                      <p className="text-sm text-gray-500 mt-1">
-                        תקופת הניסיון שלך (3 חודשים) מסתיימת בתאריך {new Date(new Date(trialStartDate).setMonth(new Date(trialStartDate).getMonth() + 3)).toLocaleDateString('he-IL')}.
-                        {` החל מ-${new Date(new Date(trialStartDate).setMonth(new Date(trialStartDate).getMonth() + 3)).toLocaleDateString('he-IL')} יחויב אמצעי התשלום שלך ב99₪ לחודש.`}
+                    <div className="flex flex-wrap gap-4 mt-4">
+                      <div
+                        className="rounded-md px-5 py-3 flex flex-col gap-1"
+                        style={{ backgroundColor: 'var(--color-green-lighter)', width: 'fit-content', minWidth: '160px' }}
+                      >
+                        <span className="text-[16px] font-normal text-black">הכנסה חודשית</span>
+                        <span className="text-[28px] font-semibold text-black leading-none">
+                          ₪{(totalPayingMembers - newPriceMembers) * currentCommunityPrice + newPriceMembers * (pendingPrice ?? currentCommunityPrice)}
+                        </span>
+                      </div>
+                      <div
+                        className="rounded-md px-5 py-3 flex flex-col gap-1"
+                        style={{ backgroundColor: 'var(--color-green-lighter)', width: 'fit-content', minWidth: '160px' }}
+                      >
+                        <span className="text-[16px] font-normal text-black">
+                          חברים משלמים
+                          <span className="text-[13px] font-normal text-black"> (פעילים כרגע)</span>
+                        </span>
+                        <span className="text-[28px] font-semibold text-black leading-none">
+                          {totalPayingMembers}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="my-6" style={{ borderTop: '1px solid var(--color-gray-4)' }} />
+
+                    <h4 className="text-[18px] font-semibold text-black mb-6">חברים אחרונים ששילמו</h4>
+
+                    {recentMembers.length === 0 ? (
+                      <p
+                        className="text-[16px] font-normal"
+                        style={{ color: 'var(--color-gray-10)' }}
+                      >
+                        עדיין אין חברים משלמים.
                       </p>
-                    ) : trialCancelled ? (
-                      <p className="text-sm text-gray-500 mt-1">תקופת הניסיון בוטלה.</p>
                     ) : (
-                      <p className="text-sm text-gray-500 mt-1">נהל את אמצעי התשלום שלך.</p>
+                      <ul className="space-y-3">
+                        {recentMembers.map(m => {
+                          // After an announcement, members joined on/after
+                          // priceChangeAnnouncedAt pay the new price; older
+                          // members are grandfathered at currentCommunityPrice.
+                          const joinedAt = new Date(m.joinedAt);
+                          const onNewPrice =
+                            !!priceChangeAnnouncedAt && joinedAt >= priceChangeAnnouncedAt;
+                          const memberPrice = onNewPrice
+                            ? (pendingPrice ?? currentCommunityPrice)
+                            : currentCommunityPrice;
+                          return (
+                            <li
+                              key={m.id}
+                              className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1"
+                            >
+                              <span className="text-[16px] font-normal text-black">{m.name}</span>
+                              <span
+                                className="text-[16px] font-normal"
+                                style={{ color: 'var(--color-gray-10)' }}
+                              >
+                                {`${formatSlashDate(joinedAt)} · ₪${memberPrice}`}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
                     )}
-                    {cardLastFour && (
-                      <p className="text-sm text-gray-600 mt-2 flex items-center gap-2">
-                        <CreditCardIcon className="w-3.5 h-3.5 text-gray-400" />
-                        <span>כרטיס ראשי: {cardBrand || 'Visa'} ************{cardLastFour}</span>
+                  </div>
+                )}
+
+                {/* Card 2 — owner's Withly subscription */}
+                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 mt-6">
+                  <div className="mb-6">
+                    <h3 className="text-[18px] font-semibold text-black">המנוי שלך ב-Withly</h3>
+                    <p
+                      className="text-[16px] font-normal mt-1"
+                      style={{ color: 'var(--color-gray-7)' }}
+                    >
+                      החבילה שלך לניהול הקהילה
+                    </p>
+                  </div>
+
+                  {/* Gray summary panel — price, next billing date, optional trial copy */}
+                  <div
+                    className="rounded-lg p-4"
+                    style={{ backgroundColor: 'var(--color-gray-2)' }}
+                  >
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      <span className="text-[18px] font-semibold text-black">
+                        ₪{WITHLY_MONTHLY_PRICE} / חודש
+                      </span>
+                      <span className="text-[16px] font-normal text-black">
+                        החיוב הבא: {formatHebrewDate(getNextBillingDate(trialStartDate))}
+                      </span>
+                    </div>
+                    {isInTrial(trialStartDate) && (
+                      <p className="text-[16px] font-normal text-black mt-3 leading-relaxed">
+                        {`תקופת הניסיון שלך (${TRIAL_LENGTH_MONTHS} חודשים) מסתיימת ב-${formatHebrewDate(getTrialEnd(trialStartDate)!)}. החל מאותו תאריך יחויב אמצעי התשלום שלך ב-₪${WITHLY_MONTHLY_PRICE} לחודש.`}
                       </p>
                     )}
                   </div>
-                  <div className="flex-shrink-0 flex flex-col sm:flex-row gap-2 sm:items-start">
-                    {!trialCancelled && trialStartDate && (
+
+                  {/* Divider */}
+                  <div className="my-6" style={{ borderTop: '1px solid var(--color-gray-4)' }} />
+
+                  {/* Payment method row — hidden when suspended; the single
+                      suspended row below carries the renew CTA instead. */}
+                  {!isSuspended && (
+                    <>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <CreditCardIcon className="w-6 h-6 text-black flex-shrink-0" />
+                          <span className="text-[16px] font-normal text-black truncate">
+                            {cardLastFour
+                              ? `כרטיס נוכחי: ${cardBrand || 'Visa'} ···· ${cardLastFour}`
+                              : 'אין כרטיס בתוקף'}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowCardModal(true)}
+                          className="text-[16px] font-normal bg-white text-black hover:bg-gray-50 transition flex-shrink-0"
+                          style={{
+                            border: '1px solid var(--color-gray-4)',
+                            borderRadius: '12px',
+                            padding: '0.5rem 1.25rem',
+                          }}
+                        >
+                          עדכן אמצעי תשלום
+                        </button>
+                      </div>
+
+                      {/* Divider */}
+                      <div className="my-6" style={{ borderTop: '1px solid var(--color-gray-4)' }} />
+                    </>
+                  )}
+
+                  {/* Cancel subscription / suspended state */}
+                  {isSuspended ? (
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                      <p className="text-[16px] font-normal text-error flex-1">
+                        הקהילה מושבתת
+                      </p>
                       <button
                         type="button"
-                        onClick={() => setShowCancelTrialModal(true)}
-                        className="py-2.5 px-5 bg-white text-gray-700 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition text-sm"
+                        onClick={() => setShowCardModal(true)}
+                        className="text-[16px] font-normal bg-white text-black hover:bg-gray-50 transition flex-shrink-0"
+                        style={{
+                          border: '1px solid var(--color-gray-4)',
+                          borderRadius: '12px',
+                          padding: '0.5rem 1.25rem',
+                        }}
                       >
-                        ביטול תקופת ניסיון
+                        חדש מנוי
                       </button>
-                    )}
+                    </div>
+                  ) : subscriptionCancelledAt ? (
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                      <p className="text-[16px] font-normal text-error flex-1">
+                        {`המנוי יבוטל בתאריך ${formatHebrewDate(subscriptionCancelledAt)} והקהילה תושבת.`}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setUndoingCancellation(true);
+                          try {
+                            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/payment`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ subscriptionCancelledAt: null }),
+                            });
+                            if (res.ok) {
+                              setSubscriptionCancelledAt(null);
+                              setMessage('השבתת המנוי בוטלה.');
+                              setMessageType('success');
+                              // Refresh context so the red feed banner clears
+                              // immediately on the next navigation.
+                              refreshCommunity().catch(() => {});
+                            } else {
+                              setMessage('שגיאה בביטול ההשבתה');
+                              setMessageType('error');
+                            }
+                          } catch {
+                            setMessage('שגיאה בביטול ההשבתה');
+                            setMessageType('error');
+                          } finally {
+                            setUndoingCancellation(false);
+                          }
+                        }}
+                        disabled={undoingCancellation}
+                        className="text-[16px] font-normal bg-white text-black hover:bg-gray-50 transition disabled:opacity-50 flex-shrink-0"
+                        style={{
+                          border: '1px solid var(--color-gray-4)',
+                          borderRadius: '12px',
+                          padding: '0.5rem 1.25rem',
+                        }}
+                      >
+                        {undoingCancellation ? 'מבטל...' : 'ביטול השבתה'}
+                      </button>
+                    </div>
+                  ) : (
                     <button
                       type="button"
-                      onClick={() => setShowCardModal(true)}
-                      className="py-2.5 px-5 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition text-sm"
+                      onClick={() => setShowCancelSubscriptionModal(true)}
+                      className="text-[16px] font-normal bg-white text-error hover:bg-red-50 transition"
+                      style={{
+                        border: '1px solid var(--color-error)',
+                        borderRadius: '12px',
+                        padding: '0.5rem 1.25rem',
+                      }}
                     >
-                      עדכון אמצעי תשלום
+                      בטל מנוי
                     </button>
-                  </div>
+                  )}
                 </div>
-              </div>
+              </>
             )}
 
             {/* Inline Message Banner */}
@@ -1602,7 +1974,7 @@ export default function ManageCommunityPage() {
               <div
                 ref={messageRef}
                 className="mt-4 px-6 py-3 rounded-lg"
-                style={messageType === 'error' 
+                style={messageType === 'error'
                   ? { backgroundColor: '#FEE2E2', color: 'var(--color-error)' }
                   : { backgroundColor: 'var(--color-green-light)', color: 'black', fontSize: '16px', fontWeight: 400 }
                 }
@@ -1744,7 +2116,6 @@ export default function ManageCommunityPage() {
                 <button
                   type="button"
                   onClick={async () => {
-                    console.log('Save card clicked', { newCardNumber, newCardExpiry, newCardCvv });
                     if (newCardNumber.length !== 16) {
                       setMessage('מספר כרטיס חייב להכיל 16 ספרות');
                       setMessageType('error');
@@ -1772,14 +2143,16 @@ export default function ManageCommunityPage() {
                     }
                     try {
                       const lastFour = newCardNumber.slice(-4);
-                      
-                      // Save to community
-                      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`, {
-                        method: 'PUT',
+
+                      // Save to community via the dedicated payment endpoint —
+                      // works while SUSPENDED (renewal flow) and triggers the
+                      // pre-HYP reactivation placeholder server-side.
+                      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/payment`, {
+                        method: 'PATCH',
                         headers: {
                           'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify({ 
+                        body: JSON.stringify({
                           cardLastFour: lastFour,
                           cardBrand: 'Visa',
                         }),
@@ -1798,13 +2171,31 @@ export default function ManageCommunityPage() {
                       });
                       
                       if (res.ok) {
-                        setCardLastFour(lastFour);
-                        setCardBrand('Visa');
+                        // Server returns the updated community — pre-HYP it
+                        // may also have flipped SUSPENDED→ACTIVE and cleared
+                        // suspendedAt / subscriptionCancelledAt as part of the
+                        // reactivation placeholder. Sync local state from the
+                        // response so the banners disappear immediately.
+                        const wasSuspended = isSuspended;
+                        const updated = await res.json().catch(() => null);
+                        setCardLastFour(updated?.cardLastFour ?? lastFour);
+                        setCardBrand(updated?.cardBrand ?? 'Visa');
+                        setSubscriptionCancelledAt(
+                          updated?.subscriptionCancelledAt ? new Date(updated.subscriptionCancelledAt) : null,
+                        );
+                        // Refresh the layout context so the top banner /
+                        // suspended popup re-evaluate against the new status.
+                        refreshCommunity().catch(() => {});
                         setShowCardModal(false);
                         setNewCardNumber('');
                         setNewCardExpiry('');
                         setNewCardCvv('');
-                        setMessage('אמצעי התשלום עודכן בהצלחה');
+                        // Keep the user on Payments — the suspended-state effect
+                        // that forced this tab no longer fires once isSuspended
+                        // flips to false, so without this the success banner
+                        // would render under whatever tab they happened to land on.
+                        setActiveTab('payments');
+                        setMessage(wasSuspended ? 'הקהילה חזרה לפעילות!' : 'אמצעי התשלום עודכן בהצלחה');
                         setMessageType('success');
                       } else {
                         setMessage('שגיאה בעדכון אמצעי התשלום');
@@ -1828,66 +2219,198 @@ export default function ManageCommunityPage() {
             </div>
           )}
 
-          {/* Cancel Trial Confirmation Modal - Outside form */}
-          {showCancelTrialModal && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-xl p-6 max-w-md w-full text-right" dir="rtl">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">ביטול תקופת ניסיון</h2>
-                <p className="text-gray-600 mb-6">
-                  האם אתה בטוח שברצונך לבטל את תקופת הניסיון?
-                  <br />
-                  <span className="text-error font-medium">לאחר הביטול, הקהילה תיסגר ולא תוכל לגבות תשלומים מהחברים.</span>
-                </p>
-                <div className="flex gap-3 justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setShowCancelTrialModal(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition"
-                    disabled={cancellingTrial}
+          {/* Price Change Confirmation Modal - Outside form */}
+          {showPriceChangeConfirmModal && (() => {
+            const effectiveDate = addMonths(new Date(), 1);
+            const newPriceVal = isPaidCommunity ? price : 0;
+            const oldPriceVal = initialFormRef.current?.price ?? 0;
+            return (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div
+                  className="bg-white p-6 text-center"
+                  dir="rtl"
+                  style={{
+                    borderRadius: '16px',
+                    width: 'fit-content',
+                    maxWidth: 'min(90vw, 640px)',
+                  }}
+                >
+                  <h2
+                    className="font-semibold text-black"
+                    style={{ fontSize: '21px', marginBottom: '12px' }}
                   >
-                    חזור
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setCancellingTrial(true);
-                      try {
-                        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`, {
-                          method: 'PATCH',
-                          headers: {
-                            'Content-Type': 'application/json',
-                          },
-                          body: JSON.stringify({ trialCancelled: true }),
-                        });
-                        if (res.ok) {
-                          setTrialCancelled(true);
-                          setShowCancelTrialModal(false);
-                          setMessage('תקופת הניסיון בוטלה בהצלחה');
-                          setMessageType('success');
+                    שינוי מחיר הקהילה
+                  </h2>
+                  <p style={{ fontSize: '18px', fontWeight: 400, color: 'var(--color-gray-10)', marginBottom: '4px' }}>
+                    {`המחיר החדש (₪${newPriceVal}) ייכנס לתוקף עבור חברים חדשים מיד.`}
+                  </p>
+                  <p style={{ fontSize: '18px', fontWeight: 400, color: 'var(--color-gray-10)', marginBottom: '4px' }}>
+                    {`חברים קיימים ימשיכו לשלם ₪${oldPriceVal} עד ה-${formatHebrewDate(effectiveDate)} ואז יעברו אוטומטית למחיר החדש.`}
+                  </p>
+                  <p style={{ fontSize: '18px', fontWeight: 400, color: 'var(--color-gray-10)' }}>
+                    שינוי זה ניתן לעשות רק פעם אחת בחודש.
+                  </p>
+                  <div className="flex gap-3 justify-center" style={{ marginTop: '24px' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // Pure modal-dismiss. Don't touch the form state —
+                        // the user can keep editing or click the page-level
+                        // ביטול to fully discard. Touching isPaidCommunity
+                        // here was flipping the free/paid radio incorrectly.
+                        setShowPriceChangeConfirmModal(false);
+                      }}
+                      disabled={announcingPrice}
+                      style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
+                      className="bg-white text-black border hover:bg-gray-50 transition disabled:opacity-50"
+                    >
+                      ביטול
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setAnnouncingPrice(true);
+                        try {
+                          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/payment/announce-price`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ newPrice: newPriceVal }),
+                          });
+                          if (!res.ok) {
+                            const err = await res.json().catch(() => ({}));
+                            const msg = err?.message === 'PRICE_CHANGE_RATE_LIMIT'
+                              ? 'ניתן לשנות את המחיר פעם בחודש בלבד'
+                              : 'שגיאה בעדכון המחיר';
+                            setMessage(msg);
+                            setMessageType('error');
+                            setShowPriceChangeConfirmModal(false);
+                            return;
+                          }
+                          const updated = await res.json();
+                          setPendingPrice(typeof updated.pendingPrice === 'number' ? updated.pendingPrice : newPriceVal);
+                          setPendingPriceEffectiveAt(updated.pendingPriceEffectiveAt ? new Date(updated.pendingPriceEffectiveAt) : effectiveDate);
+                          setPriceChangeAnnouncedAt(updated.priceChangeAnnouncedAt ? new Date(updated.priceChangeAnnouncedAt) : new Date());
+                          setShowPriceChangeConfirmModal(false);
+                          // Re-fire the save so the rest of the form's edits
+                          // also persist; skipPriceRef tells the handler not
+                          // to re-trip the intercept and to skip price field.
+                          skipPriceRef.current = true;
+                          formRef.current?.requestSubmit();
+                        } catch {
+                          setMessage('שגיאה בעדכון המחיר');
+                          setMessageType('error');
+                          setShowPriceChangeConfirmModal(false);
+                        } finally {
+                          setAnnouncingPrice(false);
                         }
-                      } catch {
-                        setMessage('שגיאה בביטול תקופת הניסיון');
-                        setMessageType('error');
-                      } finally {
-                        setCancellingTrial(false);
-                      }
-                    }}
-                    disabled={cancellingTrial}
-                    className="px-4 py-2 bg-error text-white rounded-lg font-medium hover:opacity-80 disabled:opacity-50 transition"
-                  >
-                    {cancellingTrial ? 'מבטל...' : 'בטל תקופת ניסיון'}
-                  </button>
+                      }}
+                      disabled={announcingPrice}
+                      style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
+                      className="bg-black text-white hover:opacity-90 transition disabled:opacity-50"
+                    >
+                      {announcingPrice ? 'מעדכן...' : 'עדכון המחיר'}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
+
+          {/* Cancel Subscription Confirmation Modal - Outside form */}
+          {showCancelSubscriptionModal && (() => {
+            const effectiveDate = getCancellationEffectiveDate(trialStartDate);
+            const payingMembers = isPaidCommunity
+              ? Math.max(0, (community?.memberCount ?? 1) - 1)
+              : 0;
+            return (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div
+                  className="bg-white p-6 text-center"
+                  dir="rtl"
+                  style={{
+                    borderRadius: '16px',
+                    width: 'fit-content',
+                    maxWidth: 'min(90vw, 640px)',
+                  }}
+                >
+                  <h2
+                    className="font-semibold text-black"
+                    style={{ fontSize: '21px', marginBottom: '12px' }}
+                  >
+                    לבטל את המנוי?
+                  </h2>
+                  <p style={{ fontSize: '18px', fontWeight: 400, color: 'var(--color-gray-10)', marginBottom: '4px' }}>
+                    {`הקהילה תישאר פעילה עד ${formatHebrewDate(effectiveDate)}. לאחר מכן היא `}
+                    <span style={{ fontWeight: 600 }}>תושבת</span>
+                    {`, וניתן לחדש בכל עת.`}
+                  </p>
+                  {isPaidCommunity && (
+                    <p style={{ fontSize: '18px', fontWeight: 400, color: 'var(--color-gray-10)' }}>
+                      {`יש לך ${payingMembers} חברים משלמים. החיוב שלהם ייעצר אוטומטית בסוף התקופה.`}
+                    </p>
+                  )}
+                  <div className="flex gap-3 justify-center" style={{ marginTop: '24px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowCancelSubscriptionModal(false)}
+                      disabled={cancellingSubscription}
+                      style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
+                      className="bg-white text-black border hover:bg-gray-50 transition disabled:opacity-50"
+                    >
+                      השארת המנוי
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setCancellingSubscription(true);
+                        try {
+                          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/payment`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ subscriptionCancelledAt: effectiveDate.toISOString() }),
+                          });
+                          if (res.ok) {
+                            setSubscriptionCancelledAt(effectiveDate);
+                            setShowCancelSubscriptionModal(false);
+                            setMessage('המנוי בוטל בהצלחה');
+                            setMessageType('success');
+                            // Refresh layout context so the red banner appears
+                            // on feed without needing a manual reload.
+                            refreshCommunity().catch(() => {});
+                          } else {
+                            setMessage('שגיאה בביטול המנוי');
+                            setMessageType('error');
+                            setShowCancelSubscriptionModal(false);
+                          }
+                        } catch {
+                          setMessage('שגיאה בביטול המנוי');
+                          setMessageType('error');
+                        } finally {
+                          setCancellingSubscription(false);
+                        }
+                      }}
+                      disabled={cancellingSubscription}
+                      style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
+                      className="bg-error text-white hover:opacity-90 transition disabled:opacity-50"
+                    >
+                      {cancellingSubscription ? 'מבטל...' : 'ביטול המנוי'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </main>
       </div>
 
       {/* Status Change Confirmation Modal */}
       {pendingStatus && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-6 max-w-md w-full text-center" dir="rtl" style={{ borderRadius: '16px' }}>
+          <div
+            className="bg-white p-6 text-center"
+            dir="rtl"
+            style={{ borderRadius: '16px', width: 'fit-content', maxWidth: 'min(90vw, 640px)' }}
+          >
             <h2 className="font-semibold text-black" style={{ fontSize: '21px', marginBottom: '12px' }}>
               {pendingStatus === 'DRAFT' && 'להעביר את הקהילה למצב טיוטה?'}
               {pendingStatus === 'PRIVATE' && 'להעביר את הקהילה למצב פרטי?'}
@@ -1902,7 +2425,7 @@ export default function ManageCommunityPage() {
               <button
                 type="button"
                 onClick={() => setPendingStatus(null)}
-                style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.5rem 1.5rem', borderColor: '#D0D0D4' }}
+                style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
                 className="bg-white text-black border hover:bg-gray-50 transition"
               >
                 ביטול
@@ -1913,47 +2436,18 @@ export default function ManageCommunityPage() {
                   setCommunityStatus(pendingStatus);
                   setPendingStatus(null);
                 }}
-                style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.5rem 1.5rem' }}
-                className="bg-black text-white hover:bg-gray-800 transition"
+                style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
+                className="bg-black text-white hover:opacity-90 transition"
               >
-                {pendingStatus === 'DRAFT' && 'העבר לטיוטה'}
-                {pendingStatus === 'PRIVATE' && 'העבר לפרטית'}
-                {pendingStatus === 'PUBLIC' && 'הפעל את הקהילה'}
+                {pendingStatus === 'DRAFT' && 'העברה לטיוטה'}
+                {pendingStatus === 'PRIVATE' && 'הפיכה לפרטית'}
+                {pendingStatus === 'PUBLIC' && 'הפעלת הקהילה'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && isOwner && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full text-right" dir="rtl">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">מחיקת קהילה</h2>
-            <p className="text-gray-600 mb-6">
-              האם אתה בטוח שברצונך למחוק את הקהילה <strong>"{community?.name}"</strong>?
-              <br />
-              <span className="text-[#B3261E] font-medium">פעולה זו אינה ניתנת לביטול!</span>
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition"
-                disabled={deleting}
-              >
-                ביטול
-              </button>
-              <button
-                onClick={handleDeleteCommunity}
-                disabled={deleting}
-                className="px-4 py-2 bg-[#B3261E] text-white rounded-lg font-medium hover:bg-[#9C2019] disabled:opacity-50 transition flex items-center gap-2"
-              >
-                {deleting ? 'מוחק...' : 'מחק לצמיתות'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   );
 }

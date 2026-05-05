@@ -4,8 +4,6 @@ import { useEffect, useState, useRef, useCallback, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import ClockIcon from '../../../../components/icons/ClockIcon';
-import UsersIcon from '../../../../components/icons/UsersIcon';
-import TrashIcon from '../../../../components/icons/TrashIcon';
 import ChevronUpIcon from '../../../../components/icons/ChevronUpIcon';
 import ChevronDownIcon from '../../../../components/icons/ChevronDownIcon';
 import EditIcon from '../../../../components/icons/EditIcon';
@@ -17,7 +15,6 @@ import FileTextIcon from '../../../../components/icons/FileTextIcon';
 import FileQuestionIcon from '../../../../components/icons/FileQuestionIcon';
 import LayersIcon from '../../../../components/icons/LayersIcon';
 import ImageIcon from '../../../../components/icons/ImageIcon';
-import PlayIcon from '../../../../components/icons/PlayIcon';
 import VideoPlayer from '../../../../components/VideoPlayer';
 import { isValidVideoUrl } from '@/app/lib/videoUtils';
 import { getImageUrl } from '@/app/lib/imageUrl';
@@ -92,16 +89,12 @@ function CourseViewerContent() {
 
   const [course, setCourse] = useState<Course | null>(null);
   const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
-  const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState(false);
   const [unenrolling, setUnenrolling] = useState(false);
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
-  const [completingLesson, setCompletingLesson] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const { user } = useUser();
   const userId = user?.userId ?? null;
   const userEmail = user?.email ?? null;
-  const userProfile = user ? { name: user.name, profileImage: user.profileImage } : null;
   const [deleting, setDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showUnenrollModal, setShowUnenrollModal] = useState(false);
@@ -124,7 +117,6 @@ function CourseViewerContent() {
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setMounted(true);
     fetchCourse();
   }, [courseId]);
 
@@ -325,9 +317,8 @@ function CourseViewerContent() {
       }
     } catch (err) { 
       // Network error - don't redirect, retry will happen on next navigation
-      console.error('Failed to fetch course:', err); 
+      console.error('Failed to fetch course:', err);
     }
-    finally { setLoading(false); }
   };
 
   const handleEnroll = async () => {
@@ -440,12 +431,6 @@ function CourseViewerContent() {
     router.push(`/communities/${communityId}/courses/${courseId}?lesson=${lesson.id}`, { scroll: false });
   };
 
-  const getChapterCompletion = (chapter: Chapter) => {
-    const total = chapter.lessons.length;
-    const completed = chapter.lessons.filter(l => course?.lessonProgress[l.id]).length;
-    return { completed, total };
-  };
-
   const calculateProgress = (): number => {
     if (!course) return 0;
     const totalLessons = course.chapters.reduce((acc, ch) => acc + ch.lessons.length, 0);
@@ -456,8 +441,6 @@ function CourseViewerContent() {
 
   const isOwnerOrAuthor = course && userId && (course.authorId === userId || course.community.ownerId === userId);
   const isCourseAuthor = course && userId && course.authorId === userId;
-  const isVideoLesson = (lesson: Lesson) => !!lesson.videoUrl;
-  const isQuizLesson = (lesson: Lesson) => lesson.lessonType === 'quiz';
   const hasImages = (lesson: Lesson) => lesson.images && lesson.images.length > 0;
   const hasLinks = (lesson: Lesson) => lesson.links && lesson.links.length > 0;
   
@@ -569,7 +552,6 @@ function CourseViewerContent() {
           {/* Divider */}
           <div className="h-px bg-[#D4D4D8]" />
             {course.chapters.map((chapter, chapterIndex) => {
-              const { completed, total } = getChapterCompletion(chapter);
               const isExpanded = expandedChapters.has(chapter.id);
               return (
                 <div key={chapter.id}>
@@ -607,7 +589,6 @@ function CourseViewerContent() {
                               {!isCourseAuthor && (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); handleCompleteLesson(lesson.id); }}
-                                  disabled={completingLesson}
                                   className="flex items-center justify-center transition flex-shrink-0"
                                   style={{ 
                                     width: '18px', 
@@ -637,8 +618,8 @@ function CourseViewerContent() {
             <div className="p-4 border-t border-gray-200">
               <button
                 onClick={() => setShowUnenrollModal(true)}
-                className="w-full py-2 text-base hover:bg-red-50 rounded-lg transition border border-red-200"
-                style={{ color: '#B3261E' }}
+                className="w-full py-2 text-base hover:bg-gray-50 rounded-lg transition border"
+                style={{ color: 'var(--color-error)', borderColor: 'rgba(179, 38, 30, 0.3)' }}
               >
                 ביטול הרשמה לקורס
               </button>
@@ -1006,40 +987,36 @@ function CourseViewerContent() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => !deleting && setShowDeleteModal(false)} />
-          <div className="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4" dir="rtl">
-            <button
-              onClick={() => !deleting && setShowDeleteModal(false)}
-              className="absolute top-4 left-4 p-1 hover:bg-gray-100 rounded-full transition"
-              disabled={deleting}
-            >
-              <CloseIcon size={20} className="text-gray-400" />
-            </button>
+          <div
+            className="relative bg-white shadow-xl p-6"
+            style={{ borderRadius: '16px', width: 'fit-content', maxWidth: 'min(90vw, 640px)' }}
+            dir="rtl"
+          >
             <div className="text-center">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <TrashIcon size={28} className="text-red-500" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">מחיקת קורס</h3>
-              <p className="text-gray-600 mb-6">
+              <h3 className="font-semibold text-black mb-2" style={{ fontSize: '21px' }}>מחיקת קורס</h3>
+              <p className="mb-6" style={{ fontSize: '18px', color: 'var(--color-gray-10)' }}>
                 האם אתה בטוח שברצונך למחוק את הקורס <span className="font-semibold">"{course?.title}"</span>?
                 <br />
-                <span className="text-red-500 text-sm">פעולה זו לא ניתנת לביטול.</span>
+                <span style={{ color: 'var(--color-error)' }}>פעולה זו לא ניתנת לביטול.</span>
               </p>
               <div className="flex gap-3 justify-center">
                 <button
                   onClick={() => setShowDeleteModal(false)}
                   disabled={deleting}
-                  className="px-6 py-2.5 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition disabled:opacity-50"
+                  className="bg-white text-black border hover:bg-gray-50 transition disabled:opacity-50"
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
                 >
                   ביטול
                 </button>
                 <button
                   onClick={handleDeleteCourse}
                   disabled={deleting}
-                  className="px-6 py-2.5 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition disabled:opacity-50 flex items-center gap-2"
+                  className="bg-error text-white hover:opacity-90 transition disabled:opacity-50"
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
                 >
-                  {deleting ? 'מוחק...' : 'מחק קורס'}
+                  {deleting ? 'מוחק...' : 'מחיקת הקורס'}
                 </button>
               </div>
             </div>
@@ -1049,41 +1026,36 @@ function CourseViewerContent() {
 
       {/* Unenroll Confirmation Modal */}
       {showUnenrollModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => !unenrolling && setShowUnenrollModal(false)} />
-          <div className="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4" dir="rtl">
-            <button
-              onClick={() => !unenrolling && setShowUnenrollModal(false)}
-              className="absolute top-4 left-4 p-1 hover:bg-gray-100 rounded-full transition"
-              disabled={unenrolling}
-            >
-              <CloseIcon size={20} className="text-gray-400" />
-            </button>
+          <div
+            className="relative bg-white shadow-xl p-6"
+            style={{ borderRadius: '16px', width: 'fit-content', maxWidth: 'min(90vw, 640px)' }}
+            dir="rtl"
+          >
             <div className="text-center">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: '#FEE2E2' }}>
-                <UsersIcon className="w-7 h-7" style={{ color: '#B3261E' }} />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">ביטול הרשמה לקורס</h3>
-              <p className="text-gray-600 mb-6">
+              <h3 className="font-semibold text-black mb-2" style={{ fontSize: '21px' }}>ביטול הרשמה לקורס</h3>
+              <p className="mb-6" style={{ fontSize: '18px', color: 'var(--color-gray-10)' }}>
                 האם אתה בטוח שברצונך לבטל את ההרשמה לקורס <span className="font-semibold">"{course?.title}"</span>?
                 <br />
-                <span className="text-sm" style={{ color: '#B3261E' }}>ההתקדמות שלך בקורס תימחק.</span>
+                <span style={{ color: 'var(--color-error)' }}>ההתקדמות שלך בקורס תימחק.</span>
               </p>
               <div className="flex gap-3 justify-center">
                 <button
                   onClick={() => setShowUnenrollModal(false)}
                   disabled={unenrolling}
-                  className="px-6 py-2.5 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition disabled:opacity-50"
+                  className="bg-white text-black border hover:bg-gray-50 transition disabled:opacity-50"
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
                 >
-                  השאר אותי רשום
+                  ביטול
                 </button>
                 <button
                   onClick={handleUnenroll}
                   disabled={unenrolling}
-                  className="px-6 py-2.5 text-white rounded-lg font-medium hover:opacity-90 transition disabled:opacity-50 flex items-center gap-2"
-                  style={{ backgroundColor: '#B3261E' }}
+                  className="bg-error text-white hover:opacity-90 transition disabled:opacity-50"
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
                 >
-                  {unenrolling ? 'מבטל...' : 'בטל הרשמה'}
+                  {unenrolling ? 'מבטל...' : 'עזיבת הקורס'}
                 </button>
               </div>
             </div>

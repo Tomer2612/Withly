@@ -8,6 +8,11 @@ interface Community {
   slug?: string | null;
   logo?: string | null;
   ownerId: string;
+  subscriptionStatus: 'ACTIVE' | 'SUSPENDED';
+  price?: number | null;
+  pendingPrice?: number | null;
+  pendingPriceEffectiveAt?: string | null;
+  priceChangeAnnouncedAt?: string | null;
 }
 
 interface UserProfile {

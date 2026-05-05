@@ -41,6 +41,14 @@ export class NotificationsController {
     return { success: true };
   }
 
+  // Delete all notifications for the current user. Must come before the
+  // parameterized :id route or the literal "all" would be treated as an id.
+  @Delete('all')
+  async deleteAll(@Req() req) {
+    await this.notificationsService.deleteAll(req.user.userId);
+    return { success: true };
+  }
+
   // Delete a notification
   @Delete(':id')
   async deleteNotification(@Req() req, @Param('id') id: string) {

@@ -95,18 +95,40 @@ export default function VideoPlayer({ url, className = '', onEnded }: VideoPlaye
     );
   }
 
-  // Dailymotion: use native player (no facade — cross-origin blocks autoplay)
+  // Dailymotion: lazy-mount iframe on click, matching the YouTube/Vimeo
+  // facade pattern. Before activation we render only the thumbnail + play
+  // button; on click the click itself is the user gesture, so the iframe
+  // mounting with `autoplay=true` is allowed by the browser. Without this
+  // the iframe was being mounted at load time and Dailymotion auto-plays
+  // by default (the bug).
   if (provider === 'dailymotion') {
     const videoId = getDailymotionVideoId(url);
     if (!videoId) return null;
 
     return (
       <div className={`relative aspect-video bg-black rounded-lg overflow-hidden ${className}`}>
-        <iframe
-          src={`https://geo.dailymotion.com/player.html?video=${videoId}`}
-          className="w-full h-full border-0"
-          allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
-        />
+        {activated ? (
+          <iframe
+            src={`https://geo.dailymotion.com/player.html?video=${videoId}&autoplay=true`}
+            className="w-full h-full border-0"
+            allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+          />
+        ) : (
+          <div
+            className="absolute inset-0 cursor-pointer z-10"
+            onClick={() => setActivated(true)}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`https://www.dailymotion.com/thumbnail/video/${videoId}`}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <PlayIcon className="w-16 h-16 md:w-20 md:h-20" />
+            </div>
+          </div>
+        )}
       </div>
     );
   }

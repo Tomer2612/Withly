@@ -3,8 +3,6 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
-import Image from 'next/image';
-import Link from 'next/link';
 import GoogleIcon from '../../components/icons/GoogleIcon';
 import MailIcon from '../../components/icons/MailIcon';
 import KeyIcon from '../../components/icons/KeyIcon';
@@ -334,7 +332,13 @@ function SignupContent() {
               </div>
               
               {message && (
-                <p className={`text-sm ${message.includes('שגיאה') ? 'text-red-600' : 'text-green-600'}`} style={{ marginTop: '12px' }}>{message}</p>
+                <p
+                  className={`text-sm ${message.includes('שגיאה') ? '' : 'text-green-600'}`}
+                  style={{
+                    marginTop: '12px',
+                    ...(message.includes('שגיאה') ? { color: 'var(--color-error)' } : {}),
+                  }}
+                >{message}</p>
               )}
               
               <button

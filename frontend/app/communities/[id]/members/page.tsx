@@ -35,39 +35,21 @@ interface BannedUser {
   daysLeft: number | null;
 }
 
-interface Community {
-  id: string;
-  name: string;
-  slug?: string | null;
-  description: string;
-  image?: string | null;
-  logo?: string | null;
-  topic?: string | null;
-  ownerId: string;
-}
-
 export default function CommunityMembersPage() {
   const router = useRouter();
   const params = useParams();
   const communityId = params.id as string;
 
-  const [community, setCommunity] = useState<Community | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [filteredMembers, setFilteredMembers] = useState<Member[]>([]);
   const [bannedUsers, setBannedUsers] = useState<BannedUser[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [mounted, setMounted] = useState(false);
   const [removeModal, setRemoveModal] = useState<{ open: boolean; memberId: string | null; memberName: string }>({ open: false, memberId: null, memberName: '' });
   const [liftBanModal, setLiftBanModal] = useState<{ open: boolean; banId: string | null; memberName: string }>({ open: false, banId: null, memberName: '' });
-  
-  const { userEmail, userId, userProfile, isOwnerOrManager, userRole } = useCommunityContext();
+
+  const { userEmail, userRole } = useCommunityContext();
   const currentUserRole = userRole;
   const [showBanned, setShowBanned] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -79,20 +61,14 @@ export default function CommunityMembersPage() {
       }
 
       try {
-        setLoading(true);
-
-        // Fetch community details
+        // Fetch community details — only need it for the slug redirect.
         const communityRes = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
         if (communityRes.ok) {
           const communityData = await communityRes.json();
-
-          // Redirect to slug URL if community has a slug and we're using ID
           if (communityData.slug && communityId !== communityData.slug) {
             router.replace(`/communities/${communityData.slug}/members`);
             return;
           }
-
-          setCommunity(communityData);
         }
 
         // Fetch members
@@ -112,8 +88,6 @@ export default function CommunityMembersPage() {
         }
       } catch (err) {
         console.error('Error fetching data:', err);
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -196,7 +170,7 @@ export default function CommunityMembersPage() {
     }
   };
 
-  const handleRemoveMember = async (memberId: string, memberName: string) => {
+  const handleRemoveMember = async (memberId: string) => {
     if (!userEmail) return;
 
     try {
@@ -434,26 +408,32 @@ export default function CommunityMembersPage() {
 
       {/* Suspend Member Modal */}
       {removeModal.open && removeModal.memberId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setRemoveModal({ open: false, memberId: null, memberName: '' })} />
-          <div className="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4" dir="rtl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="absolute inset-0" onClick={() => setRemoveModal({ open: false, memberId: null, memberName: '' })} />
+          <div
+            className="relative bg-white shadow-xl p-6"
+            style={{ borderRadius: '16px', width: 'fit-content', maxWidth: 'min(90vw, 640px)' }}
+            dir="rtl"
+          >
             <div className="text-center">
-              <h3 className="text-xl font-bold text-black mb-2">השעה חבר מהקהילה</h3>
-              <p className="text-[#3F3F46] mb-6">
-                האם אתה בטוח שברצונך להשעות את <span className="font-semibold">{removeModal.memberName}</span> מהקהילה? הוא לא יוכל להצטרף שוב עד להסרת ההשעיה.
+              <h3 className="font-semibold text-black mb-2" style={{ fontSize: '21px' }}>השעה חבר מהקהילה</h3>
+              <p className="mb-6" style={{ fontSize: '18px', color: 'var(--color-gray-10)' }}>
+                האם אתה בטוח שברצונך להשעות ולהעיף את <span className="font-semibold">{removeModal.memberName}</span> מהקהילה? הוא לא יוכל להצטרף שוב עד להסרת ההשעיה.
               </p>
               <div className="flex gap-3 justify-center">
                 <button
                   onClick={() => setRemoveModal({ open: false, memberId: null, memberName: '' })}
-                  className="px-6 py-2.5 border border-black text-black rounded-xl font-medium hover:bg-gray-50 transition"
+                  className="bg-white text-black border hover:bg-gray-50 transition"
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
                 >
                   ביטול
                 </button>
                 <button
-                  onClick={() => handleRemoveMember(removeModal.memberId!, removeModal.memberName)}
-                  className="px-6 py-2.5 bg-[#B3261E] text-white rounded-xl font-medium hover:bg-[#9C2019] transition"
+                  onClick={() => handleRemoveMember(removeModal.memberId!)}
+                  className="bg-error text-white transition hover:opacity-90"
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
                 >
-                  השעה
+                  השעיית משתמש
                 </button>
               </div>
             </div>
@@ -463,27 +443,32 @@ export default function CommunityMembersPage() {
 
       {/* Lift Ban Modal */}
       {liftBanModal.open && liftBanModal.banId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setLiftBanModal({ open: false, banId: null, memberName: '' })} />
-          <div className="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4" dir="rtl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="absolute inset-0" onClick={() => setLiftBanModal({ open: false, banId: null, memberName: '' })} />
+          <div
+            className="relative bg-white shadow-xl p-6"
+            style={{ borderRadius: '16px', width: 'fit-content', maxWidth: 'min(90vw, 640px)' }}
+            dir="rtl"
+          >
             <div className="text-center">
-              <h3 className="text-xl font-bold text-black mb-2">הסר השעיה</h3>
-              <p className="text-[#3F3F46] mb-6">
+              <h3 className="font-semibold text-black mb-2" style={{ fontSize: '21px' }}>הסר השעיה</h3>
+              <p className="mb-6" style={{ fontSize: '18px', color: 'var(--color-gray-10)' }}>
                 האם אתה בטוח שברצונך להסיר את ההשעיה של <span className="font-semibold">{liftBanModal.memberName}</span>? הוא יוכל להצטרף שוב לקהילה.
               </p>
               <div className="flex gap-3 justify-center">
                 <button
                   onClick={() => setLiftBanModal({ open: false, banId: null, memberName: '' })}
-                  className="px-6 py-2.5 border border-black text-black rounded-xl font-medium hover:bg-gray-50 transition"
+                  className="bg-white text-black border hover:bg-gray-50 transition"
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
                 >
                   ביטול
                 </button>
                 <button
                   onClick={() => handleLiftBan(liftBanModal.banId!)}
-                  className="px-6 py-2.5 rounded-xl font-medium transition hover:opacity-90"
-                  style={{ backgroundColor: '#A7EA7B', color: '#163300' }}
+                  className="transition hover:opacity-90"
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem', backgroundColor: '#A7EA7B', color: '#163300' }}
                 >
-                  הסר השעיה
+                  הסרת ההשעיה
                 </button>
               </div>
             </div>
