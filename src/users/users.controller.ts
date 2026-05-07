@@ -1,4 +1,6 @@
-import { Controller, Get, Post, Patch, Delete, UseGuards, Req, UseInterceptors, UploadedFile, UploadedFiles, Body, BadRequestException, Param, NotFoundException, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, UseGuards, Req, Res, UseInterceptors, UploadedFile, UploadedFiles, Body, BadRequestException, Param, NotFoundException, Query } from '@nestjs/common';
+import type { Response } from 'express';
+import { clearAuthCookies } from '../auth/cookies.helper';
 import { FileInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { AuthGuard } from '@nestjs/passport';
@@ -113,8 +115,14 @@ export class UsersController {
 
   @UseGuards(AuthGuard('jwt'))
   @Delete('me')
-  async deleteAccount(@Req() req) {
-    return this.usersService.deleteAccount(req.user.userId);
+  async deleteAccount(@Req() req, @Res({ passthrough: true }) res: Response) {
+    const result = await this.usersService.deleteAccount(req.user.userId);
+    // Clear auth cookies on the response so the browser drops both the
+    // (now-rejected) access token and the (cascade-deleted) refresh token.
+    // Without this, SSR layouts still see the stale access_token cookie and
+    // render the page as if the user were logged in — leaving them stuck.
+    clearAuthCookies(res);
+    return result;
   }
 
   // Public endpoints - no auth required
@@ -209,5 +217,11 @@ export class UsersController {
   @Patch('me/payment-methods/:id/set-primary')
   async setPrimaryPaymentMethod(@Req() req, @Param('id') id: string) {
     return this.usersService.setPrimaryPaymentMethod(req.user.userId, id);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('me/memberships')
+  async getMemberships(@Req() req) {
+    return this.usersService.getMemberships(req.user.userId);
   }
 }

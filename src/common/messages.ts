@@ -5,6 +5,7 @@ export const ERROR_MESSAGES = {
   UPLOAD_FILE_TYPE_NOT_SUPPORTED: 'סוג קובץ לא נתמך',
 
   CANNOT_DELETE_LAST_PAYMENT_METHOD: 'לא ניתן למחוק את אמצעי התשלום האחרון',
+  CARD_IN_USE: 'הכרטיס מחויב בקהילות פעילות',
 
   COMMUNITY_NOT_FOUND: 'קהילה לא נמצאה',
   COURSE_NOT_FOUND: 'קורס לא נמצא',

@@ -278,7 +278,7 @@ export default function CommunityMembersPage() {
                 {/* Member Info */}
                 <div className="flex-1 text-right min-w-0">
                   <div className="flex items-center gap-2 min-w-0">
-                    <Link href={`/profile/${member.id}`} className="font-semibold text-black hover:underline truncate flex-shrink-0">
+                    <Link href={`/profile/${member.id}`} className="font-semibold text-black hover:opacity-80 transition truncate flex-shrink-0">
                       {member.name || 'משתמש'}
                     </Link>
                     {getRoleBadge(member.role)}

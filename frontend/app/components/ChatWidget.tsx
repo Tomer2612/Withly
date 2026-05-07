@@ -645,26 +645,24 @@ function ChatWindow({
     <div className="w-[calc(100vw-1rem)] sm:w-80 max-h-[350px] bg-white rounded-t-xl shadow-2xl border border-gray-200 flex flex-col">
       {/* Header */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200 px-3 py-2 flex items-center justify-between rounded-t-xl">
-        <div className="flex items-center gap-2">
-          <a
-            href={`/profile/${chat.recipientId}`}
-            className="hover:opacity-80 transition"
-          >
-            {chat.recipientImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={getImageUrl(chat.recipientImage)}
-                alt={chat.recipientName}
-                className="w-8 h-8 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-8 h-8 bg-[#E1E1E2] rounded-full flex items-center justify-center text-gray-700 font-bold text-sm">
-                {chat.recipientName.charAt(0)}
-              </div>
-            )}
-          </a>
+        <a
+          href={`/profile/${chat.recipientId}`}
+          className="flex items-center gap-2 hover:opacity-80 transition"
+        >
+          {chat.recipientImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={getImageUrl(chat.recipientImage)}
+              alt={chat.recipientName}
+              className="w-8 h-8 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-8 h-8 bg-[#E1E1E2] rounded-full flex items-center justify-center text-gray-700 font-bold text-sm">
+              {chat.recipientName.charAt(0)}
+            </div>
+          )}
           <span className="font-medium text-gray-900">{chat.recipientName}</span>
-        </div>
+        </a>
         <div className="flex items-center gap-1">
           <button onClick={onMinimize} className="p-1 hover:bg-gray-100 rounded">
             <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">

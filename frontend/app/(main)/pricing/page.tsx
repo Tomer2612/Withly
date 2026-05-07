@@ -5,9 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import SiteFooter from '../../components/SiteFooter';
 import FormSelect from '../../components/FormSelect';
 import { useUser } from '../../lib/UserContext';
-import CreditCardIcon from '../../components/icons/CreditCardIcon';
-import CalendarIcon from '../../components/icons/CalendarIcon';
-import LockIcon from '../../components/icons/LockIcon';
+import CreditCardForm, { isCardComplete } from '../../components/CreditCardForm';
 
 // Checkmark Icon component
 const CheckmarkIcon = ({ className = "w-3 h-2.5" }: { className?: string }) => (
@@ -245,45 +243,7 @@ function PricingContent() {
     );
   }
 
-  // Card validation helpers
-  const getCardNumberError = () => {
-    if (cardNumber.length === 0) return null;
-    if (cardNumber.length < 16) return `חסרות ${16 - cardNumber.length} ספרות`;
-    return null;
-  };
-
-  const getExpiryError = () => {
-    if (cardExpiry.length === 0) return null;
-    if (cardExpiry.length < 5) return 'פורמט: MM/YY';
-    
-    // Parse and validate expiry date
-    const [monthStr, yearStr] = cardExpiry.split('/');
-    const month = parseInt(monthStr, 10);
-    const year = parseInt('20' + yearStr, 10);
-    
-    if (month < 1 || month > 12) return 'חודש לא תקין';
-    
-    const now = new Date();
-    const currentMonth = now.getMonth() + 1;
-    const currentYear = now.getFullYear();
-    
-    if (year < currentYear || (year === currentYear && month < currentMonth)) {
-      return 'כרטיס פג תוקף';
-    }
-    
-    return null;
-  };
-
-  const getCvvError = () => {
-    if (cardCvv.length === 0) return null;
-    if (cardCvv.length < 3) return `חסרות ${3 - cardCvv.length} ספרות`;
-    return null;
-  };
-
-  const isPaymentValid = cardNumber.length === 16 && 
-                         cardExpiry.length === 5 && 
-                         !getExpiryError() && 
-                         cardCvv.length === 3;
+  const isPaymentValid = isCardComplete(cardNumber, cardExpiry, cardCvv);
 
   // Step 2: Payment Modal
   if (currentStep === 'payment') {
@@ -291,74 +251,15 @@ function PricingContent() {
       <main className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#F4F4F5' }} dir="rtl">
         <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-md">
           <h2 className="text-2xl font-bold text-center mb-8">מתחילים 3 חודשי ניסיון חינם</h2>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-2 text-right" style={{ color: '#3F3F46' }}>מספר כרטיס</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={cardNumber}
-                  onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, '').slice(0, 16))}
-                  className="w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
-                  style={{ borderColor: getCardNumberError() ? '#B3261E' : '#D0D0D4' }}
-                />
-                <CreditCardIcon className="absolute right-4 top-1/2 transform -translate-y-1/2 w-5 h-5" style={{ color: '#A1A1AA' }} />
-              </div>
-              {getCardNumberError() && (
-                <p className="text-sm mt-1" style={{ color: '#B3261E' }}>{getCardNumberError()}</p>
-              )}
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2 text-right" style={{ color: '#3F3F46' }}>תוקף</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={cardExpiry}
-                    onChange={(e) => {
-                      const newValue = e.target.value;
-                      const rawValue = newValue.replace(/\D/g, '').slice(0, 4);
-                      
-                      if (rawValue.length > 2) {
-                        // 3-4 digits: always show with slash (MM/Y or MM/YY)
-                        setCardExpiry(rawValue.slice(0, 2) + '/' + rawValue.slice(2));
-                      } else if (rawValue.length === 2 && newValue.length > cardExpiry.length) {
-                        // Exactly 2 digits AND typing forward: add slash
-                        setCardExpiry(rawValue + '/');
-                      } else {
-                        // 0-2 digits while deleting: just show raw
-                        setCardExpiry(rawValue);
-                      }
-                    }}
-                    className="w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
-                    style={{ borderColor: getExpiryError() ? '#B3261E' : '#D0D0D4' }}
-                  />
-                  <CalendarIcon className="absolute right-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#A1A1AA]" />
-                </div>
-                {getExpiryError() && (
-                  <p className="text-sm mt-1" style={{ color: '#B3261E' }}>{getExpiryError()}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2 text-right" style={{ color: '#3F3F46' }}>CVV</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={cardCvv}
-                    onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, '').slice(0, 3))}
-                    className="w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
-                    style={{ borderColor: getCvvError() ? '#B3261E' : '#D0D0D4' }}
-                  />
-                  <LockIcon className="absolute right-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#A1A1AA]" />
-                </div>
-                {getCvvError() && (
-                  <p className="text-sm mt-1" style={{ color: '#B3261E' }}>{getCvvError()}</p>
-                )}
-              </div>
-            </div>
-          </div>
+
+          <CreditCardForm
+            cardNumber={cardNumber}
+            cardExpiry={cardExpiry}
+            cardCvv={cardCvv}
+            onCardNumberChange={setCardNumber}
+            onCardExpiryChange={setCardExpiry}
+            onCardCvvChange={setCardCvv}
+          />
           
           <button
             onClick={handlePaymentAndCreate}

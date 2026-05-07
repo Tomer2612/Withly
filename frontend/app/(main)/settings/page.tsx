@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { compressImage, MAX_IMAGE_SIZE_BYTES } from '../../lib/imageCompression';
 import { useUser } from '../../lib/UserContext';
 import FormSelect from '../../components/FormSelect';
@@ -13,7 +14,30 @@ import CreditCardIcon from '../../components/icons/CreditCardIcon';
 import TrashIcon from '../../components/icons/TrashIcon';
 import LockIcon from '../../components/icons/LockIcon';
 import CalendarIcon from '../../components/icons/CalendarIcon';
+import LeaveCommunityModal from '../../components/LeaveCommunityModal';
+import CancelSubscriptionModal from '../../components/CancelSubscriptionModal';
+import UpdateCardModal from '../../components/UpdateCardModal';
+import CreditCardForm, { isCardComplete } from '../../components/CreditCardForm';
 import { getImageUrl } from '@/app/lib/imageUrl';
+
+interface Membership {
+  communityId: string;
+  name: string;
+  slug: string | null;
+  logo: string | null;
+  role: 'OWNER' | 'MANAGER' | 'MEMBER';
+  isPaid: boolean;
+  price: number;
+  joinedAt: string | null;
+  subscriptionStatus: 'ACTIVE' | 'SUSPENDED' | null;
+  subscriptionCancelledAt: string | null;
+  suspendedAt: string | null;
+  nextBillDate: string | null;
+  effectiveEndDate: string | null;
+  paidMembersCount: number | null;
+}
+
+const formatHebrewDate = (iso: string): string => new Date(iso).toLocaleDateString('he-IL');
 
 // Password requirements (same as signup)
 const passwordRequirements = [
@@ -138,52 +162,38 @@ export default function SettingsPage() {
   const [cardCvv, setCardCvv] = useState('');
   const [savingCard, setSavingCard] = useState(false);
   const [showAddCardModal, setShowAddCardModal] = useState(false);
-  const [paymentMethods, setPaymentMethods] = useState<{ id: string; cardLastFour: string; cardBrand: string; createdAt: string }[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<{ id: string; cardLastFour: string; cardBrand: string; createdAt: string; inUseCommunities: string[] }[]>([]);
   const [deletingCardId, setDeletingCardId] = useState<string | null>(null);
   const [settingPrimaryId, setSettingPrimaryId] = useState<string | null>(null);
+  const [cardToDelete, setCardToDelete] = useState<{ id: string; cardBrand: string; cardLastFour: string } | null>(null);
+  const [cardBlocked, setCardBlocked] = useState<{ cardBrand: string; cardLastFour: string; communityNames: string[] } | null>(null);
+
+  // My Memberships
+  const [memberships, setMemberships] = useState<Membership[]>([]);
+  const [communityToLeaveFree, setCommunityToLeaveFree] = useState<Membership | null>(null);
+  const [communityToLeavePaid, setCommunityToLeavePaid] = useState<Membership | null>(null);
+  const [communityToCancelSub, setCommunityToCancelSub] = useState<Membership | null>(null);
+  const [communityToRenew, setCommunityToRenew] = useState<Membership | null>(null);
+  const [leavingCommunityId, setLeavingCommunityId] = useState<string | null>(null);
+  const [undoingId, setUndoingId] = useState<string | null>(null);
   
-  // Card validation helpers
-  const getCardNumberError = () => {
-    if (cardNumber.length === 0) return null;
-    if (cardNumber.length < 16) return `חסרות ${16 - cardNumber.length} ספרות`;
-    return null;
-  };
-
-  const getExpiryError = () => {
-    if (cardExpiry.length === 0) return null;
-    if (cardExpiry.length < 5) return 'פורמט: MM/YY';
-    
-    const [monthStr, yearStr] = cardExpiry.split('/');
-    const month = parseInt(monthStr, 10);
-    const year = parseInt('20' + yearStr, 10);
-    
-    if (month < 1 || month > 12) return 'חודש לא תקין';
-    
-    const now = new Date();
-    const currentMonth = now.getMonth() + 1;
-    const currentYear = now.getFullYear();
-    
-    if (year < currentYear || (year === currentYear && month < currentMonth)) {
-      return 'כרטיס פג תוקף';
-    }
-    
-    return null;
-  };
-
-  const getCvvError = () => {
-    if (cardCvv.length === 0) return null;
-    if (cardCvv.length < 3) return `חסרות ${3 - cardCvv.length} ספרות`;
-    return null;
-  };
-
-  const isCardValid = cardNumber.length === 16 && 
-                      cardExpiry.length === 5 && 
-                      !getExpiryError() && 
-                      cardCvv.length === 3;
+  const isCardValid = isCardComplete(cardNumber, cardExpiry, cardCvv);
   
   // Message state
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'error' | 'success'>('error');
+  const messageRef = useRef<HTMLDivElement>(null);
+
+  // Auto-dismiss messages after 5 seconds and scroll to message
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => setMessage(''), 5000);
+      if (messageRef.current) {
+        messageRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
 
   // Track initial form values for unsaved changes detection
   const initialFormRef = useRef<{ name: string; bio: string; location: string } | null>(null);
@@ -310,6 +320,11 @@ export default function SettingsPage() {
       .then(res => res.json())
       .then(data => setPaymentMethods(data))
       .catch(console.error);
+
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/memberships`)
+      .then(res => res.json())
+      .then(data => setMemberships(Array.isArray(data) ? data : []))
+      .catch(console.error);
   }, [router, user]);
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -383,11 +398,6 @@ export default function SettingsPage() {
       setMessage('השינויים נשמרו בהצלחה');
       setMessageType('success');
       initialFormRef.current = null; // Reset so beforeunload won't trigger
-      
-      // Redirect to profile page after short delay
-      setTimeout(() => {
-        router.push(`/profile/${userId}`);
-      }, 1500);
     } catch (err: any) {
       console.error('Profile update error:', err);
       setMessage(err.message || 'שגיאה בעדכון הפרופיל');
@@ -550,7 +560,7 @@ export default function SettingsPage() {
   const handleDeleteAccount = async () => {
     if (!user) return;
 
-    if (deleteConfirmText !== 'מחיקת חשבון') {
+    if (deleteConfirmText !== 'מחיקת החשבון שלי') {
       setMessage('יש להקליד את הטקסט המדויק לאישור');
       setMessageType('error');
       return;
@@ -1105,7 +1115,8 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => setShowAddCardModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-xl font-medium hover:opacity-90 transition"
+                    className="flex items-center gap-2 px-4 py-2 bg-black text-white font-medium hover:opacity-90 transition"
+                    style={{ borderRadius: '12px' }}
                   >
                     הוסף כרטיס
                     <CreditCardIcon className="w-4 h-4" />
@@ -1162,41 +1173,32 @@ export default function SettingsPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          {/* Delete button - only show if user has 2+ cards */}
-                          {paymentMethods.length >= 2 && (
+                          {/* Delete button - only show on non-primary cards (index !== 0).
+                              Primary-card protection: to delete the primary, user must
+                              first promote another card via the radio dot. */}
+                          {paymentMethods.length >= 2 && index !== 0 && (
                             <button
                               type="button"
-                              onClick={async () => {
-                                if (!user) return;
-                                setDeletingCardId(method.id);
-                                try {
-                                  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/payment-methods/${method.id}`, {
-                                    method: 'DELETE',
+                              onClick={() => {
+                                if (method.inUseCommunities && method.inUseCommunities.length > 0) {
+                                  setCardBlocked({
+                                    cardBrand: method.cardBrand || 'Visa',
+                                    cardLastFour: method.cardLastFour,
+                                    communityNames: method.inUseCommunities,
                                   });
-                                  if (!res.ok) throw new Error('Failed to delete');
-                                  setPaymentMethods(prev => prev.filter(m => m.id !== method.id));
-                                  setMessage('הכרטיס הוסר בהצלחה');
-                                  setMessageType('success');
-                                } catch {
-                                  setMessage('שגיאה בהסרת הכרטיס');
-                                  setMessageType('error');
-                                } finally {
-                                  setDeletingCardId(null);
+                                } else {
+                                  setCardToDelete({
+                                    id: method.id,
+                                    cardBrand: method.cardBrand || 'Visa',
+                                    cardLastFour: method.cardLastFour,
+                                  });
                                 }
                               }}
-                              disabled={deletingCardId === method.id}
                               className="flex items-center gap-1 text-sm transition"
                               style={{ color: '#B3261E' }}
                             >
-                              {deletingCardId === method.id ? (
-                                <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#B3261E' }}></div>
-                              ) : (
-                                <>
-                                  <TrashIcon className="w-3.5 h-3.5" />
-                                  הסר
-                                </>
-
-                              )}
+                              <TrashIcon className="w-3.5 h-3.5" />
+                              הסר
                             </button>
                           )}
                         </div>
@@ -1222,7 +1224,293 @@ export default function SettingsPage() {
                     </p>
                   </div>
                 </div>
+
+                {/* My Memberships */}
+                <div
+                  className="space-y-4 p-6 rounded-xl border"
+                  style={{ borderColor: '#D0D0D4', backgroundColor: 'white' }}
+                >
+                  <div>
+                    <h2 className="font-semibold" style={{ fontSize: '18px', color: '#000000' }}>המנויים שלי</h2>
+                    <p style={{ fontSize: '16px', color: '#3F3F46' }}>קהילות בניהולך או כאלו שהצטרפת אליהן</p>
+                  </div>
+                  {memberships.length > 0 ? (
+                    <div className="space-y-3">
+                      {memberships.map((m) => {
+                        const branch =
+                          m.role === 'OWNER'
+                            ? m.subscriptionStatus === 'SUSPENDED'
+                              ? 'owner-suspended'
+                              : m.subscriptionCancelledAt
+                                ? 'owner-pending'
+                                : 'owner-active'
+                            : m.isPaid
+                              ? 'paid-member'
+                              : 'free-member';
+
+                        let statusText = '';
+                        if (branch === 'free-member' && m.joinedAt) {
+                          statusText = `חבר קהילה מאז ${formatHebrewDate(m.joinedAt)}`;
+                        } else if (branch === 'paid-member' && m.nextBillDate) {
+                          statusText = `החיוב הבא ב-${formatHebrewDate(m.nextBillDate)}`;
+                        } else if (branch === 'owner-active' && m.nextBillDate) {
+                          statusText = `החיוב הבא ב-${formatHebrewDate(m.nextBillDate)}`;
+                        } else if (branch === 'owner-pending' && m.effectiveEndDate) {
+                          statusText = `המנוי יסתיים ב-${formatHebrewDate(m.effectiveEndDate)}`;
+                        } else if (branch === 'owner-suspended' && m.suspendedAt) {
+                          statusText = `המנוי הסתיים ב-${formatHebrewDate(m.suspendedAt)}`;
+                        }
+
+                        const priceLabel =
+                          branch === 'free-member' ? 'חינם' : `₪${m.price} / חודש`;
+
+                        return (
+                          <div
+                            key={m.communityId}
+                            className="flex items-center justify-between p-4 rounded-xl border"
+                            style={{ borderColor: '#D0D0D4', backgroundColor: 'white' }}
+                          >
+                            <Link
+                              href={`/communities/${m.slug ?? m.communityId}/feed`}
+                              className="flex items-center gap-3 min-w-0 flex-1 hover:opacity-80 transition"
+                            >
+                              {m.logo ? (
+                                <img
+                                  src={getImageUrl(m.logo) ?? ''}
+                                  alt={m.name}
+                                  className="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                                />
+                              ) : (
+                                <div
+                                  className="w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center"
+                                  style={{ backgroundColor: '#E1E1E2', color: '#71717A', fontSize: '18px', fontWeight: 600 }}
+                                >
+                                  {m.name.charAt(0)}
+                                </div>
+                              )}
+                              <div className="min-w-0">
+                                <h3 className="font-semibold truncate" style={{ fontSize: '18px', color: '#000000' }}>{m.name}</h3>
+                                {statusText && (
+                                  <p className="font-normal" style={{ fontSize: '16px', color: '#000000' }}>{statusText}</p>
+                                )}
+                              </div>
+                            </Link>
+                            <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                              <span className="font-semibold" style={{ fontSize: '18px', color: '#000000' }}>{priceLabel}</span>
+                              {branch === 'free-member' && (
+                                <button
+                                  type="button"
+                                  onClick={() => setCommunityToLeaveFree(m)}
+                                  className="font-normal underline hover:opacity-70 transition"
+                                  style={{ fontSize: '16px', color: '#000000' }}
+                                >
+                                  עזוב קהילה
+                                </button>
+                              )}
+                              {branch === 'paid-member' && (
+                                <button
+                                  type="button"
+                                  onClick={() => setCommunityToLeavePaid(m)}
+                                  className="font-normal underline hover:opacity-70 transition"
+                                  style={{ fontSize: '16px', color: '#000000' }}
+                                >
+                                  בטל מנוי
+                                </button>
+                              )}
+                              {branch === 'owner-active' && (
+                                <button
+                                  type="button"
+                                  onClick={() => setCommunityToCancelSub(m)}
+                                  className="font-normal underline hover:opacity-70 transition"
+                                  style={{ fontSize: '16px', color: '#000000' }}
+                                >
+                                  בטל מנוי
+                                </button>
+                              )}
+                              {branch === 'owner-pending' && (
+                                <button
+                                  type="button"
+                                  disabled={undoingId === m.communityId}
+                                  onClick={async () => {
+                                    setUndoingId(m.communityId);
+                                    try {
+                                      const res = await fetch(
+                                        `${process.env.NEXT_PUBLIC_API_URL}/communities/${m.communityId}/payment`,
+                                        {
+                                          method: 'PATCH',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ subscriptionCancelledAt: null }),
+                                        },
+                                      );
+                                      if (res.ok) {
+                                        setMemberships((prev) =>
+                                          prev.map((x) =>
+                                            x.communityId === m.communityId
+                                              ? { ...x, subscriptionCancelledAt: null, effectiveEndDate: null }
+                                              : x,
+                                          ),
+                                        );
+                                        setMessage('השבתת המנוי בוטלה.');
+                                        setMessageType('success');
+                                      } else {
+                                        setMessage('שגיאה בביטול ההשבתה');
+                                        setMessageType('error');
+                                      }
+                                    } catch {
+                                      setMessage('שגיאה בביטול ההשבתה');
+                                      setMessageType('error');
+                                    } finally {
+                                      setUndoingId(null);
+                                    }
+                                  }}
+                                  className="font-normal underline hover:opacity-70 transition disabled:opacity-50"
+                                  style={{ fontSize: '16px', color: '#000000' }}
+                                >
+                                  {undoingId === m.communityId ? 'מבטל...' : 'ביטול השבתה'}
+                                </button>
+                              )}
+                              {branch === 'owner-suspended' && (
+                                <button
+                                  type="button"
+                                  onClick={() => setCommunityToRenew(m)}
+                                  className="font-normal underline hover:opacity-70 transition"
+                                  style={{ fontSize: '16px', color: '#000000' }}
+                                >
+                                  חדש מנוי
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 rounded-xl border" style={{ backgroundColor: '#F4F4F5', borderColor: '#E1E1E2' }}>
+                      <p style={{ color: '#71717A', fontSize: '16px' }}>אינך חבר באף קהילה כרגע</p>
+                    </div>
+                  )}
+                </div>
               </div>
+            )}
+
+            {/* Leave free community modal */}
+            <LeaveCommunityModal
+              isOpen={!!communityToLeaveFree}
+              onClose={() => setCommunityToLeaveFree(null)}
+              communityName={communityToLeaveFree?.name ?? ''}
+              isLeaving={leavingCommunityId === communityToLeaveFree?.communityId}
+              onConfirm={async () => {
+                if (!communityToLeaveFree) return;
+                const id = communityToLeaveFree.communityId;
+                setLeavingCommunityId(id);
+                try {
+                  const res = await fetch(
+                    `${process.env.NEXT_PUBLIC_API_URL}/communities/${id}/leave`,
+                    { method: 'POST' },
+                  );
+                  if (res.ok) {
+                    setMemberships((prev) => prev.filter((x) => x.communityId !== id));
+                    setCommunityToLeaveFree(null);
+                    setMessage('עזבת את הקהילה בהצלחה');
+                    setMessageType('success');
+                  } else {
+                    setMessage('שגיאה בעזיבת הקהילה');
+                    setMessageType('error');
+                  }
+                } catch {
+                  setMessage('שגיאה בעזיבת הקהילה');
+                  setMessageType('error');
+                } finally {
+                  setLeavingCommunityId(null);
+                }
+              }}
+            />
+
+            {/* Leave paid community — same shared modal in paid variant. UI only;
+                the auto-leave-at-period-end logic is gated on HYP integration
+                (HYP follow-up #10). For now onConfirm just shows a message. */}
+            <LeaveCommunityModal
+              isPaid
+              isOpen={!!communityToLeavePaid}
+              onClose={() => setCommunityToLeavePaid(null)}
+              communityName={communityToLeavePaid?.name ?? ''}
+              effectiveDate={
+                communityToLeavePaid?.nextBillDate
+                  ? new Date(communityToLeavePaid.nextBillDate)
+                  : new Date()
+              }
+              isLeaving={false}
+              onConfirm={() => {
+                setCommunityToLeavePaid(null);
+                setMessage('ביטול מנוי בתשלום זמין רק לאחר חיבור מערכת התשלומים');
+                setMessageType('error');
+              }}
+            />
+
+            {/* Cancel owner subscription modal */}
+            {communityToCancelSub && (
+              <CancelSubscriptionModal
+                isOpen
+                onClose={() => setCommunityToCancelSub(null)}
+                communityId={communityToCancelSub.communityId}
+                effectiveDate={
+                  communityToCancelSub.nextBillDate
+                    ? new Date(communityToCancelSub.nextBillDate)
+                    : new Date()
+                }
+                isPaidCommunity={communityToCancelSub.isPaid}
+                paidMembersCount={communityToCancelSub.paidMembersCount ?? 0}
+                onSuccess={(eff) => {
+                  const id = communityToCancelSub.communityId;
+                  setMemberships((prev) =>
+                    prev.map((x) =>
+                      x.communityId === id
+                        ? { ...x, subscriptionCancelledAt: eff.toISOString(), effectiveEndDate: eff.toISOString(), nextBillDate: null }
+                        : x,
+                    ),
+                  );
+                  setCommunityToCancelSub(null);
+                  setMessage('המנוי בוטל בהצלחה');
+                  setMessageType('success');
+                }}
+                onError={() => {
+                  setMessage('שגיאה בביטול המנוי');
+                  setMessageType('error');
+                  setCommunityToCancelSub(null);
+                }}
+              />
+            )}
+
+            {/* Renew suspended-community subscription via card update */}
+            {communityToRenew && (
+              <UpdateCardModal
+                isOpen
+                onClose={() => setCommunityToRenew(null)}
+                communityId={communityToRenew.communityId}
+                wasSuspended
+                onSuccess={(data) => {
+                  const id = communityToRenew.communityId;
+                  setMemberships((prev) =>
+                    prev.map((x) =>
+                      x.communityId === id
+                        ? {
+                            ...x,
+                            subscriptionStatus: data.subscriptionStatus,
+                            suspendedAt: data.suspendedAt,
+                            subscriptionCancelledAt: data.subscriptionCancelledAt,
+                          }
+                        : x,
+                    ),
+                  );
+                  setCommunityToRenew(null);
+                  setMessage(data.wasSuspended ? 'הקהילה חזרה לפעילות!' : 'אמצעי התשלום עודכן בהצלחה');
+                  setMessageType('success');
+                }}
+                onError={(msg) => {
+                  setMessage(msg);
+                  setMessageType('error');
+                }}
+              />
             )}
 
             {/* Add Card Modal - styled like pay popups with live validation */}
@@ -1245,73 +1533,14 @@ export default function SettingsPage() {
 
                   <h2 className="text-2xl font-bold text-center mb-8">הוספת כרטיס אשראי</h2>
 
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-2 text-right" style={{ color: '#3F3F46' }}>מספר כרטיס</label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={cardNumber}
-                          onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, '').slice(0, 16))}
-                          className="w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
-                          style={{ borderColor: getCardNumberError() ? '#B3261E' : '#D0D0D4' }}
-                        />
-                        <CreditCardIcon className="absolute right-4 top-1/2 transform -translate-y-1/2 w-5 h-5" style={{ color: '#A1A1AA' }} />
-                      </div>
-                      {getCardNumberError() && (
-                        <p className="text-sm mt-1" style={{ color: '#B3261E' }}>{getCardNumberError()}</p>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium mb-2 text-right" style={{ color: '#3F3F46' }}>תוקף</label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={cardExpiry}
-                            onChange={(e) => {
-                              const newValue = e.target.value;
-                              const rawValue = newValue.replace(/\D/g, '').slice(0, 4);
-                              
-                              if (rawValue.length > 2) {
-                                // 3-4 digits: always show with slash (MM/Y or MM/YY)
-                                setCardExpiry(rawValue.slice(0, 2) + '/' + rawValue.slice(2));
-                              } else if (rawValue.length === 2 && newValue.length > cardExpiry.length) {
-                                // Exactly 2 digits AND typing forward: add slash
-                                setCardExpiry(rawValue + '/');
-                              } else {
-                                // 0-2 digits while deleting: just show raw
-                                setCardExpiry(rawValue);
-                              }
-                            }}
-                            className="w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
-                            style={{ borderColor: getExpiryError() ? '#B3261E' : '#D0D0D4' }}
-                          />
-                          <CalendarIcon className="absolute right-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#A1A1AA]" />
-                        </div>
-                        {getExpiryError() && (
-                          <p className="text-sm mt-1" style={{ color: '#B3261E' }}>{getExpiryError()}</p>
-                        )}
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-2 text-right" style={{ color: '#3F3F46' }}>CVV</label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={cardCvv}
-                            onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, '').slice(0, 3))}
-                            className="w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
-                            style={{ borderColor: getCvvError() ? '#B3261E' : '#D0D0D4' }}
-                          />
-                          <LockIcon className="absolute right-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#A1A1AA]" />
-                        </div>
-                        {getCvvError() && (
-                          <p className="text-sm mt-1" style={{ color: '#B3261E' }}>{getCvvError()}</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                  <CreditCardForm
+                    cardNumber={cardNumber}
+                    cardExpiry={cardExpiry}
+                    cardCvv={cardCvv}
+                    onCardNumberChange={setCardNumber}
+                    onCardExpiryChange={setCardExpiry}
+                    onCardCvvChange={setCardCvv}
+                  />
 
                   <button
                     type="button"
@@ -1363,8 +1592,9 @@ export default function SettingsPage() {
             {/* Message Display */}
             {message && (
               <div
+                ref={messageRef}
                 className="mt-6 p-4 rounded-lg"
-                style={messageType === 'error' 
+                style={messageType === 'error'
                   ? { backgroundColor: '#FEF2F2', color: '#B3261E', border: '1px solid #FECACA' }
                   : { backgroundColor: '#A7EA7B', color: 'black', fontSize: '16px', fontWeight: 400 }
                 }
@@ -1377,50 +1607,180 @@ export default function SettingsPage() {
       </div>
 
       {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
+      {cardToDelete && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div
             className="bg-white p-6"
-            style={{ borderRadius: '16px', width: 'fit-content', maxWidth: 'min(90vw, 640px)' }}
+            style={{ borderRadius: '16px', width: 'fit-content', minWidth: '380px', maxWidth: 'min(90vw, 640px)' }}
             dir="rtl"
           >
             <div className="text-center">
-              <h3 className="font-semibold text-black mb-2" style={{ fontSize: '21px' }}>אישור מחיקת חשבון</h3>
+              <h3 className="font-semibold text-black mb-2" style={{ fontSize: '21px' }}>להסיר את הכרטיס?</h3>
               <p className="mb-4" style={{ fontSize: '18px', color: 'var(--color-gray-10)' }}>
-                פעולה זו בלתי הפיכה. לאישור, יש להקליד: <strong>&quot;מחיקת חשבון&quot;</strong>
+                {cardToDelete.cardBrand} ****{cardToDelete.cardLastFour} יוסר מהחשבון שלך.
               </p>
-              <input
-                type="text"
-                value={deleteConfirmText}
-                onChange={(e) => setDeleteConfirmText(e.target.value)}
-                placeholder="להקליד כאן"
-                className="w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 text-sm mb-4 text-right"
-                style={{ borderColor: '#E1E1E2' }}
-              />
               <div className="flex gap-3 justify-center">
                 <button
-                  onClick={() => {
-                    setShowDeleteConfirm(false);
-                    setDeleteConfirmText('');
-                  }}
-                  className="bg-white text-black border hover:bg-gray-50 transition"
+                  onClick={() => setCardToDelete(null)}
+                  disabled={deletingCardId === cardToDelete.id}
+                  className="bg-white text-black border hover:bg-gray-50 transition disabled:opacity-50"
                   style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
                 >
                   חזרה
                 </button>
                 <button
-                  onClick={handleDeleteAccount}
-                  disabled={deletingAccount || deleteConfirmText !== 'מחיקת חשבון'}
+                  onClick={async () => {
+                    if (!user) return;
+                    const target = cardToDelete;
+                    setDeletingCardId(target.id);
+                    try {
+                      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/payment-methods/${target.id}`, {
+                        method: 'DELETE',
+                      });
+                      // Defense-in-depth: if a community started using this card
+                      // between the page load and this click, the server still
+                      // returns 409 with the community names. Handle that.
+                      if (res.status === 409) {
+                        const body = await res.json().catch(() => null);
+                        const names: string[] = body?.communities ?? [];
+                        if (names.length > 0) {
+                          setCardBlocked({
+                            cardBrand: target.cardBrand,
+                            cardLastFour: target.cardLastFour,
+                            communityNames: names,
+                          });
+                          setCardToDelete(null);
+                          return;
+                        }
+                      }
+                      if (!res.ok) throw new Error('Failed to delete');
+                      setPaymentMethods(prev => prev.filter(m => m.id !== target.id));
+                      setMessage('הכרטיס הוסר בהצלחה');
+                      setMessageType('success');
+                      setCardToDelete(null);
+                    } catch {
+                      setMessage('שגיאה בהסרת הכרטיס');
+                      setMessageType('error');
+                    } finally {
+                      setDeletingCardId(null);
+                    }
+                  }}
+                  disabled={deletingCardId === cardToDelete.id}
                   className="bg-error text-white hover:opacity-90 transition disabled:opacity-50"
                   style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
                 >
-                  {deletingAccount ? 'מוחק...' : 'מחיקת החשבון'}
+                  {deletingCardId === cardToDelete.id ? 'מוחק...' : 'הסרת הכרטיס'}
                 </button>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      {cardBlocked && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div
+            className="bg-white p-6"
+            style={{ borderRadius: '16px', width: 'fit-content', minWidth: '380px', maxWidth: 'min(90vw, 640px)' }}
+            dir="rtl"
+          >
+            <div className="text-center">
+              <h3 className="font-semibold text-black mb-2" style={{ fontSize: '21px' }}>אי אפשר להסיר את הכרטיס</h3>
+              <p className="mb-2 text-right" style={{ fontSize: '18px', color: 'var(--color-gray-10)' }}>
+                הכרטיס הזה מחויב בקהילות הבאות:
+              </p>
+              <ul className="mb-4 text-right" style={{ fontSize: '18px', color: 'var(--color-gray-10)' }}>
+                {cardBlocked.communityNames.map((name) => (
+                  <li key={name}>
+                    <span style={{ fontSize: '18px', marginInlineEnd: '10px' }}>•</span>{name}
+                  </li>
+                ))}
+              </ul>
+              <p className="mb-4 text-right" style={{ fontSize: '18px', color: 'var(--color-gray-10)' }}>
+                יש לבטל את המנויים או להחליף את אמצעי התשלום לפני הסרת הכרטיס.
+              </p>
+              <div className="flex justify-center">
+                <button
+                  onClick={() => setCardBlocked(null)}
+                  className="bg-black text-white hover:opacity-90 transition"
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
+                >
+                  הבנתי
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirm && (() => {
+        // Show the paid-subscriptions warning when the user has any active
+        // billing relationship: owns any community (pays Withly) or is a
+        // member of a paid community (pays the community owner). Pre-HYP
+        // these are placeholders; once real billing exists this still works.
+        const hasActiveSubscriptions = memberships.some(
+          (m) => m.role === 'OWNER' || m.isPaid,
+        );
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div
+              className="bg-white p-5"
+              style={{ borderRadius: '16px', width: 'fit-content', maxWidth: 'min(90vw, 520px)' }}
+              dir="rtl"
+            >
+              <div className="text-center">
+                <h3 className="font-semibold text-black mb-2" style={{ fontSize: '21px' }}>
+                  למחוק את החשבון לצמיתות?
+                </h3>
+                <p className="mb-2" style={{ fontSize: '18px', color: 'var(--color-gray-10)' }}>
+                  זוהי פעולה בלתי הפיכה. כל נתוני החשבון, הקהילות והפעילות שלך יימחקו לצמיתות ללא אפשרות שחזור.
+                </p>
+                {hasActiveSubscriptions && (
+                  <>
+                    <p className="mb-1 font-semibold" style={{ fontSize: '18px', color: 'var(--color-gray-10)' }}>
+                      לתשומת הלב — קיימים בחשבון מנויים פעילים בתשלום.
+                    </p>
+                    <p className="mb-2" style={{ fontSize: '18px', color: 'var(--color-gray-10)' }}>
+                      מחיקת החשבון תביא לביטול מיידי של כלל המנויים הללו. הגישה לקהילות תיחסם, וחיובים שבוצעו בעבר לא יוחזרו.
+                    </p>
+                  </>
+                )}
+                <p className="mb-3" style={{ fontSize: '18px', color: 'var(--color-gray-10)' }}>
+                  להמשך הפעולה, יש להקליד <strong>&quot;מחיקת החשבון שלי&quot;</strong> בשדה למטה:
+                </p>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="להקליד כאן"
+                  className="w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 text-sm mb-3 text-right"
+                  style={{ borderColor: '#E1E1E2' }}
+                />
+                <div className="flex gap-3 justify-center">
+                  <button
+                    onClick={() => {
+                      setShowDeleteConfirm(false);
+                      setDeleteConfirmText('');
+                    }}
+                    className="bg-white text-black border hover:bg-gray-50 transition"
+                    style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
+                  >
+                    ביטול
+                  </button>
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={deletingAccount || deleteConfirmText !== 'מחיקת החשבון שלי'}
+                    className="bg-error text-white hover:opacity-90 transition disabled:opacity-50"
+                    style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
+                  >
+                    {deletingAccount ? 'מוחק...' : 'מחיקת החשבון לצמיתות'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </main>
   );
 }

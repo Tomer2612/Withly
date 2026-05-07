@@ -1863,7 +1863,7 @@ function CommunityFeedContent() {
                       
                       {/* Author info - next to profile pic */}
                       <div className="flex-1 text-right min-w-0">
-                        <Link href={`/profile/${post.author?.id}`} className="font-medium text-black hover:underline truncate block">
+                        <Link href={`/profile/${post.author?.id}`} className="font-medium text-black hover:opacity-80 transition truncate block">
                           {post.author?.name || 'משתמש אנונימי'}
                         </Link>
                         <p className="text-sm text-[#52525B]">
@@ -2426,7 +2426,7 @@ function CommunityFeedContent() {
                                   </Link>
                                   <div className="flex-1 bg-[#F4F4F5] rounded-lg p-3">
                                     <div className="flex items-center justify-between mb-1">
-                                      <Link href={`/profile/${comment.user?.id}`} className="font-medium text-sm text-black hover:underline">
+                                      <Link href={`/profile/${comment.user?.id}`} className="font-medium text-sm text-black hover:opacity-80 transition">
                                         {comment.user?.name || 'משתמש'}
                                       </Link>
                                       <span className="text-xs text-[#52525B] font-normal">
@@ -2832,7 +2832,7 @@ function CommunityFeedContent() {
                           )}
                         </Link>
                         {/* Name */}
-                        <Link href={`/profile/${member.userId}`} style={{ fontSize: '16px' }} className="font-normal text-black flex-1 hover:underline truncate min-w-0">
+                        <Link href={`/profile/${member.userId}`} style={{ fontSize: '16px' }} className="font-normal text-black flex-1 hover:opacity-80 transition truncate min-w-0">
                           {member.name}
                         </Link>
                         {/* Score */}

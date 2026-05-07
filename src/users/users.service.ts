@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import * as bcrypt from 'bcrypt';
@@ -373,12 +373,27 @@ export class UsersService {
 
   // Payment Methods
   async getPaymentMethods(userId: string) {
-    return this.prisma.userPaymentMethod.findMany({
+    const methods = await this.prisma.userPaymentMethod.findMany({
       where: { userId },
       // Primary first, then by recency. Real createdAt is preserved now
       // (setPrimaryPaymentMethod no longer mutates it).
       orderBy: [{ isPrimary: 'desc' }, { createdAt: 'desc' }],
     });
+
+    // Attach inUseCommunities per card so the UI can pre-empt the delete
+    // confirmation when a card is the active billing card on a community
+    // the user owns. Match is by lastFour + brand (no FK until HYP lands).
+    const ownedActive = await this.prisma.community.findMany({
+      where: { ownerId: userId, subscriptionStatus: 'ACTIVE' },
+      select: { name: true, cardLastFour: true, cardBrand: true },
+    });
+
+    return methods.map((m) => ({
+      ...m,
+      inUseCommunities: ownedActive
+        .filter((c) => c.cardLastFour === m.cardLastFour && c.cardBrand === m.cardBrand)
+        .map((c) => c.name),
+    }));
   }
 
   async addPaymentMethod(userId: string, cardLastFour: string, cardBrand: string = 'Visa') {
@@ -414,6 +429,33 @@ export class UsersService {
       throw new BadRequestException(ERROR_MESSAGES.CANNOT_DELETE_LAST_PAYMENT_METHOD);
     }
 
+    // Block deletion if this card is the active billing card on any community
+    // the user owns. Match is by lastFour + brand because the schema doesn't
+    // yet hold a FK from Community to UserPaymentMethod (HYP integration will
+    // introduce a proper token; until then this is the strongest signal).
+    const card = await this.prisma.userPaymentMethod.findFirst({
+      where: { id: paymentMethodId, userId },
+      select: { cardLastFour: true, cardBrand: true },
+    });
+    if (card) {
+      const inUse = await this.prisma.community.findMany({
+        where: {
+          ownerId: userId,
+          cardLastFour: card.cardLastFour,
+          cardBrand: card.cardBrand,
+          subscriptionStatus: 'ACTIVE',
+        },
+        select: { name: true },
+      });
+      if (inUse.length > 0) {
+        throw new ConflictException({
+          error: 'CARD_IN_USE',
+          message: ERROR_MESSAGES.CARD_IN_USE,
+          communities: inUse.map((c) => c.name),
+        });
+      }
+    }
+
     // If the card being deleted was primary, promote another to primary.
     return this.prisma.$transaction(async (tx) => {
       const target = await tx.userPaymentMethod.findFirst({
@@ -441,6 +483,117 @@ export class UsersService {
 
       return result;
     });
+  }
+
+  // Mirrors the math in [frontend/app/communities/[id]/manage/page.tsx]
+  // (TRIAL_LENGTH_MONTHS, getNextBillingDate, getCancellationEffectiveDate,
+  // WITHLY_MONTHLY_PRICE). Placeholder until HYP supplies authoritative
+  // billing dates and per-tier pricing — see HYP follow-up #11.
+  private readonly TRIAL_LENGTH_MONTHS = 3;
+  private readonly WITHLY_MONTHLY_PRICE = 99;
+  private addMonths(d: Date, n: number): Date {
+    const r = new Date(d);
+    r.setMonth(r.getMonth() + n);
+    return r;
+  }
+  private getNextBillingDate(trialStart: Date | null): Date {
+    const now = new Date();
+    if (!trialStart) return this.addMonths(now, 1);
+    let candidate = this.addMonths(trialStart, this.TRIAL_LENGTH_MONTHS);
+    while (candidate <= now) candidate = this.addMonths(candidate, 1);
+    return candidate;
+  }
+
+  async getMemberships(userId: string) {
+    // Communities the user is a member of (not as owner).
+    const memberRows = await this.prisma.communityMember.findMany({
+      where: { userId },
+      include: {
+        community: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            logo: true,
+            price: true,
+            ownerId: true,
+          },
+        },
+      },
+    });
+
+    // Communities the user owns.
+    const owned = await this.prisma.community.findMany({
+      where: { ownerId: userId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        logo: true,
+        price: true,
+        subscriptionStatus: true,
+        subscriptionCancelledAt: true,
+        suspendedAt: true,
+        trialStartDate: true,
+        _count: { select: { members: true } },
+      },
+    });
+
+    // Owner rows (computed billing).
+    const ownerRows = owned.map((c) => {
+      const isPaid = (c.price ?? 0) > 0;
+      // "Paid members" excludes the owner; today owner doesn't appear in
+      // CommunityMember anyway, so memberCount is paying-member count.
+      // (See HYP follow-up #10 — real per-member subscription tracking
+      // will replace this when paid memberships start being charged.)
+      const paidMembersCount = isPaid ? c._count.members : 0;
+      return {
+        communityId: c.id,
+        name: c.name,
+        slug: c.slug,
+        logo: c.logo,
+        role: 'OWNER' as const,
+        isPaid,
+        // Owner pays the flat Withly subscription fee, NOT the community's
+        // member-facing price. (community.price is what members would pay.)
+        price: this.WITHLY_MONTHLY_PRICE,
+        joinedAt: null as Date | null,
+        subscriptionStatus: c.subscriptionStatus,
+        subscriptionCancelledAt: c.subscriptionCancelledAt,
+        suspendedAt: c.suspendedAt,
+        nextBillDate:
+          c.subscriptionStatus === 'ACTIVE' && !c.subscriptionCancelledAt
+            ? this.getNextBillingDate(c.trialStartDate)
+            : null,
+        effectiveEndDate: c.subscriptionCancelledAt,
+        paidMembersCount,
+      };
+    });
+
+    // Member rows.
+    const memberOnly = memberRows.filter((m) => m.community.ownerId !== userId);
+    const memberRowsOut = memberOnly.map((m) => ({
+      communityId: m.community.id,
+      name: m.community.name,
+      slug: m.community.slug,
+      logo: m.community.logo,
+      role: m.role === 'MANAGER' ? ('MANAGER' as const) : ('MEMBER' as const),
+      isPaid: (m.community.price ?? 0) > 0,
+      price: m.community.price ?? 0,
+      joinedAt: m.joinedAt,
+      // Member billing not tracked yet (HYP follow-up #10) — paid-member
+      // rows will get nextBillDate / effectiveEndDate populated then.
+      subscriptionStatus: null,
+      subscriptionCancelledAt: null,
+      suspendedAt: null,
+      nextBillDate: null,
+      effectiveEndDate: null,
+      paidMembersCount: null,
+    }));
+
+    return [...ownerRows, ...memberRowsOut].sort((a, b) =>
+      a.name.localeCompare(b.name, 'he'),
+    );
   }
 
   async setPrimaryPaymentMethod(userId: string, paymentMethodId: string) {

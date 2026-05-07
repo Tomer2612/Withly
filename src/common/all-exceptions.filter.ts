@@ -35,6 +35,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: string | string[] = 'Internal server error';
+    // Extra fields a thrower attached to an object-form HttpException
+    // (e.g. `throw new ConflictException({ error: 'CARD_IN_USE', communities: [...] })`).
+    // Preserved so structured error payloads survive the global normalization.
+    let extras: Record<string, unknown> = {};
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
@@ -42,8 +46,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
       // res is either a string or { message, statusCode, error, ... }
       if (typeof res === 'string') {
         message = res;
-      } else if (typeof res === 'object' && res !== null && 'message' in res) {
-        message = (res as { message: string | string[] }).message;
+      } else if (typeof res === 'object' && res !== null) {
+        if ('message' in res) {
+          message = (res as { message: string | string[] }).message;
+        }
+        extras = { ...(res as Record<string, unknown>) };
       }
     } else if (exception instanceof Prisma.PrismaClientKnownRequestError) {
       // Map a couple of common Prisma errors to sensible HTTP statuses.
@@ -67,6 +74,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     httpAdapter.reply(
       response,
       {
+        ...extras,
         statusCode: status,
         message,
         path: httpAdapter.getRequestUrl(request),

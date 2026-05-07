@@ -26,6 +26,8 @@ import EditIcon from '../../../components/icons/EditIcon';
 import LinkIcon from '../../../components/icons/LinkIcon';
 import GlobeIcon from '../../../components/icons/GlobeIcon';
 import ComingSoonTooltip from '../../../components/ComingSoonTooltip';
+import CancelSubscriptionModal from '../../../components/CancelSubscriptionModal';
+import UpdateCardModal from '../../../components/UpdateCardModal';
 import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface Community {
@@ -170,7 +172,6 @@ export default function ManageCommunityPage() {
   const [showCardModal, setShowCardModal] = useState(false);
   const [subscriptionCancelledAt, setSubscriptionCancelledAt] = useState<Date | null>(null);
   const [showCancelSubscriptionModal, setShowCancelSubscriptionModal] = useState(false);
-  const [cancellingSubscription, setCancellingSubscription] = useState(false);
   const [undoingCancellation, setUndoingCancellation] = useState(false);
   // Pending community-price change announcement (owner sets new price; takes
   // effect for existing members 1 month later). Lives on Community.
@@ -190,9 +191,6 @@ export default function ManageCommunityPage() {
   // Members who joined on/after the announcement date — they pay the new
   // (pending) price; the rest are grandfathered until the effective date.
   const [newPriceMembers, setNewPriceMembers] = useState<number>(0);
-  const [newCardNumber, setNewCardNumber] = useState('');
-  const [newCardExpiry, setNewCardExpiry] = useState('');
-  const [newCardCvv, setNewCardCvv] = useState('');
 
   // Categories - synced with COMMUNITY_TOPICS from home page
   const categories = [
@@ -2001,223 +1999,30 @@ export default function ManageCommunityPage() {
             </div>
           </form>
 
-          {/* Credit Card Modal - Outside form */}
-          {showCardModal && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-md" dir="rtl">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCardModal(false);
-                    setNewCardNumber('');
-                    setNewCardExpiry('');
-                    setNewCardCvv('');
-                  }}
-                  className="text-gray-400 hover:text-gray-600 mb-4"
-                >
-                  <CloseIcon size={20} />
-                </button>
-                
-                <h2 className="text-2xl font-bold text-center mb-8">עדכון אמצעי תשלום</h2>
-                
-                {cardLastFour && (
-                  <p className="text-center text-gray-600 mb-4">
-                    כרטיס ראשי: <strong>{cardBrand || 'Visa'} ************{cardLastFour}</strong>
-                  </p>
-                )}
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2 text-right">מספר כרטיס</label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={newCardNumber}
-                        onChange={(e) => setNewCardNumber(e.target.value.replace(/\D/g, '').slice(0, 16))}
-                        className={`w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black ${
-                          newCardNumber.length > 0 && newCardNumber.length < 16 ? 'border-[#B3261E]' : 'border-gray-300'
-                        }`}
-                      />
-                      <CreditCardIcon className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    </div>
-                    {newCardNumber.length > 0 && newCardNumber.length < 16 && (
-                      <p className="text-error mt-1" style={{ fontSize: '14px' }}>חסרות {16 - newCardNumber.length} ספרות</p>
-                    )}
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2 text-right">תוקף</label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={newCardExpiry}
-                          onChange={(e) => {
-                            const newValue = e.target.value;
-                            const rawValue = newValue.replace(/\D/g, '').slice(0, 4);
-                            
-                            if (rawValue.length > 2) {
-                              // 3-4 digits: always show with slash (MM/Y or MM/YY)
-                              setNewCardExpiry(rawValue.slice(0, 2) + '/' + rawValue.slice(2));
-                            } else if (rawValue.length === 2 && newValue.length > newCardExpiry.length) {
-                              // Exactly 2 digits AND typing forward: add slash
-                              setNewCardExpiry(rawValue + '/');
-                            } else {
-                              // 0-2 digits while deleting: just show raw
-                              setNewCardExpiry(rawValue);
-                            }
-                          }}
-                          className={`w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black ${
-                            newCardExpiry.length > 0 && (newCardExpiry.length < 5 || (() => {
-                              if (newCardExpiry.length !== 5) return false;
-                              const [m, y] = newCardExpiry.split('/').map(Number);
-                              const now = new Date();
-                              const cm = now.getMonth() + 1;
-                              const cy = now.getFullYear() % 100;
-                              return y < cy || (y === cy && m < cm);
-                            })()) ? 'border-[#B3261E]' : 'border-gray-300'
-                          }`}
-                        />
-                        <CalendarIcon className="absolute right-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      </div>
-                      {newCardExpiry.length > 0 && newCardExpiry.length < 5 && (
-                        <p className="text-error mt-1" style={{ fontSize: '14px' }}>פורמט: MM/YY</p>
-                      )}
-                      {newCardExpiry.length === 5 && (() => {
-                        const [m, y] = newCardExpiry.split('/').map(Number);
-                        const now = new Date();
-                        const cm = now.getMonth() + 1;
-                        const cy = now.getFullYear() % 100;
-                        return y < cy || (y === cy && m < cm);
-                      })() && (
-                        <p className="text-error mt-1" style={{ fontSize: '14px' }}>הכרטיס פג תוקף</p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2 text-right">CVV</label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={newCardCvv}
-                          onChange={(e) => setNewCardCvv(e.target.value.replace(/\D/g, '').slice(0, 3))}
-                          className={`w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black ${
-                            newCardCvv.length > 0 && newCardCvv.length < 3 ? 'border-[#B3261E]' : 'border-gray-300'
-                          }`}
-                        />
-                        <LockIcon className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      </div>
-                      {newCardCvv.length > 0 && newCardCvv.length < 3 && (
-                        <p className="text-error mt-1" style={{ fontSize: '14px' }}>חסרות {3 - newCardCvv.length} ספרות</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (newCardNumber.length !== 16) {
-                      setMessage('מספר כרטיס חייב להכיל 16 ספרות');
-                      setMessageType('error');
-                      return;
-                    }
-                    if (newCardExpiry.length !== 5) {
-                      setMessage('תוקף לא תקין');
-                      setMessageType('error');
-                      return;
-                    }
-                    // Check if expiry date is in the past
-                    const [expMonth, expYear] = newCardExpiry.split('/').map(Number);
-                    const now = new Date();
-                    const currentMonth = now.getMonth() + 1;
-                    const currentYear = now.getFullYear() % 100;
-                    if (expYear < currentYear || (expYear === currentYear && expMonth < currentMonth)) {
-                      setMessage('הכרטיס פג תוקף');
-                      setMessageType('error');
-                      return;
-                    }
-                    if (newCardCvv.length !== 3) {
-                      setMessage('CVV חייב להכיל 3 ספרות');
-                      setMessageType('error');
-                      return;
-                    }
-                    try {
-                      const lastFour = newCardNumber.slice(-4);
+          {/* Credit Card Modal - extracted to shared component */}
+          <UpdateCardModal
+            isOpen={showCardModal}
+            onClose={() => setShowCardModal(false)}
+            communityId={communityId}
+            currentCardBrand={cardBrand}
+            currentCardLastFour={cardLastFour}
+            wasSuspended={isSuspended}
+            onSuccess={(data) => {
+              setCardLastFour(data.cardLastFour);
+              setCardBrand(data.cardBrand);
+              setSubscriptionCancelledAt(data.subscriptionCancelledAt ? new Date(data.subscriptionCancelledAt) : null);
+              refreshCommunity().catch(() => {});
+              setShowCardModal(false);
+              setActiveTab('payments');
+              setMessage(data.wasSuspended ? 'הקהילה חזרה לפעילות!' : 'אמצעי התשלום עודכן בהצלחה');
+              setMessageType('success');
+            }}
+            onError={(msg) => {
+              setMessage(msg);
+              setMessageType('error');
+            }}
+          />
 
-                      // Save to community via the dedicated payment endpoint —
-                      // works while SUSPENDED (renewal flow) and triggers the
-                      // pre-HYP reactivation placeholder server-side.
-                      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/payment`, {
-                        method: 'PATCH',
-                        headers: {
-                          'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                          cardLastFour: lastFour,
-                          cardBrand: 'Visa',
-                        }),
-                      });
-                      
-                      // Also save to user payment methods
-                      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/payment-methods`, {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ 
-                          cardLastFour: lastFour,
-                          cardBrand: 'Visa',
-                        }),
-                      });
-                      
-                      if (res.ok) {
-                        // Server returns the updated community — pre-HYP it
-                        // may also have flipped SUSPENDED→ACTIVE and cleared
-                        // suspendedAt / subscriptionCancelledAt as part of the
-                        // reactivation placeholder. Sync local state from the
-                        // response so the banners disappear immediately.
-                        const wasSuspended = isSuspended;
-                        const updated = await res.json().catch(() => null);
-                        setCardLastFour(updated?.cardLastFour ?? lastFour);
-                        setCardBrand(updated?.cardBrand ?? 'Visa');
-                        setSubscriptionCancelledAt(
-                          updated?.subscriptionCancelledAt ? new Date(updated.subscriptionCancelledAt) : null,
-                        );
-                        // Refresh the layout context so the top banner /
-                        // suspended popup re-evaluate against the new status.
-                        refreshCommunity().catch(() => {});
-                        setShowCardModal(false);
-                        setNewCardNumber('');
-                        setNewCardExpiry('');
-                        setNewCardCvv('');
-                        // Keep the user on Payments — the suspended-state effect
-                        // that forced this tab no longer fires once isSuspended
-                        // flips to false, so without this the success banner
-                        // would render under whatever tab they happened to land on.
-                        setActiveTab('payments');
-                        setMessage(wasSuspended ? 'הקהילה חזרה לפעילות!' : 'אמצעי התשלום עודכן בהצלחה');
-                        setMessageType('success');
-                      } else {
-                        setMessage('שגיאה בעדכון אמצעי התשלום');
-                        setMessageType('error');
-                      }
-                    } catch (err) {
-                      console.error('Error saving card', err);
-                      setMessage('שגיאה בעדכון אמצעי התשלום');
-                      setMessageType('error');
-                    }
-                  }}
-                  className="w-full mt-8 bg-black text-white py-4 rounded-xl font-bold text-lg hover:opacity-90 transition"
-                >
-                  שמור כרטיס
-                </button>
-                
-                <p className="text-center text-sm text-gray-500 mt-4">
-                  הכרטיס ישמש לחיוב המנוי החודשי של הקהילה.
-                </p>
-              </div>
-            </div>
-          )}
 
           {/* Price Change Confirmation Modal - Outside form */}
           {showPriceChangeConfirmModal && (() => {
@@ -2317,89 +2122,26 @@ export default function ManageCommunityPage() {
           })()}
 
           {/* Cancel Subscription Confirmation Modal - Outside form */}
-          {showCancelSubscriptionModal && (() => {
-            const effectiveDate = getCancellationEffectiveDate(trialStartDate);
-            const payingMembers = isPaidCommunity
-              ? Math.max(0, (community?.memberCount ?? 1) - 1)
-              : 0;
-            return (
-              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <div
-                  className="bg-white p-6 text-center"
-                  dir="rtl"
-                  style={{
-                    borderRadius: '16px',
-                    width: 'fit-content',
-                    maxWidth: 'min(90vw, 640px)',
-                  }}
-                >
-                  <h2
-                    className="font-semibold text-black"
-                    style={{ fontSize: '21px', marginBottom: '12px' }}
-                  >
-                    לבטל את המנוי?
-                  </h2>
-                  <p style={{ fontSize: '18px', fontWeight: 400, color: 'var(--color-gray-10)', marginBottom: '4px' }}>
-                    {`הקהילה תישאר פעילה עד ${formatHebrewDate(effectiveDate)}. לאחר מכן היא `}
-                    <span style={{ fontWeight: 600 }}>תושבת</span>
-                    {`, וניתן לחדש בכל עת.`}
-                  </p>
-                  {isPaidCommunity && (
-                    <p style={{ fontSize: '18px', fontWeight: 400, color: 'var(--color-gray-10)' }}>
-                      {`יש לך ${payingMembers} חברים משלמים. החיוב שלהם ייעצר אוטומטית בסוף התקופה.`}
-                    </p>
-                  )}
-                  <div className="flex gap-3 justify-center" style={{ marginTop: '24px' }}>
-                    <button
-                      type="button"
-                      onClick={() => setShowCancelSubscriptionModal(false)}
-                      disabled={cancellingSubscription}
-                      style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
-                      className="bg-white text-black border hover:bg-gray-50 transition disabled:opacity-50"
-                    >
-                      השארת המנוי
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setCancellingSubscription(true);
-                        try {
-                          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/payment`, {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ subscriptionCancelledAt: effectiveDate.toISOString() }),
-                          });
-                          if (res.ok) {
-                            setSubscriptionCancelledAt(effectiveDate);
-                            setShowCancelSubscriptionModal(false);
-                            setMessage('המנוי בוטל בהצלחה');
-                            setMessageType('success');
-                            // Refresh layout context so the red banner appears
-                            // on feed without needing a manual reload.
-                            refreshCommunity().catch(() => {});
-                          } else {
-                            setMessage('שגיאה בביטול המנוי');
-                            setMessageType('error');
-                            setShowCancelSubscriptionModal(false);
-                          }
-                        } catch {
-                          setMessage('שגיאה בביטול המנוי');
-                          setMessageType('error');
-                        } finally {
-                          setCancellingSubscription(false);
-                        }
-                      }}
-                      disabled={cancellingSubscription}
-                      style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
-                      className="bg-error text-white hover:opacity-90 transition disabled:opacity-50"
-                    >
-                      {cancellingSubscription ? 'מבטל...' : 'ביטול המנוי'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
+          <CancelSubscriptionModal
+            isOpen={showCancelSubscriptionModal}
+            onClose={() => setShowCancelSubscriptionModal(false)}
+            communityId={communityId}
+            effectiveDate={getCancellationEffectiveDate(trialStartDate)}
+            isPaidCommunity={isPaidCommunity}
+            paidMembersCount={isPaidCommunity ? Math.max(0, (community?.memberCount ?? 1) - 1) : 0}
+            onSuccess={(eff) => {
+              setSubscriptionCancelledAt(eff);
+              setShowCancelSubscriptionModal(false);
+              setMessage('המנוי בוטל בהצלחה');
+              setMessageType('success');
+              refreshCommunity().catch(() => {});
+            }}
+            onError={() => {
+              setMessage('שגיאה בביטול המנוי');
+              setMessageType('error');
+              setShowCancelSubscriptionModal(false);
+            }}
+          />
         </main>
       </div>
 

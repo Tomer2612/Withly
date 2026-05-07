@@ -8,12 +8,10 @@ import { useUser } from '../../../lib/UserContext';
 import { FaYoutube, FaWhatsapp, FaFacebook, FaInstagram } from 'react-icons/fa';
 import PlayIcon from '../../../components/icons/PlayIcon';
 import VideoPlayer, { VideoThumbnail } from '../../../components/VideoPlayer';
-import CalendarIcon from '../../../components/icons/CalendarIcon';
-import LockIcon from '../../../components/icons/LockIcon';
 import CloseIcon from '../../../components/icons/CloseIcon';
 import ChevronLeftIcon from '../../../components/icons/ChevronLeftIcon';
 import ChevronRightIcon from '../../../components/icons/ChevronRightIcon';
-import CreditCardIcon from '../../../components/icons/CreditCardIcon';
+import CreditCardForm, { isCardComplete } from '../../../components/CreditCardForm';
 import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface Community {
@@ -351,44 +349,7 @@ function CommunityPreviewContent() {
     setShowPaymentModal(false);
   };
 
-  // Card validation helpers
-  const getCardNumberError = () => {
-    if (cardNumber.length === 0) return null;
-    if (cardNumber.length < 16) return `חסרות ${16 - cardNumber.length} ספרות`;
-    return null;
-  };
-
-  const getExpiryError = () => {
-    if (cardExpiry.length === 0) return null;
-    if (cardExpiry.length < 5) return 'פורמט: MM/YY';
-    
-    const [monthStr, yearStr] = cardExpiry.split('/');
-    const month = parseInt(monthStr, 10);
-    const year = parseInt('20' + yearStr, 10);
-    
-    if (month < 1 || month > 12) return 'חודש לא תקין';
-    
-    const now = new Date();
-    const currentMonth = now.getMonth() + 1;
-    const currentYear = now.getFullYear();
-    
-    if (year < currentYear || (year === currentYear && month < currentMonth)) {
-      return 'כרטיס פג תוקף';
-    }
-    
-    return null;
-  };
-
-  const getCvvError = () => {
-    if (cardCvv.length === 0) return null;
-    if (cardCvv.length < 3) return `חסרות ${3 - cardCvv.length} ספרות`;
-    return null;
-  };
-
-  const isPaymentValid = cardNumber.length === 16 && 
-                         cardExpiry.length === 5 && 
-                         !getExpiryError() && 
-                         cardCvv.length === 3;
+  const isPaymentValid = isCardComplete(cardNumber, cardExpiry, cardCvv);
 
   if (loading || !community) {
     return (
@@ -437,7 +398,7 @@ function CommunityPreviewContent() {
                 </div>
                 
                 {/* Centered Name */}
-                <Link href={`/profile/${ownerData?.id}`} className="font-bold text-black text-xl mb-2 hover:underline block">{ownerData?.name || 'מנהל הקהילה'}</Link>
+                <Link href={`/profile/${ownerData?.id}`} className="font-bold text-black text-xl mb-2 hover:opacity-80 transition block">{ownerData?.name || 'מנהל הקהילה'}</Link>
                 
                 {/* Centered Bio */}
                 {ownerData?.bio && (
@@ -684,73 +645,14 @@ function CommunityPreviewContent() {
 
             <h2 className="text-2xl font-bold text-center mb-8">מתחילים 3 חודשי ניסיון חינם</h2>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2 text-right">מספר כרטיס</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={cardNumber}
-                    onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, '').slice(0, 16))}
-                    className="w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
-                    style={{ borderColor: getCardNumberError() ? 'var(--color-error)' : '#D1D5DB' }}
-                  />
-                  <CreditCardIcon className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                </div>
-                {getCardNumberError() && (
-                  <p className="text-sm mt-1" style={{ color: 'var(--color-error)' }}>{getCardNumberError()}</p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 text-right">תוקף</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={cardExpiry}
-                      onChange={(e) => {
-                        const newValue = e.target.value;
-                        const rawValue = newValue.replace(/\D/g, '').slice(0, 4);
-                        
-                        if (rawValue.length > 2) {
-                          // 3-4 digits: always show with slash (MM/Y or MM/YY)
-                          setCardExpiry(rawValue.slice(0, 2) + '/' + rawValue.slice(2));
-                        } else if (rawValue.length === 2 && newValue.length > cardExpiry.length) {
-                          // Exactly 2 digits AND typing forward: add slash
-                          setCardExpiry(rawValue + '/');
-                        } else {
-                          // 0-2 digits while deleting: just show raw
-                          setCardExpiry(rawValue);
-                        }
-                      }}
-                      className="w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
-                      style={{ borderColor: getExpiryError() ? 'var(--color-error)' : '#D1D5DB' }}
-                    />
-                    <CalendarIcon className="absolute right-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  </div>
-                  {getExpiryError() && (
-                    <p className="text-sm mt-1" style={{ color: 'var(--color-error)' }}>{getExpiryError()}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 text-right">CVV</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={cardCvv}
-                      onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, '').slice(0, 3))}
-                      className="w-full px-4 py-3 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
-                      style={{ borderColor: getCvvError() ? 'var(--color-error)' : '#D1D5DB' }}
-                    />
-                    <LockIcon className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  </div>
-                  {getCvvError() && (
-                    <p className="text-sm mt-1" style={{ color: 'var(--color-error)' }}>{getCvvError()}</p>
-                  )}
-                </div>
-              </div>
-            </div>
+            <CreditCardForm
+              cardNumber={cardNumber}
+              cardExpiry={cardExpiry}
+              cardCvv={cardCvv}
+              onCardNumberChange={setCardNumber}
+              onCardExpiryChange={setCardExpiry}
+              onCardCvvChange={setCardCvv}
+            />
 
             <button
               onClick={handlePaymentSubmit}

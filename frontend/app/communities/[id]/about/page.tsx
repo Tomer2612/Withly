@@ -12,6 +12,7 @@ import LinkIcon from '../../../components/icons/LinkIcon';
 import ChevronLeftIcon from '../../../components/icons/ChevronLeftIcon';
 import ChevronRightIcon from '../../../components/icons/ChevronRightIcon';
 import LogoutIcon from '../../../components/icons/LogoutIcon';
+import LeaveCommunityModal from '../../../components/LeaveCommunityModal';
 import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface Community {
@@ -325,7 +326,7 @@ export default function CommunityAboutPage() {
                 </div>
                 
                 {/* Centered Name */}
-                <Link href={`/profile/${ownerData?.id}`} className="font-bold text-black text-xl mb-2 hover:underline block">{ownerData?.name || 'מנהל הקהילה'}</Link>
+                <Link href={`/profile/${ownerData?.id}`} className="font-bold text-black text-xl mb-2 hover:opacity-80 transition block">{ownerData?.name || 'מנהל הקהילה'}</Link>
                 
                 {/* Centered Bio */}
                 {ownerData?.bio && (
@@ -483,47 +484,14 @@ export default function CommunityAboutPage() {
       </div>
 
       {/* Leave Community Confirmation Modal */}
-      {showLeaveModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div
-            className="bg-white p-6 shadow-lg"
-            style={{ borderRadius: '16px', width: 'fit-content', maxWidth: 'min(90vw, 640px)' }}
-            dir="rtl"
-          >
-            <div className="text-center">
-              <h3 className="font-semibold text-black mb-2" style={{ fontSize: '21px' }}>עזיבת הקהילה</h3>
-              <p className="mb-6" style={{ fontSize: '18px', color: 'var(--color-gray-10)' }}>
-                האם אתה בטוח שברצונך לעזוב את הקהילה <span className="font-semibold">{community?.name}</span>?
-                לאחר העזיבה, לא תהיה לך גישה לפוסטים ולא תוכל להשתתף בדיונים, עד להצטרפות מחדש
-              </p>
-              <div className="flex gap-3 justify-center">
-                <button
-                  onClick={() => setShowLeaveModal(false)}
-                  className="bg-white text-black border hover:bg-gray-50 transition"
-                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
-                >
-                  חזרה
-                </button>
-                <button
-                  onClick={handleLeaveCommunity}
-                  disabled={leavingCommunity}
-                  className="bg-error text-white hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center gap-2"
-                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
-                >
-                  {leavingCommunity ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      עוזב...
-                    </>
-                  ) : (
-                    'עזיבת הקהילה'
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <LeaveCommunityModal
+        isOpen={showLeaveModal}
+        onClose={() => setShowLeaveModal(false)}
+        communityName={community?.name ?? ''}
+        isLeaving={leavingCommunity}
+        onConfirm={handleLeaveCommunity}
+      />
+
     </main>
   );
 }

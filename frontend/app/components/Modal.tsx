@@ -34,17 +34,11 @@ export default function Modal({
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
-  // Prevent body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
+  // Intentionally NOT locking page scroll. Native scrollbars are browser
+  // chrome painted above DOM content, so the modal backdrop can't darken
+  // them — locking scroll would make the scrollbar disappear and either
+  // cause layout shift or require a fragile gutter workaround. Allowing
+  // the page to scroll behind the modal is the cleaner trade-off.
 
   if (!isOpen) return null;
 
