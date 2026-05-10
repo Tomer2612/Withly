@@ -11,6 +11,14 @@ export const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 const isProd = process.env.NODE_ENV === 'production';
 
+// Refresh cookie path — must match the URL the BROWSER hits, which depends
+// on whether nginx (or another proxy) prepends a path prefix in front of
+// the NestJS routes. NestJS's internal route is `/auth/refresh`, but on
+// prod nginx exposes the API under `/api/*` so the browser actually calls
+// `/api/auth/refresh`. Set REFRESH_COOKIE_PATH=/api/auth on prod; default
+// `/auth` is correct for local dev (no proxy prefix).
+const REFRESH_COOKIE_PATH = process.env.REFRESH_COOKIE_PATH ?? '/auth';
+
 export function setAccessCookie(res: Response, token: string) {
   res.cookie(ACCESS_TOKEN_COOKIE, token, {
     httpOnly: true,
@@ -21,15 +29,15 @@ export function setAccessCookie(res: Response, token: string) {
   });
 }
 
-// Refresh cookie is path-restricted to /auth so it isn't shipped on every
-// regular API request — only on refresh and logout.
+// Refresh cookie is path-restricted (see REFRESH_COOKIE_PATH above) so it
+// isn't shipped on every regular API request — only on refresh and logout.
 export function setRefreshCookie(res: Response, token: string) {
   res.cookie(REFRESH_TOKEN_COOKIE, token, {
     httpOnly: true,
     secure: isProd,
     sameSite: 'lax',
     maxAge: REFRESH_TOKEN_TTL_MS,
-    path: '/auth',
+    path: REFRESH_COOKIE_PATH,
   });
 }
 
@@ -43,5 +51,5 @@ export function clearAuthCookies(res: Response) {
     sameSite: 'lax' as const,
   };
   res.clearCookie(ACCESS_TOKEN_COOKIE, { ...clearOptions, path: '/' });
-  res.clearCookie(REFRESH_TOKEN_COOKIE, { ...clearOptions, path: '/auth' });
+  res.clearCookie(REFRESH_TOKEN_COOKIE, { ...clearOptions, path: REFRESH_COOKIE_PATH });
 }
