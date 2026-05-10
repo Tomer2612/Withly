@@ -21,7 +21,7 @@ const params = new URLSearchParams({
   PassP: HYP_PASSP,
   Amount: '99',
   Coin: '1',
-  PageLang: 'he',
+  PageLang: 'HEB',
   ClientName: 'Test User',
   email: 'test@example.com',
   Order: 'test-order-001',

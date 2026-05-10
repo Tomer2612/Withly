@@ -58,7 +58,7 @@ export class HypService {
       PassP: this.passp,
       Amount: input.amount.toString(),
       Coin: '1', // 1 = ILS
-      PageLang: 'he',
+      PageLang: 'HEB', // HYP expects HEB / ENG (not ISO he/en)
       ClientName: input.clientName,
       email: input.email,
       Order: input.order,
