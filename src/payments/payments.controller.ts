@@ -16,22 +16,16 @@ export class PaymentsController {
   @UseGuards(AuthGuard('jwt'))
   @Post('create-payment')
   async createPayment(@Req() req, @Body() body: CreatePaymentDto) {
-    // Pack userId + optional redirectPath into HYP's Info field as a
-    // semicolon-separated key:value list. HYP echoes Info back on the
-    // success redirect so paymentSuccess() can parse out where to send
-    // the user next.
-    const fragments = [
-      body.info ?? `userId:${req.user.userId}`,
-    ];
-    if (body.redirectPath) {
-      fragments.push(`redirect:${encodeURIComponent(body.redirectPath)}`);
-    }
+    // Info is free-text only — HYP echoes it back as a tag for support /
+    // debugging but it doesn't reliably round-trip on the success redirect.
+    // Payment context (which flow paid for what) belongs in `Order`, which
+    // does round-trip — see paymentSuccess() below.
     const url = await this.hypService.signPayment({
       amount: body.amount,
       clientName: body.clientName,
       email: body.email,
       order: body.order,
-      info: fragments.join(';'),
+      info: body.info ?? `userId:${req.user.userId}`,
     });
     return { url };
   }
@@ -50,14 +44,17 @@ export class PaymentsController {
   @Get('payment-success')
   async paymentSuccess(@Query() query: Record<string, string>, @Res() res: Response) {
     const frontend = process.env.FRONTEND_URL || 'http://localhost:3000';
-    // Extract redirect path from Info field (set in createPayment).
-    const info = query.Info ?? '';
-    const redirectMatch = info.match(/(?:^|;)redirect:([^;]+)/);
-    const redirectPath = redirectMatch ? decodeURIComponent(redirectMatch[1]) : '/';
-    const buildUrl = (params: string) => {
-      const sep = redirectPath.includes('?') ? '&' : '?';
-      return `${frontend}${redirectPath}${sep}${params}`;
-    };
+    // TODO when wiring real charge flows (HYP follow-up Phase 3):
+    //   parse `query.Order` (which round-trips reliably — verified on prod)
+    //   to determine where to send the user. Real Order values will encode
+    //   the flow context, e.g.:
+    //     ownersub-{communityId} → /communities/{slug}/manage?paid=ok
+    //     member-join-{communityId}-{userId} → /communities/{slug}/feed?paid=ok
+    //     renew-{communityId} → /communities/{slug}/manage?paid=ok
+    //   Until any of those flows is wired, default to "/" with the status flag.
+    const redirectPath = '/';
+    const buildUrl = (params: string) =>
+      `${frontend}${redirectPath}?${params}`;
     try {
       const result = await this.hypService.verifyTransaction(query);
       if (result.ok) {

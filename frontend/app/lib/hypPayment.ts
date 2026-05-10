@@ -16,16 +16,16 @@ export interface StartHypPaymentInput {
   amount: number;
   clientName: string;
   email: string;
-  /** Internal order id; HYP echoes it back on the success redirect. */
+  /**
+   * Internal order id; HYP echoes it back on the success redirect.
+   * Real flows should encode flow context here — e.g.
+   * `ownersub-{communityId}`, `member-join-{communityId}-{userId}`,
+   * `renew-{communityId}` — so the backend's payment-success handler
+   * can decide where to redirect the user without per-request plumbing.
+   */
   order: string;
   /** Optional free-text description. Defaults server-side to userId tag. */
   info?: string;
-  /**
-   * Frontend path to land on after payment-success verification. Encoded
-   * into HYP's Info field so it round-trips. E.g. "/test-hyp" or
-   * "/communities/{slug}/manage". Defaults to "/" if omitted.
-   */
-  redirectPath?: string;
 }
 
 export async function startHypPayment(input: StartHypPaymentInput): Promise<never> {
