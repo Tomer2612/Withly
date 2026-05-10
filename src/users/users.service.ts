@@ -371,6 +371,47 @@ export class UsersService {
     return { isFollowing: !!follow };
   }
 
+  // Returns the names of communities a given card is currently billing for
+  // a user — both communities the user owns (their Withly subscription
+  // billing card) and paid communities the user is a member of (their
+  // MemberSubscription billing card).
+  //
+  // During the HYP transition period (Phase 1 → Phase 6.1), checks both
+  // the new FK (`Community.paymentMethodId` / `MemberSubscription.paymentMethodId`)
+  // AND the legacy `cardLastFour + cardBrand` strings on Community. The
+  // legacy match goes away once Phase 6.1 backfill verifies every active
+  // community has been re-tokenized.
+  private async getCommunitiesUsingCard(
+    userId: string,
+    card: { id: string; cardLastFour: string; cardBrand: string },
+  ): Promise<string[]> {
+    const ownedActive = await this.prisma.community.findMany({
+      where: {
+        ownerId: userId,
+        subscriptionStatus: 'ACTIVE',
+        OR: [
+          { paymentMethodId: card.id },
+          { cardLastFour: card.cardLastFour, cardBrand: card.cardBrand },
+        ],
+      },
+      select: { name: true },
+    });
+
+    const memberSubs = await this.prisma.memberSubscription.findMany({
+      where: {
+        userId,
+        paymentMethodId: card.id,
+        status: 'ACTIVE',
+      },
+      select: { community: { select: { name: true } } },
+    });
+
+    return [
+      ...ownedActive.map((c) => c.name),
+      ...memberSubs.map((m) => m.community.name),
+    ];
+  }
+
   // Payment Methods
   async getPaymentMethods(userId: string) {
     const methods = await this.prisma.userPaymentMethod.findMany({
@@ -381,19 +422,16 @@ export class UsersService {
     });
 
     // Attach inUseCommunities per card so the UI can pre-empt the delete
-    // confirmation when a card is the active billing card on a community
-    // the user owns. Match is by lastFour + brand (no FK until HYP lands).
-    const ownedActive = await this.prisma.community.findMany({
-      where: { ownerId: userId, subscriptionStatus: 'ACTIVE' },
-      select: { name: true, cardLastFour: true, cardBrand: true },
-    });
+    // confirmation when a card is the active billing card on any of the
+    // user's communities (owned or paid-member).
+    const enriched = await Promise.all(
+      methods.map(async (m) => ({
+        ...m,
+        inUseCommunities: await this.getCommunitiesUsingCard(userId, m),
+      })),
+    );
 
-    return methods.map((m) => ({
-      ...m,
-      inUseCommunities: ownedActive
-        .filter((c) => c.cardLastFour === m.cardLastFour && c.cardBrand === m.cardBrand)
-        .map((c) => c.name),
-    }));
+    return enriched;
   }
 
   async addPaymentMethod(userId: string, cardLastFour: string, cardBrand: string = 'Visa') {
@@ -429,29 +467,21 @@ export class UsersService {
       throw new BadRequestException(ERROR_MESSAGES.CANNOT_DELETE_LAST_PAYMENT_METHOD);
     }
 
-    // Block deletion if this card is the active billing card on any community
-    // the user owns. Match is by lastFour + brand because the schema doesn't
-    // yet hold a FK from Community to UserPaymentMethod (HYP integration will
-    // introduce a proper token; until then this is the strongest signal).
+    // Block deletion if this card is currently billing any of the user's
+    // communities (owned or paid-member). Uses the shared helper so the
+    // pre-delete check is identical to the inUseCommunities listing the
+    // frontend already shows.
     const card = await this.prisma.userPaymentMethod.findFirst({
       where: { id: paymentMethodId, userId },
-      select: { cardLastFour: true, cardBrand: true },
+      select: { id: true, cardLastFour: true, cardBrand: true },
     });
     if (card) {
-      const inUse = await this.prisma.community.findMany({
-        where: {
-          ownerId: userId,
-          cardLastFour: card.cardLastFour,
-          cardBrand: card.cardBrand,
-          subscriptionStatus: 'ACTIVE',
-        },
-        select: { name: true },
-      });
+      const inUse = await this.getCommunitiesUsingCard(userId, card);
       if (inUse.length > 0) {
         throw new ConflictException({
           error: 'CARD_IN_USE',
           message: ERROR_MESSAGES.CARD_IN_USE,
-          communities: inUse.map((c) => c.name),
+          communities: inUse,
         });
       }
     }
@@ -535,6 +565,7 @@ export class UsersService {
         subscriptionCancelledAt: true,
         suspendedAt: true,
         trialStartDate: true,
+        nextBillingDate: true,
         _count: { select: { members: true } },
       },
     });
@@ -561,9 +592,13 @@ export class UsersService {
         subscriptionStatus: c.subscriptionStatus,
         subscriptionCancelledAt: c.subscriptionCancelledAt,
         suspendedAt: c.suspendedAt,
+        // Prefer the authoritative HYP-supplied date from DB; fall back to
+        // the trial-cycle computation for pre-HYP communities (Phase 1.4
+        // transition). Once Phase 6.3 cleanup runs and every community has
+        // a real subscription, the fallback can be deleted.
         nextBillDate:
           c.subscriptionStatus === 'ACTIVE' && !c.subscriptionCancelledAt
-            ? this.getNextBillingDate(c.trialStartDate)
+            ? c.nextBillingDate ?? this.getNextBillingDate(c.trialStartDate)
             : null,
         effectiveEndDate: c.subscriptionCancelledAt,
         paidMembersCount,

@@ -8,49 +8,53 @@ datasource db {
 }
 
 model User {
-  id                       String              @id @default(cuid())
-  email                    String              @unique
+  id                       String               @id @default(cuid())
+  email                    String               @unique
   name                     String
   password                 String
-  createdAt                DateTime            @default(now())
+  createdAt                DateTime             @default(now())
   profileImage             String?
-  googleId                 String?             @unique
-  lastActiveAt             DateTime?           @default(now())
-  showOnline               Boolean             @default(true)
+  googleId                 String?              @unique
+  lastActiveAt             DateTime?            @default(now())
+  showOnline               Boolean              @default(true)
   emailVerificationExpires DateTime?
-  emailVerificationToken   String?             @unique
-  isEmailVerified          Boolean             @default(false)
+  emailVerificationToken   String?              @unique
+  isEmailVerified          Boolean              @default(false)
   passwordResetExpires     DateTime?
-  passwordResetToken       String?             @unique
+  passwordResetToken       String?              @unique
   bio                      String?
   coverImage               String?
   location                 String?
-  notifyComments           Boolean             @default(false)
-  notifyCommunityJoins     Boolean             @default(true)
-  notifyFollows            Boolean             @default(true)
-  notifyLikes              Boolean             @default(false)
-  notifyMentions           Boolean             @default(true)
-  notifyNewPosts           Boolean             @default(false)
+  notifyComments           Boolean              @default(false)
+  notifyCommunityJoins     Boolean              @default(true)
+  notifyFollows            Boolean              @default(true)
+  notifyLikes              Boolean              @default(false)
+  notifyMentions           Boolean              @default(true)
+  notifyNewPosts           Boolean              @default(false)
   refreshTokens            RefreshToken[]
   posts                    Post[]
   comments                 Comment[]
   communities              Community[]
   bans                     CommunityBan[]
   memberships              CommunityMember[]
-  conversationsAsP1        Conversation[]      @relation("ConversationParticipant1")
-  conversationsAsP2        Conversation[]      @relation("ConversationParticipant2")
+  conversationsAsP1        Conversation[]       @relation("ConversationParticipant1")
+  conversationsAsP2        Conversation[]       @relation("ConversationParticipant2")
   courseEnrollments        CourseEnrollment[]
   coursesCreated           Course[]
   lessonProgress           LessonProgress[]
   likes                    Like[]
   messagesSent             Message[]
-  notificationsSent        Notification[]      @relation("NotificationActor")
-  notifications            Notification[]      @relation("NotificationRecipient")
+  notificationsSent        Notification[]       @relation("NotificationActor")
+  notifications            Notification[]       @relation("NotificationRecipient")
   savedPosts               SavedPost[]
-  following                UserFollow[]        @relation("UserFollowing")
-  followers                UserFollow[]        @relation("UserFollowers")
+  following                UserFollow[]         @relation("UserFollowing")
+  followers                UserFollow[]         @relation("UserFollowers")
   paymentMethods           UserPaymentMethod[]
   pollVotes                PollVote[]
+  // HYP customer object id; populated on first card tokenization (Phase 3).
+  // Reused across all subsequent flows so we don't create duplicate customers.
+  hypCustomerId            String?              @unique
+  memberSubscriptions      MemberSubscription[]
 
   @@index([lastActiveAt])
 }
@@ -74,13 +78,19 @@ model RefreshToken {
 }
 
 model UserPaymentMethod {
-  id           String   @id @default(cuid())
-  userId       String
-  cardLastFour String
-  cardBrand    String   @default("Visa")
-  createdAt    DateTime @default(now())
-  isPrimary    Boolean  @default(false)
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                  String               @id @default(cuid())
+  userId              String
+  cardLastFour        String
+  cardBrand           String               @default("Visa")
+  createdAt           DateTime             @default(now())
+  isPrimary           Boolean              @default(false)
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // HYP-tokenized payment method id. Null on rows that predate HYP wiring;
+  // backfilled lazily on next card-update (Phase 6.1).
+  hypPaymentMethodId  String?              @unique
+  // Reverse relations: communities and member subscriptions billing on this card.
+  communitiesBilled   Community[]
+  memberSubscriptions MemberSubscription[]
 
   @@map("user_payment_methods")
 }
@@ -117,59 +127,68 @@ model Notification {
 }
 
 model Community {
-  id             String            @id @default(cuid())
-  name           String
-  description    String
-  ownerId        String
-  createdAt      DateTime          @default(now())
-  image          String?
-  topic          String?
-  facebookUrl    String?
-  galleryImages  String[]
-  galleryVideos  String[]
-  instagramUrl   String?
-  whatsappUrl    String?
-  youtubeUrl     String?
-  rules          String[]
-  price          Float?            @default(0)
-  logo           String?
-  cardBrand      String?
-  cardLastFour   String?
-  trialStartDate   DateTime?
-  showOnlineMembers Boolean          @default(true)
-  status            CommunityStatus  @default(DRAFT)
-  subscriptionStatus CommunitySubscriptionStatus @default(ACTIVE)
-  suspendedAt       DateTime?
+  id                      String                      @id @default(cuid())
+  name                    String
+  description             String
+  ownerId                 String
+  createdAt               DateTime                    @default(now())
+  image                   String?
+  topic                   String?
+  facebookUrl             String?
+  galleryImages           String[]
+  galleryVideos           String[]
+  instagramUrl            String?
+  whatsappUrl             String?
+  youtubeUrl              String?
+  rules                   String[]
+  price                   Float?                      @default(0)
+  logo                    String?
+  cardBrand               String?
+  cardLastFour            String?
+  trialStartDate          DateTime?
+  showOnlineMembers       Boolean                     @default(true)
+  status                  CommunityStatus             @default(DRAFT)
+  subscriptionStatus      CommunitySubscriptionStatus @default(ACTIVE)
+  suspendedAt             DateTime?
   subscriptionCancelledAt DateTime?
-  pendingPrice      Float?
+  pendingPrice            Float?
   pendingPriceEffectiveAt DateTime?
-  priceChangeAnnouncedAt DateTime?
-  slug             String?           @unique
-  posts          Post[]
-  owner          User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  bans           CommunityBan[]
-  members        CommunityMember[]
-  courses        Course[]
-  events         Event[]
+  priceChangeAnnouncedAt  DateTime?
+  slug                    String?                     @unique
+  // HYP-era billing fields (added Phase 1.2). Old cardLastFour/cardBrand
+  // strings stay until Phase 6.1 backfill is verified, then dropped.
+  paymentMethodId         String?
+  paymentMethod           UserPaymentMethod?          @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
+  hypSubscriptionId       String?                     @unique
+  nextBillingDate         DateTime?
+  currentPeriodStart      DateTime?
+  currentPeriodEnd        DateTime?
+  posts                   Post[]
+  owner                   User                        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  bans                    CommunityBan[]
+  members                 CommunityMember[]
+  courses                 Course[]
+  events                  Event[]
+  memberSubscriptions     MemberSubscription[]
 
   @@map("communities")
 }
 
 model CommunityMember {
-  id          String     @id @default(cuid())
-  userId      String
-  communityId String
-  joinedAt    DateTime   @default(now())
-  role        MemberRole @default(USER)
+  id                            String     @id @default(cuid())
+  userId                        String
+  communityId                   String
+  joinedAt                      DateTime   @default(now())
+  role                          MemberRole @default(USER)
   // Set to community.pendingPriceEffectiveAt when the member dismisses the
   // price-change announcement popup. Compared against the community's
   // pendingPriceEffectiveAt to decide whether to show the popup again.
   priceChangeSeenForEffectiveAt DateTime?
   // Set to community.subscriptionCancelledAt when the member dismisses the
   // scheduled-suspension popup. Same compare-and-show pattern as above.
-  suspensionScheduledSeenAt DateTime?
-  community   Community  @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  suspensionScheduledSeenAt     DateTime?
+  community                     Community  @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  user                          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, communityId])
   @@index([communityId])
@@ -292,31 +311,31 @@ model SavedPost {
 }
 
 model Event {
-  id            String      @id @default(cuid())
-  title         String
-  description   String?
-  coverImage    String?
-  date          DateTime
-  endDate       DateTime?
-  duration      Int?
-  timezone      String      @default("Asia/Jerusalem")
-  isRecurring   Boolean     @default(false)
-  recurringType String?
-  locationType  String      @default("online")
-  locationName  String?
-  locationUrl   String?
-  category      String?
-  capacity      Int?
-  sendReminders Boolean     @default(true)
-  reminderDays  Int         @default(1)
+  id             String      @id @default(cuid())
+  title          String
+  description    String?
+  coverImage     String?
+  date           DateTime
+  endDate        DateTime?
+  duration       Int?
+  timezone       String      @default("Asia/Jerusalem")
+  isRecurring    Boolean     @default(false)
+  recurringType  String?
+  locationType   String      @default("online")
+  locationName   String?
+  locationUrl    String?
+  category       String?
+  capacity       Int?
+  sendReminders  Boolean     @default(true)
+  reminderDays   Int         @default(1)
   reminderSentAt DateTime?
-  attendeeType  String      @default("all")
-  communityId   String
-  createdById   String
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  rsvps         EventRsvp[]
-  community     Community   @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  attendeeType   String      @default("all")
+  communityId    String
+  createdById    String
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  rsvps          EventRsvp[]
+  community      Community   @relation(fields: [communityId], references: [id], onDelete: Cascade)
 
   @@map("events")
 }
@@ -521,4 +540,43 @@ enum RsvpStatus {
   GOING
   MAYBE
   NOT_GOING
+}
+
+// Per-member billing record for paid communities (added Phase 1.2 of HYP
+// integration). One row per (user, community) when a member joins a paid
+// community via HYP. Pre-HYP this table is empty — populated only after
+// HYP wiring lands and members start being charged for joining.
+model MemberSubscription {
+  id                 String                   @id @default(cuid())
+  userId             String
+  user               User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  communityId        String
+  community          Community                @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  paymentMethodId    String?
+  paymentMethod      UserPaymentMethod?       @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
+  hypSubscriptionId  String                   @unique
+  // Locks in the price the member started at — replaces the placeholder of
+  // reading the current `community.price` when computing historical revenue.
+  priceAtJoin        Float
+  nextBillingDate    DateTime
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  status             MemberSubscriptionStatus @default(ACTIVE)
+  // Set when the member requested to leave; HYP keeps charging until
+  // `currentPeriodEnd`, then sub auto-cancels.
+  cancelledAt        DateTime?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  @@index([userId])
+  @@index([communityId])
+  @@index([status])
+  @@map("member_subscriptions")
+}
+
+enum MemberSubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  ENDED
 }
