@@ -14,6 +14,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { MessagesModule } from './messages/messages.module';
 import { CoursesModule } from './courses/courses.module';
 import { StorageModule } from './common/storage.module';
+import { PaymentsModule } from './payments/payments.module';
 import { ActivityMiddleware } from './common/activity.middleware';
 
 
@@ -48,6 +49,7 @@ import { ActivityMiddleware } from './common/activity.middleware';
     NotificationsModule,
     MessagesModule,
     CoursesModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [
