@@ -277,12 +277,37 @@ export class AuthService {
     // Replay defence: a token that's been replaced or revoked is being
     // submitted by a stolen-token holder. Burn every active refresh token
     // for this user so the attacker AND the legitimate session both lose.
-    if (row.revokedAt || row.replacedById) {
-      await this.prisma.refreshToken.updateMany({
-        where: { userId: row.userId, revokedAt: null },
-        data: { revokedAt: new Date() },
+    //
+    // Exception: a brief grace window when the replacement was issued very
+    // recently. This handles the multi-tab / multi-device race where two
+    // sessions both rotate at almost the same time — Tab A's request lands
+    // first, rotates T1 → T2; Tab B's request was already in flight with
+    // the OLD cookie, lands with T1, and would otherwise trip reuse
+    // detection and revoke the (legitimate) just-issued T2. Inside the
+    // window we re-rotate cleanly instead of kicking.
+    const REUSE_GRACE_MS = 30_000;
+    if (row.revokedAt && !row.replacedById) {
+      // Genuinely revoked (logout, account-delete, prior reuse) — reject hard.
+      throw new UnauthorizedException('Refresh token revoked');
+    }
+    if (row.replacedById) {
+      const replacement = await this.prisma.refreshToken.findUnique({
+        where: { id: row.replacedById },
+        select: { createdAt: true, revokedAt: true },
       });
-      throw new UnauthorizedException('Refresh token reuse detected');
+      const within = replacement && !replacement.revokedAt &&
+        Date.now() - replacement.createdAt.getTime() < REUSE_GRACE_MS;
+      if (!within) {
+        // Genuine reuse — burn every active token for this user.
+        await this.prisma.refreshToken.updateMany({
+          where: { userId: row.userId, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+        throw new UnauthorizedException('Refresh token reuse detected');
+      }
+      // Inside grace window — fall through to normal rotation. The orphaned
+      // T2 stays in DB unused; whichever Set-Cookie response lands last
+      // wins (T2 or T3). T2 will be cleaned up by the next rotation chain.
     }
 
     if (row.expiresAt < new Date()) {
