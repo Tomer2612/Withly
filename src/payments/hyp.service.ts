@@ -140,7 +140,13 @@ export class HypService {
     }
 
     const text = await res.text();
-    const body = Object.fromEntries(new URLSearchParams(text).entries());
+    // HYP's response body sometimes ends with a trailing newline, which
+    // attaches to the last URL-parsed value (typically CCode). Trim every
+    // value so equality checks aren't confused by stray whitespace.
+    const body: Record<string, string> = {};
+    for (const [k, v] of new URLSearchParams(text).entries()) {
+      body[k] = v.trim();
+    }
     const ccode = body.CCode ?? null;
     const ok = ccode === '0';
 
