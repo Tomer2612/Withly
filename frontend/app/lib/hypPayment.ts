@@ -20,6 +20,12 @@ export interface StartHypPaymentInput {
   order: string;
   /** Optional free-text description. Defaults server-side to userId tag. */
   info?: string;
+  /**
+   * Frontend path to land on after payment-success verification. Encoded
+   * into HYP's Info field so it round-trips. E.g. "/test-hyp" or
+   * "/communities/{slug}/manage". Defaults to "/" if omitted.
+   */
+  redirectPath?: string;
 }
 
 export async function startHypPayment(input: StartHypPaymentInput): Promise<never> {

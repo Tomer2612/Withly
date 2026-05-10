@@ -16,12 +16,22 @@ export class PaymentsController {
   @UseGuards(AuthGuard('jwt'))
   @Post('create-payment')
   async createPayment(@Req() req, @Body() body: CreatePaymentDto) {
+    // Pack userId + optional redirectPath into HYP's Info field as a
+    // semicolon-separated key:value list. HYP echoes Info back on the
+    // success redirect so paymentSuccess() can parse out where to send
+    // the user next.
+    const fragments = [
+      body.info ?? `userId:${req.user.userId}`,
+    ];
+    if (body.redirectPath) {
+      fragments.push(`redirect:${encodeURIComponent(body.redirectPath)}`);
+    }
     const url = await this.hypService.signPayment({
       amount: body.amount,
       clientName: body.clientName,
       email: body.email,
       order: body.order,
-      info: body.info ?? `userId:${req.user.userId}`,
+      info: fragments.join(';'),
     });
     return { url };
   }
@@ -40,6 +50,14 @@ export class PaymentsController {
   @Get('payment-success')
   async paymentSuccess(@Query() query: Record<string, string>, @Res() res: Response) {
     const frontend = process.env.FRONTEND_URL || 'http://localhost:3000';
+    // Extract redirect path from Info field (set in createPayment).
+    const info = query.Info ?? '';
+    const redirectMatch = info.match(/(?:^|;)redirect:([^;]+)/);
+    const redirectPath = redirectMatch ? decodeURIComponent(redirectMatch[1]) : '/';
+    const buildUrl = (params: string) => {
+      const sep = redirectPath.includes('?') ? '&' : '?';
+      return `${frontend}${redirectPath}${sep}${params}`;
+    };
     try {
       const result = await this.hypService.verifyTransaction(query);
       if (result.ok) {
@@ -47,11 +65,11 @@ export class PaymentsController {
           `Payment verified: Id=${query.Id} Order=${query.Order} Amount=${query.Amount}`,
         );
         const order = encodeURIComponent(query.Order ?? '');
-        return res.redirect(`${frontend}/?paid=ok&order=${order}`);
+        return res.redirect(buildUrl(`paid=ok&order=${order}`));
       }
-      return res.redirect(`${frontend}/?paid=fail&ccode=${result.ccode ?? 'unknown'}`);
+      return res.redirect(buildUrl(`paid=fail&ccode=${result.ccode ?? 'unknown'}`));
     } catch {
-      return res.redirect(`${frontend}/?paid=error`);
+      return res.redirect(buildUrl('paid=error'));
     }
   }
 }

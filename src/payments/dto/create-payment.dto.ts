@@ -26,4 +26,13 @@ export class CreatePaymentDto {
   @IsString()
   @MaxLength(200)
   info?: string;
+
+  // Frontend path to redirect the user to after the payment-success
+  // verification. Encoded into HYP's Info field so it round-trips. Real
+  // flows pass e.g. "/communities/{slug}/manage" to land the user back
+  // where they started. Defaults to "/" if omitted.
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  redirectPath?: string;
 }
