@@ -22,6 +22,7 @@ const params = new URLSearchParams({
   Amount: '99',
   Coin: '1',
   PageLang: 'HEB',
+  SendHesh: 'True',
   ClientName: 'Test User',
   email: 'test@example.com',
   Order: 'test-order-001',

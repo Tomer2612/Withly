@@ -59,6 +59,7 @@ export class HypService {
       Amount: input.amount.toString(),
       Coin: '1', // 1 = ILS
       PageLang: 'HEB', // HYP expects HEB / ENG (not ISO he/en)
+      SendHesh: 'True', // Trigger automatic receipt + customer email after charge
       ClientName: input.clientName,
       email: input.email,
       Order: input.order,
