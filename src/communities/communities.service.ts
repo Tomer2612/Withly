@@ -145,48 +145,6 @@ export class CommunitiesService {
         }
       }
 
-      // Lazy flip ACTIVE → SUSPENDED when the owner-set cancellation date has
-      // passed. Done on read because we don't want a cron yet — HYP step will
-      // own the time-based transition properly. Only fires if the date is
-      // actually past; HYP webhook owns the SUSPENDED → ACTIVE direction.
-      if (
-        community.subscriptionStatus === 'ACTIVE'
-        && community.subscriptionCancelledAt
-        && community.subscriptionCancelledAt <= new Date()
-      ) {
-        const ownerId = community.ownerId;
-        community = await this.prisma.community.update({
-          where: { id: community.id },
-          data: {
-            subscriptionStatus: 'SUSPENDED',
-            suspendedAt: new Date(),
-          },
-          include,
-        });
-        // Fire-and-forget: members get notified that the community went down.
-        void this.notifyCommunitySuspended(community.id, ownerId).catch(() => {});
-      }
-
-      // Lazy flip pending price → price when its effective date has passed.
-      // Same placeholder pattern as the suspension flip. Real billing /
-      // grandfathering moves to HYP later.
-      if (
-        community.pendingPrice !== null
-        && community.pendingPriceEffectiveAt
-        && community.pendingPriceEffectiveAt <= new Date()
-      ) {
-        community = await this.prisma.community.update({
-          where: { id: community.id },
-          data: {
-            price: community.pendingPrice,
-            pendingPrice: null,
-            pendingPriceEffectiveAt: null,
-            priceChangeAnnouncedAt: null,
-          },
-          include,
-        });
-      }
-
       // Surface a memberCount field derived from _count, keeping the same
       // wire shape callers expect after the column was dropped.
       return { ...community, memberCount: community._count.members + 1 };
@@ -564,18 +522,6 @@ export class CommunitiesService {
       memberships
         .filter(m => m.userId !== ownerId)
         .map(m => this.notificationsService.notifyCommunityReactivated(m.userId, ownerId, communityId)),
-    );
-  }
-
-  private async notifyCommunitySuspended(communityId: string, ownerId: string) {
-    const memberships = await this.prisma.communityMember.findMany({
-      where: { communityId },
-      select: { userId: true },
-    });
-    await Promise.all(
-      memberships
-        .filter(m => m.userId !== ownerId)
-        .map(m => this.notificationsService.notifyCommunitySuspended(m.userId, ownerId, communityId)),
     );
   }
 
