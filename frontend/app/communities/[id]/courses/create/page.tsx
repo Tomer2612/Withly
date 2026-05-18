@@ -24,6 +24,7 @@ import ArrowDownIcon from '../../../../components/icons/ArrowDownIcon';
 import CloseIcon from '../../../../components/icons/CloseIcon';
 import CheckIcon from '../../../../components/icons/CheckIcon';
 import ClockIcon from '../../../../components/icons/ClockIcon';
+import StickySaveBar from '../../../../components/StickySaveBar';
 
 interface QuizOptionForm {
   id?: string;
@@ -166,16 +167,39 @@ export default function CreateCoursePage() {
     setCourse(prev => ({
       ...prev,
       chapters: [
-        ...prev.chapters,
+        ...prev.chapters.map(c => ({ ...c, expanded: false })),
         {
           title: `פרק ${prev.chapters.length + 1}`,
           order: prev.chapters.length,
-          lessons: [],
+          lessons: [
+            {
+              title: 'שיעור 1',
+              content: '',
+              videoUrl: '',
+              duration: 10,
+              order: 0,
+              isNew: true,
+              expanded: true,
+              lessonType: 'content',
+              images: [],
+              imageFiles: [],
+              files: [],
+              links: [],
+              quiz: [],
+              contentOrder: ['video', 'links', 'images', 'text'],
+            },
+          ],
           isNew: true,
           expanded: true,
         },
       ],
     }));
+    // The "at least one chapter" error is now resolved — clear it.
+    setErrors(prev => { const n = { ...prev }; delete n.chapters; return n; });
+  };
+
+  const setAllChaptersExpanded = (expanded: boolean) => {
+    setCourse(prev => ({ ...prev, chapters: prev.chapters.map(c => ({ ...c, expanded })) }));
   };
 
   const updateChapter = (index: number, updates: Partial<ChapterForm>) => {
@@ -230,6 +254,12 @@ export default function CreateCoursePage() {
           : chapter
       ),
     }));
+    // This chapter now has a lesson — clear its "at least one lesson" error.
+    setErrors(prev => {
+      const n = { ...prev };
+      delete n[`chapter_${chapterIndex}_lessons`];
+      return n;
+    });
   };
 
   const updateLesson = (chapterIndex: number, lessonIndex: number, updates: Partial<LessonForm>) => {
@@ -441,6 +471,18 @@ export default function CreateCoursePage() {
     }
   };
 
+  // On a create page "last-saved" is the empty form, so the bar shows once
+  // the user has entered anything. Cancel abandons creation → back to the
+  // courses list (resetting an empty-ish form in place is pointless here).
+  const isDirty =
+    course.title.trim() !== '' ||
+    course.description.trim() !== '' ||
+    course.image !== null ||
+    course.chapters.length > 0;
+
+  const allChaptersExpanded =
+    course.chapters.length > 0 && course.chapters.every(c => c.expanded);
+
   const handleSave = async () => {
     const validationErrors = validateForm();
     if (Object.keys(validationErrors).length > 0) {
@@ -581,7 +623,7 @@ export default function CreateCoursePage() {
       />
 
       {/* Form Section */}
-      <section className="min-h-[calc(100vh-80px)] px-4 py-10">
+      <section className="min-h-[calc(100vh-80px)] px-4 py-10 pb-28">
         <div className="w-full max-w-5xl mx-auto">
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -710,16 +752,29 @@ export default function CreateCoursePage() {
             <div id="chapters-section" className="bg-white rounded-xl shadow-sm p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-bold text-lg text-gray-800">פרקים ושיעורים</h2>
-                <button
-                  onClick={addChapter}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-black text-white rounded-lg hover:bg-gray-800 transition font-normal" style={{ fontSize: '16px' }}
-                >
-                  הוסף פרק
-                  <PlusIcon size={16} color="white" />
-                </button>
+                <div className="flex items-center gap-2">
+                  {course.chapters.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setAllChaptersExpanded(!allChaptersExpanded)}
+                      aria-label={allChaptersExpanded ? 'כווץ הכל' : 'פתח הכל'}
+                      title={allChaptersExpanded ? 'כווץ הכל' : 'פתח הכל'}
+                      className="p-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition"
+                    >
+                      {allChaptersExpanded ? <ChevronUpIcon size={20} color="#374151" /> : <ChevronDownIcon size={20} color="#374151" />}
+                    </button>
+                  )}
+                  <button
+                    onClick={addChapter}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-black text-white rounded-lg hover:bg-gray-800 transition font-normal" style={{ fontSize: '16px' }}
+                  >
+                    הוסף פרק
+                    <PlusIcon size={16} color="white" />
+                  </button>
+                </div>
               </div>
 
-              {errors.chapters && (
+              {errors.chapters && course.chapters.length === 0 && (
                 <div className="mb-4 p-3 rounded-lg text-sm" style={{ backgroundColor: '#FDECEA', color: '#B3261E' }}>
                   {errors.chapters}
                 </div>
@@ -759,10 +814,7 @@ export default function CreateCoursePage() {
                           />
                           <span className="text-xs block" style={{ color: '#A1A1AA' }}>(לחץ לשנות שם)</span>
                           {errors[`chapter_${chapterIndex}_title`] && (
-                            <span className="text-xs" style={{ color: '#B3261E' }}>{errors[`chapter_${chapterIndex}_title`]}</span>
-                          )}
-                          {errors[`chapter_${chapterIndex}_lessons`] && (
-                            <span className="text-xs block mt-1" style={{ color: '#B3261E' }}>{errors[`chapter_${chapterIndex}_lessons`]}</span>
+                            <span className="text-xs block mt-1 w-fit px-2 py-1 rounded" style={{ backgroundColor: '#FDECEA', color: '#B3261E' }}>{errors[`chapter_${chapterIndex}_title`]}</span>
                           )}
                         </div>
                         <span className="font-normal text-white" style={{ fontSize: '16px' }}>
@@ -785,6 +837,12 @@ export default function CreateCoursePage() {
                           <TrashIcon size={16} color="white" />
                         </button>
                       </div>
+
+                      {errors[`chapter_${chapterIndex}_lessons`] && chapter.lessons.length === 0 && (
+                        <div className="m-4 p-3 rounded-lg text-sm" style={{ backgroundColor: '#FDECEA', color: '#B3261E' }}>
+                          {errors[`chapter_${chapterIndex}_lessons`]}
+                        </div>
+                      )}
 
                       {/* Chapter Lessons */}
                       {chapter.expanded && (
@@ -1625,14 +1683,15 @@ export default function CreateCoursePage() {
                     </div>
                   ))}
 
-                  {/* Add Chapter button at the end */}
+                  {/* Add Chapter button at the end — solid, distinct from
+                      the dashed per-chapter "הוסף שיעור" buttons. */}
                   <button
                     onClick={addChapter}
-                    className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-gray-400 hover:bg-gray-50 transition flex items-center justify-center gap-2 font-normal"
+                    className="w-full py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition flex items-center justify-center gap-2 font-normal"
                     style={{ fontSize: '16px' }}
                   >
                     הוסף פרק
-                    <PlusIcon size={16} color="#4B5563" />
+                    <PlusIcon size={16} color="white" />
                   </button>
                 </div>
               )}
@@ -1677,23 +1736,16 @@ export default function CreateCoursePage() {
                 <span>{error}</span>
               </div>
             )}
-            <div className="flex justify-center gap-4">
-              <Link
-                href={`/communities/${communityId}/courses`}
-                className="px-6 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors"
-              >
-                ביטול
-              </Link>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="px-6 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors flex items-center gap-2"
-              >
-                {saving ? 'יוצר...' : 'שמור קורס'}
-                <FaSave className="w-4 h-4" />
-              </button>
-            </div>
           </div>
+
+          <StickySaveBar
+            visible={isDirty}
+            saving={saving}
+            onSave={handleSave}
+            onCancel={() => router.push(`/communities/${communityId}/courses`)}
+            saveLabel="שמור קורס"
+            savingLabel="יוצר..."
+          />
         </div>
       </section>
     </main>
