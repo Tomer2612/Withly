@@ -29,6 +29,7 @@ import ComingSoonTooltip from '../../../components/ComingSoonTooltip';
 import CancelSubscriptionModal from '../../../components/CancelSubscriptionModal';
 import UpdateCardModal from '../../../components/UpdateCardModal';
 import { getImageUrl } from '@/app/lib/imageUrl';
+import StickySaveBar from '../../../components/StickySaveBar';
 
 interface Community {
   id: string;
@@ -127,8 +128,6 @@ export default function ManageCommunityPage() {
   // Slug
   const [slug, setSlug] = useState('');
   const [slugError, setSlugError] = useState('');
-  const [slugSuccess, setSlugSuccess] = useState('');
-  const [slugLoading, setSlugLoading] = useState(false);
   
   // Social links
   const [youtubeUrl, setYoutubeUrl] = useState('');
@@ -215,28 +214,34 @@ export default function ManageCommunityPage() {
   ];
 
   // Track initial form values to detect unsaved changes
-  const initialFormRef = useRef<{ name: string; description: string; topic: string; slug: string; rules: string[]; youtubeUrl: string; whatsappUrl: string; facebookUrl: string; instagramUrl: string; price: number; isPaidCommunity: boolean; showOnlineMembers: boolean; communityStatus: string } | null>(null);
+  const initialFormRef = useRef<{ name: string; description: string; topic: string; slug: string; rules: string[]; galleryVideos: string[]; youtubeUrl: string; whatsappUrl: string; facebookUrl: string; instagramUrl: string; price: number; isPaidCommunity: boolean; showOnlineMembers: boolean; communityStatus: string } | null>(null);
 
-  const hasUnsavedChanges = () => {
+  // Pricing is owned entirely by the Payments tab's contextual button +
+  // announcement popup, so it must NOT drive the floating bar (that's the
+  // cross-tab leak). `includePricing` stays true for the navigation-away
+  // guard, so leaving the page with an uncommitted price change still warns.
+  const hasUnsavedChanges = (includePricing = true) => {
     const init = initialFormRef.current;
     if (!init) return false;
+    const pricingChanged =
+      price !== init.price || isPaidCommunity !== init.isPaidCommunity;
     return (
       name !== init.name ||
       description !== init.description ||
       topic !== init.topic ||
       slug !== init.slug ||
       JSON.stringify(rules) !== JSON.stringify(init.rules) ||
+      JSON.stringify(galleryVideos) !== JSON.stringify(init.galleryVideos) ||
       youtubeUrl !== init.youtubeUrl ||
       whatsappUrl !== init.whatsappUrl ||
       facebookUrl !== init.facebookUrl ||
       instagramUrl !== init.instagramUrl ||
-      price !== init.price ||
-      isPaidCommunity !== init.isPaidCommunity ||
       showOnlineMembers !== init.showOnlineMembers ||
       communityStatus !== init.communityStatus ||
       images.some(img => !img.isExisting) ||
       galleryVideoFiles.length > 0 ||
-      !!(logo && !logo.isExisting)
+      !!(logo && !logo.isExisting) ||
+      (includePricing && pricingChanged)
     );
   };
 
@@ -389,6 +394,7 @@ export default function ManageCommunityPage() {
           topic: data.topic || '',
           slug: data.slug || communityId,
           rules: data.rules || [],
+          galleryVideos: data.galleryVideos || [],
           youtubeUrl: data.youtubeUrl || '',
           whatsappUrl: data.whatsappUrl || '',
           facebookUrl: data.facebookUrl || '',
@@ -600,8 +606,138 @@ export default function ManageCommunityPage() {
     })));
   };
 
-  const handleUpdateCommunity = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Revert all tracked fields to their last-saved values and stay on the
+  // page. Scope matches hasUnsavedChanges() so the bar hides afterwards:
+  // scalars + rules from the snapshot, drop unsaved media additions.
+  const handleResetCommunity = () => {
+    const init = initialFormRef.current;
+    if (!init) return;
+    setName(init.name);
+    setDescription(init.description);
+    setTopic(init.topic);
+    setSlug(init.slug);
+    setSlugError('');
+    setRules(init.rules);
+    setYoutubeUrl(init.youtubeUrl);
+    setWhatsappUrl(init.whatsappUrl);
+    setFacebookUrl(init.facebookUrl);
+    setInstagramUrl(init.instagramUrl);
+    // Pricing is intentionally NOT reverted here — it's owned by the
+    // Payments popup's own ביטול, not the floating bar.
+    setShowOnlineMembers(init.showOnlineMembers);
+    setCommunityStatus(init.communityStatus as 'DRAFT' | 'PRIVATE' | 'PUBLIC');
+    setImages(prev => prev.filter(img => img.isExisting));
+    setGalleryVideos(init.galleryVideos);
+    setGalleryVideoFiles([]);
+    if (logo && !logo.isExisting) {
+      setLogo(
+        community?.logo
+          ? { preview: getImageUrl(community.logo), isExisting: true, existingPath: community.logo }
+          : null
+      );
+    }
+    setMessage('');
+  };
+
+  // Re-fetch the community after a successful save and re-establish the
+  // baseline (form state + snapshot + media as "existing"). This is what
+  // makes the bar correctly hide post-save AND reappear on the next edit,
+  // on every tab — replacing the old "null the snapshot" behaviour that
+  // disabled change-detection until a page reload.
+  const reloadCommunityBaseline = async () => {
+    try {
+      const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setCommunity(data);
+      setName(data.name);
+      setDescription(data.description);
+      setTopic(data.topic || '');
+      setSlug(data.slug || communityId);
+      setYoutubeUrl(data.youtubeUrl || '');
+      setWhatsappUrl(data.whatsappUrl || '');
+      setFacebookUrl(data.facebookUrl || '');
+      setInstagramUrl(data.instagramUrl || '');
+      setRules(data.rules || []);
+      setPrice(data.price ?? 10);
+      setIsPaidCommunity((data.price ?? 0) > 0);
+      setShowOnlineMembers(data.showOnlineMembers !== false);
+      setCommunityStatus(data.status || 'DRAFT');
+      // Payment / pending-price state — must mirror the initial load so a
+      // scheduled change (e.g. paid→free announced) shows its pending banner
+      // after save instead of appearing to revert to plain "paid".
+      if (data.trialStartDate) {
+        setTrialStartDate(new Date(data.trialStartDate));
+      } else {
+        setTrialStartDate(data.createdAt ? new Date(data.createdAt) : new Date());
+      }
+      setSubscriptionCancelledAt(data.subscriptionCancelledAt ? new Date(data.subscriptionCancelledAt) : null);
+      setPendingPrice(typeof data.pendingPrice === 'number' ? data.pendingPrice : null);
+      setPendingPriceEffectiveAt(data.pendingPriceEffectiveAt ? new Date(data.pendingPriceEffectiveAt) : null);
+      setPriceChangeAnnouncedAt(data.priceChangeAnnouncedAt ? new Date(data.priceChangeAnnouncedAt) : null);
+      setCurrentCommunityPrice(typeof data.price === 'number' ? data.price : 0);
+      setCardLastFour(data.cardLastFour || null);
+      setCardBrand(data.cardBrand || null);
+      setLogo(
+        data.logo
+          ? { preview: getImageUrl(data.logo), isExisting: true, existingPath: data.logo }
+          : null
+      );
+      const loaded: ImageFile[] = [];
+      if (data.image) {
+        loaded.push({ preview: getImageUrl(data.image), isPrimary: true, isExisting: true, existingPath: data.image });
+      }
+      if (Array.isArray(data.galleryImages)) {
+        data.galleryImages.forEach((p: string) =>
+          loaded.push({ preview: getImageUrl(p), isPrimary: false, isExisting: true, existingPath: p })
+        );
+      }
+      setImages(loaded);
+      setGalleryVideos(Array.isArray(data.galleryVideos) ? data.galleryVideos : []);
+      setGalleryVideoFiles([]);
+      initialFormRef.current = {
+        name: data.name,
+        description: data.description,
+        topic: data.topic || '',
+        slug: data.slug || communityId,
+        rules: data.rules || [],
+        galleryVideos: Array.isArray(data.galleryVideos) ? data.galleryVideos : [],
+        youtubeUrl: data.youtubeUrl || '',
+        whatsappUrl: data.whatsappUrl || '',
+        facebookUrl: data.facebookUrl || '',
+        instagramUrl: data.instagramUrl || '',
+        price: data.price ?? 10,
+        isPaidCommunity: (data.price ?? 0) > 0,
+        showOnlineMembers: data.showOnlineMembers !== false,
+        communityStatus: data.status || 'DRAFT',
+      };
+    } catch {
+      // Non-fatal: save already succeeded; worst case the bar lingers.
+    }
+  };
+
+  // Payments has no save bar — the "עדכן מחיר" button on the pricing card
+  // is the explicit trigger; this opens the announcement popup (the confirm
+  // + commit). Called only from that button, with the current pricing state.
+  const openPriceChangeIfChanged = (nextIsPaid: boolean, nextPrice: number) => {
+    const init = initialFormRef.current;
+    if (!init || !isOwner || pendingPriceEffectiveAt || showPriceChangeConfirmModal) return;
+    // A paid price must be in range. This is where the ₪10–1000 check now
+    // lives (the old handleUpdateCommunity guard isn't reached on Payments
+    // anymore — there's no Save button).
+    if (nextIsPaid && (nextPrice < 10 || nextPrice > 1000)) {
+      setMessage('המחיר חייב להיות בין ₪10 ל-₪1000');
+      setMessageType('error');
+      return;
+    }
+    const effNext = nextIsPaid ? nextPrice : 0;
+    const effInit = init.isPaidCommunity ? init.price : 0;
+    if (effNext === effInit) return; // no net change — nothing to confirm
+    setShowPriceChangeConfirmModal(true);
+  };
+
+  const handleUpdateCommunity = async (e?: React.FormEvent) => {
+    e?.preventDefault();
 
     if (!name.trim() || !description.trim()) {
       setMessage('יש למלא את כל שדות החובה');
@@ -609,29 +745,37 @@ export default function ManageCommunityPage() {
       return;
     }
 
-    if (isPaidCommunity && (price < 10 || price > 1000)) {
-      setMessage('המחיר חייב להיות בין ₪10 ל-₪1000');
-      setMessageType('error');
-      return;
+    // Slug is now saved by the floating Save (no separate button). Validate
+    // and check availability up front so an invalid URL aborts the whole
+    // save rather than half-applying it.
+    const slugChanged = slug !== (community?.slug || communityId);
+    if (slugChanged) {
+      if (slug.trim().length < 3) {
+        setSlugError('הכתובת חייבת להכיל לפחות 3 תווים');
+        setActiveTab('general');
+        return;
+      }
+      if (slug.length > 50) {
+        setSlugError('הכתובת יכולה להכיל עד 50 תווים');
+        setActiveTab('general');
+        return;
+      }
+      const checkRes = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/communities/check-slug/${slug}?excludeId=${communityId}`
+      );
+      const checkData = await checkRes.json();
+      if (!checkData.available) {
+        setSlugError('הכתובת הזו כבר תפוסה');
+        setActiveTab('general');
+        return;
+      }
+      setSlugError('');
     }
 
-    // Owner price-change interception. If the price input differs from what
-    // it was on load AND no announcement is currently pending, show the
-    // confirm popup. The popup's confirm path runs the announce flow and
-    // then re-triggers the save (skipping price this time via skipPriceRef).
-    const initialPrice = initialFormRef.current?.price ?? 0;
-    const initialIsPaid = initialFormRef.current?.isPaidCommunity ?? false;
-    const effectivePrice = isPaidCommunity ? price : 0;
-    const effectiveInitialPrice = initialIsPaid ? initialPrice : 0;
-    if (
-      isOwner
-      && effectivePrice !== effectiveInitialPrice
-      && !pendingPriceEffectiveAt
-      && !skipPriceRef.current
-    ) {
-      setShowPriceChangeConfirmModal(true);
-      return;
-    }
+    // Price is owned entirely by the Payments tab's announcement-popup flow
+    // (openPriceChangeIfChanged → popup → announce-price). handleUpdateCommunity
+    // never initiates a price change — so there's no interception here, and an
+    // uncommitted pricing edit can't hijack a save from another tab.
     const skipPriceFieldThisSave = skipPriceRef.current;
     skipPriceRef.current = false;
 
@@ -666,8 +810,13 @@ export default function ManageCommunityPage() {
       // server-side on the effective date (lazy flip in findById).
       // Also skip on the post-announce re-save so we don't undo what
       // announce-price just stored.
+      // Always the last-saved price, never the uncommitted UI value — price
+      // changes go only through announce-price, so this is a no-op for the
+      // committed value and can't bypass the grandfather/rate-limit flow.
       if (!pendingPriceEffectiveAt && !skipPriceFieldThisSave) {
-        formData.append('price', isPaidCommunity ? price.toString() : '0');
+        const base = initialFormRef.current;
+        const committedPrice = base && base.isPaidCommunity ? base.price : 0;
+        formData.append('price', committedPrice.toString());
       }
       
       // Find primary image
@@ -733,9 +882,33 @@ export default function ManageCommunityPage() {
         console.error('Failed to save rules');
       }
 
+      // Slug, when changed — folded into the main Save.
+      if (slugChanged) {
+        const slugRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/slug`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug }),
+        });
+        if (!slugRes.ok) {
+          const errorData = await slugRes.json();
+          throw new Error(errorData.message || 'Failed to update slug');
+        }
+      }
+
       setMessage('הקהילה עודכנה בהצלחה!');
       setMessageType('success');
-      initialFormRef.current = null; // Reset so beforeunload won't trigger
+
+      if (slugChanged) {
+        // The slug is in the URL — navigate to the new path. The page
+        // remounts and re-establishes its baseline from scratch.
+        router.push(`/communities/${slug}/manage`);
+      } else {
+        // Always re-establish the baseline from the server — including the
+        // price-change (announce) path. The toggle then reflects the current
+        // (grandfathered) pricing + the pending banner, so post-save and
+        // post-reload look identical (no optimistic divergence).
+        await reloadCommunityBaseline();
+      }
     } catch (err: any) {
       // Suppress the noisy console.error for known business rules — the UI
       // toast is the user-visible signal, no need to red-flag the console.
@@ -759,71 +932,6 @@ export default function ManageCommunityPage() {
     const sanitized = value.toLowerCase().replace(/[^a-z0-9-]/g, '');
     setSlug(sanitized);
     setSlugError('');
-    setSlugSuccess('');
-  };
-
-  const handleUpdateSlug = async () => {
-    if (!slug.trim()) {
-      setSlugError('יש להזין כתובת URL');
-      return;
-    }
-
-    if (slug.length < 3) {
-      setSlugError('הכתובת חייבת להכיל לפחות 3 תווים');
-      return;
-    }
-
-    if (slug.length > 50) {
-      setSlugError('הכתובת יכולה להכיל עד 50 תווים');
-      return;
-    }
-
-    if (!userEmail) {
-      setSlugError('יש להתחבר מחדש');
-      return;
-    }
-
-    try {
-      setSlugLoading(true);
-      setSlugError('');
-      setSlugSuccess('');
-
-      // Check availability first
-      const checkRes = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/communities/check-slug/${slug}?excludeId=${communityId}`
-      );
-      const checkData = await checkRes.json();
-
-      if (!checkData.available) {
-        setSlugError('הכתובת הזו כבר תפוסה');
-        return;
-      }
-
-      // Update slug
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/slug`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ slug }),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || 'Failed to update slug');
-      }
-
-      setSlugSuccess('הכתובת עודכנה בהצלחה! מעביר...');
-      
-      // Redirect to new slug URL after short delay
-      setTimeout(() => {
-        router.push(`/communities/${slug}/manage`);
-      }, 1000);
-    } catch (err: any) {
-      setSlugError(err.message || 'שגיאה בעדכון הכתובת');
-    } finally {
-      setSlugLoading(false);
-    }
   };
 
   // Rules handlers
@@ -848,7 +956,7 @@ export default function ManageCommunityPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-100 text-right" dir="rtl">
+    <main className="min-h-[calc(100vh-72px)] bg-gray-100 text-right" dir="rtl">
       {/* Mobile Tab Bar */}
       <div className="md:hidden flex overflow-x-auto bg-white px-3 py-2 gap-1 border-b" style={{ borderColor: '#E1E1E2' }}>
         {[
@@ -879,7 +987,7 @@ export default function ManageCommunityPage() {
       </div>
 
       {/* Main Layout with Sidebar */}
-      <div className="flex min-h-[calc(100vh-65px)]">
+      <div className="flex min-h-[calc(100vh-72px)]">
         {/* Right Sidebar - Settings Tabs (hidden on mobile) */}
         <aside className="hidden md:block w-64 bg-white border-l border-gray-200 p-6 flex-shrink-0">
           <div className="flex items-center gap-2 mb-6">
@@ -946,7 +1054,7 @@ export default function ManageCommunityPage() {
 
         {/* Main Content */}
         <main className="flex-1 p-4 md:p-6 overflow-auto">
-          <form ref={formRef} onSubmit={handleUpdateCommunity} className="max-w-5xl">
+          <form ref={formRef} onSubmit={handleUpdateCommunity} className="max-w-5xl pb-28">
 
             {/* General Tab */}
             {activeTab === 'general' && (
@@ -982,14 +1090,6 @@ export default function ManageCommunityPage() {
                   <div className="flex-1">
                     {/* Slug input */}
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2" dir="ltr">
-                      <button
-                        type="button"
-                        onClick={handleUpdateSlug}
-                        disabled={slugLoading || !slug.trim() || slug === (community?.slug || communityId)}
-                        className="px-4 py-3.5 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm whitespace-nowrap"
-                      >
-                        {slugLoading ? '...' : 'שמור'}
-                      </button>
                       <div className="flex items-center flex-1 border border-gray-300 rounded-lg overflow-hidden">
                         <span className="px-3 sm:px-4 py-3.5 bg-gray-50 text-gray-500 text-xs sm:text-base border-r border-gray-300 whitespace-nowrap">withly.co.il/communities/</span>
                         <input
@@ -1004,9 +1104,6 @@ export default function ManageCommunityPage() {
                     </div>
                     {slugError && (
                       <p className="text-error mt-2" dir="rtl" style={{ fontSize: '14px' }}>{slugError}</p>
-                    )}
-                    {slugSuccess && (
-                      <p className="text-green-dark mt-2" dir="rtl" style={{ fontSize: '14px' }}>{slugSuccess}</p>
                     )}
                   </div>
                 </div>
@@ -1653,10 +1750,11 @@ export default function ManageCommunityPage() {
                             setIsPaidCommunity(false);
                             setPrice(0);
                           }}
-                          className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-base font-normal border transition ${
+                          disabled={!!pendingPriceEffectiveAt}
+                          className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-base font-normal border transition disabled:cursor-not-allowed ${
                             !isPaidCommunity
                               ? 'border-black bg-white text-gray-600'
-                              : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                              : `border-gray-300 bg-white text-gray-600 ${pendingPriceEffectiveAt ? 'opacity-50' : 'hover:border-gray-400'}`
                           }`}
                         >
                           <NoFeeIcon className="w-4.5 h-4.5 text-gray-600" />
@@ -1673,10 +1771,11 @@ export default function ManageCommunityPage() {
                             setIsPaidCommunity(true);
                             if (price < 10) setPrice(10);
                           }}
-                          className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-base font-normal border transition ${
+                          disabled={!!pendingPriceEffectiveAt}
+                          className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-base font-normal border transition disabled:cursor-not-allowed ${
                             isPaidCommunity
                               ? 'border-black bg-white text-gray-600'
-                              : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                              : `border-gray-300 bg-white text-gray-600 ${pendingPriceEffectiveAt ? 'opacity-50' : 'hover:border-gray-400'}`
                           }`}
                         >
                           <DollarIcon className="w-4.5 h-4.5 text-gray-600" />
@@ -1744,6 +1843,35 @@ export default function ManageCommunityPage() {
                         </p>
                       )}
                     </div>
+                    {(() => {
+                      const init = initialFormRef.current;
+                      const changed =
+                        !!init &&
+                        (isPaidCommunity !== init.isPaidCommunity ||
+                          (isPaidCommunity && price !== init.price));
+                      // Always rendered — active only when there's an actual
+                      // pricing change to confirm and nothing's pending/in-flight.
+                      const disabled =
+                        !changed ||
+                        !!pendingPriceEffectiveAt ||
+                        loading ||
+                        announcingPrice;
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => openPriceChangeIfChanged(isPaidCommunity, price)}
+                          disabled={disabled}
+                          className="text-[16px] font-normal bg-white text-black hover:bg-gray-50 transition flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                          style={{
+                            border: '1px solid var(--color-gray-4)',
+                            borderRadius: '12px',
+                            padding: '0.5rem 1.25rem',
+                          }}
+                        >
+                          עדכן מחיר
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -1981,23 +2109,18 @@ export default function ManageCommunityPage() {
               </div>
             )}
 
-            {/* Save Button */}
-            <div className="flex gap-3 justify-end mt-8 pt-6 border-t border-gray-200">
-              <Link
-                href={`/communities/${communityId}/feed`}
-                className="px-6 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors"
-              >
-                ביטול
-              </Link>
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-6 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors"
-              >
-                {loading ? 'שומר...' : 'שמור שינויים'}
-              </button>
-            </div>
           </form>
+
+          {/* Floating Save/Cancel on the form-like tabs only. Payments is a
+              set of discrete, confirmation-gated actions — pricing commits
+              through the price-change announcement popup, card/cancel-sub
+              through their own modals — so no save bar there. */}
+          <StickySaveBar
+            visible={activeTab !== 'payments' && hasUnsavedChanges(false)}
+            saving={loading}
+            onSave={() => handleUpdateCommunity()}
+            onCancel={handleResetCommunity}
+          />
 
           {/* Credit Card Modal - extracted to shared component */}
           <UpdateCardModal
@@ -2059,10 +2182,17 @@ export default function ManageCommunityPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        // Pure modal-dismiss. Don't touch the form state —
-                        // the user can keep editing or click the page-level
-                        // ביטול to fully discard. Touching isPaidCommunity
-                        // here was flipping the free/paid radio incorrectly.
+                        // Cancel = abandon the price change: revert just the
+                        // pricing fields to the saved snapshot (not the whole
+                        // form, so edits on other tabs survive), then close.
+                        // Restoring from the snapshot is the correct revert —
+                        // the old radio-flip bug came from mutating state
+                        // rather than restoring the saved values.
+                        const init = initialFormRef.current;
+                        if (init) {
+                          setPrice(init.price);
+                          setIsPaidCommunity(init.isPaidCommunity);
+                        }
                         setShowPriceChangeConfirmModal(false);
                       }}
                       disabled={announcingPrice}
