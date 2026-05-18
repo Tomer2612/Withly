@@ -25,6 +25,16 @@ import CheckIcon from '../../../../../components/icons/CheckIcon';
 import ClockIcon from '../../../../../components/icons/ClockIcon';
 import { getImageUrl } from '@/app/lib/imageUrl';
 import StickySaveBar from '../../../../../components/StickySaveBar';
+import {
+  MAX_TITLE_LENGTH,
+  MAX_DESCRIPTION_LENGTH,
+  MAX_CHAPTER_TITLE_LENGTH,
+  MAX_LESSON_TITLE_LENGTH,
+  MAX_LESSON_DURATION,
+  MIN_LESSON_DURATION,
+  addLinkToLesson,
+  scrollToFirstError,
+} from '../../courseFormShared';
 import { isValidVideoUrl, MAX_VIDEO_SIZE_BYTES } from '@/app/lib/videoUtils';
 
 interface QuizOptionForm {
@@ -97,6 +107,8 @@ export default function EditCoursePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // Draft text for each lesson's link input, keyed `${chapterIndex}-${lessonIndex}`.
+  const [linkDrafts, setLinkDrafts] = useState<Record<string, string>>({});
   const { user } = useUser();
   const userId = user?.userId ?? null;
   const userEmail = user?.email ?? null;
@@ -104,13 +116,7 @@ export default function EditCoursePage() {
   const [community, setCommunity] = useState<{ name: string; logo?: string | null } | null>(null);
   const [isOwnerOrManager, setIsOwnerOrManager] = useState(false);
 
-  // Validation constants
-  const MAX_TITLE_LENGTH = 100;
-  const MAX_DESCRIPTION_LENGTH = 1000;
-  const MAX_CHAPTER_TITLE_LENGTH = 80;
-  const MAX_LESSON_TITLE_LENGTH = 80;
-  const MAX_LESSON_DURATION = 480;
-  const MIN_LESSON_DURATION = 1;
+  // Validation constants → ../../courseFormShared
 
   // Format duration in Hebrew
   const formatDurationHebrew = (minutes: number): string => {
@@ -393,6 +399,33 @@ export default function EditCoursePage() {
     });
   };
 
+  // Add a link (or route a video URL to videoUrl) for a lesson. Pure React
+  // state — no getElementById/DOM mutation. Error goes to the `errors` map
+  // under `link_<ci>_<li>`; the input draft lives in `linkDrafts`.
+  const handleAddLink = (chapterIndex: number, lessonIndex: number) => {
+    if (!course) return;
+    const draftKey = `${chapterIndex}-${lessonIndex}`;
+    const errKey = `link_${chapterIndex}_${lessonIndex}`;
+    const lesson = course.chapters[chapterIndex]?.lessons[lessonIndex];
+    if (!lesson) return;
+    const result = addLinkToLesson(lesson, linkDrafts[draftKey] || '');
+    if (!result) return;
+    if (result.kind === 'error') {
+      setErrors(prev => ({ ...prev, [errKey]: result.message }));
+      if (result.autoClear) {
+        setTimeout(() => setErrors(prev => { const n = { ...prev }; delete n[errKey]; return n; }), 5000);
+      }
+      return;
+    }
+    updateLesson(
+      chapterIndex,
+      lessonIndex,
+      result.kind === 'video' ? { videoUrl: result.url } : { links: result.links },
+    );
+    setLinkDrafts(prev => ({ ...prev, [draftKey]: '' }));
+    setErrors(prev => { const n = { ...prev }; delete n[errKey]; return n; });
+  };
+
   const removeLesson = (chapterIndex: number, lessonIndex: number) => {
     if (!course) return;
     const lesson = course.chapters[chapterIndex].lessons[lessonIndex];
@@ -597,35 +630,8 @@ export default function EditCoursePage() {
     return newErrors;
   };
 
-  const scrollToFirstError = (errorObj: Record<string, string>) => {
-    const errorKeys = Object.keys(errorObj);
-    if (errorKeys.length === 0) return;
-    
-    const firstErrorKey = errorKeys[0];
-    let elementId = '';
-    
-    if (firstErrorKey === 'title') {
-      elementId = 'course-title';
-    } else if (firstErrorKey === 'description') {
-      elementId = 'course-description';
-    } else if (firstErrorKey === 'chapters') {
-      elementId = 'chapters-section';
-    } else if (firstErrorKey.startsWith('chapter_')) {
-      const match = firstErrorKey.match(/chapter_(\d+)/);
-      if (match) elementId = `chapter-${match[1]}`;
-    } else if (firstErrorKey.startsWith('lesson_')) {
-      const match = firstErrorKey.match(/lesson_(\d+)_(\d+)/);
-      if (match) elementId = `lesson-${match[1]}-${match[2]}`;
-    }
-    
-    if (elementId) {
-      const element = document.getElementById(elementId);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        element.focus?.();
-      }
-    }
-  };
+  // scrollToFirstError → ../../courseFormShared (shared with create; now
+  // also includes the `image` branch this page's copy was missing).
 
   // Serialise for dirty-detection. File instances can't be JSON-compared, so
   // collapse each to a stable token (added/removed files still differ).
@@ -1013,7 +1019,7 @@ export default function EditCoursePage() {
                     className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black text-right resize-none scrollbar-styled ${
                       errors.description ? 'border-[#B3261E]' : 'border-gray-300'
                     }`}
-                    placeholder="תאר את הקורס בכמה משפטים..."
+                    placeholder="תאר את הקורס בכמה משפטים"
                   />
                   <div className="flex justify-between mt-1">
                     {errors.description && <span className="text-xs" style={{ color: '#B3261E' }}>{errors.description}</span>}
@@ -1467,125 +1473,49 @@ export default function EditCoursePage() {
                                           <div className="flex items-center gap-2" style={{ position: 'relative' }}>
                                             <input
                                               type="text"
-                                              id={`link-input-${chapterIndex}-${lessonIndex}`}
                                               className="flex-1 p-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
                                               placeholder="הדבק קישור (YouTube, Vimeo, או כל קישור אחר)"
+                                              value={linkDrafts[`${chapterIndex}-${lessonIndex}`] || ''}
                                               onChange={(e) => {
-                                                const btn = document.getElementById(`link-add-btn-${chapterIndex}-${lessonIndex}`);
-                                                const errorSpan = document.getElementById(`link-error-${chapterIndex}-${lessonIndex}`);
-                                                if (errorSpan) errorSpan.style.display = 'none';
-                                                if (btn) {
-                                                  const hasValue = e.target.value.trim().length > 0;
-                                                  btn.style.backgroundColor = hasValue ? '#91DCED' : '#c4ebf5';
-                                                  btn.style.color = hasValue ? 'black' : '#A1A1AA';
-                                                  btn.style.cursor = hasValue ? 'pointer' : 'not-allowed';
-                                                }
+                                                const v = e.target.value;
+                                                setLinkDrafts(prev => ({ ...prev, [`${chapterIndex}-${lessonIndex}`]: v }));
+                                                setErrors(prev => { const n = { ...prev }; delete n[`link_${chapterIndex}_${lessonIndex}`]; return n; });
                                               }}
                                               onKeyDown={(e) => {
                                                 if (e.key === 'Enter') {
                                                   e.preventDefault();
-                                                  const input = e.target as HTMLInputElement;
-                                                  const errorSpan = document.getElementById(`link-error-${chapterIndex}-${lessonIndex}`);
-                                                  const value = input.value.trim();
-                                                  if (value) {
-                                                    const urlPattern = /^(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/;
-                                                    if (!urlPattern.test(value)) {
-                                                      if (errorSpan) { errorSpan.textContent = 'קישור לא תקין'; errorSpan.style.display = 'block'; }
-                                                      return;
-                                                    }
-                                                    // Route video URLs to videoUrl field
-                                                    if (isValidVideoUrl(value)) {
-                                                      if (lesson.videoUrl) {
-                                                        if (errorSpan) { errorSpan.textContent = 'ניתן להוסיף סרטון אחד בלבד לשיעור'; errorSpan.style.display = 'block'; setTimeout(() => { errorSpan.style.display = 'none'; }, 5000); }
-                                                        return;
-                                                      }
-                                                      updateLesson(chapterIndex, lessonIndex, { videoUrl: value });
-                                                      input.value = '';
-                                                      if (errorSpan) errorSpan.style.display = 'none';
-                                                      const btn = document.getElementById(`link-add-btn-${chapterIndex}-${lessonIndex}`);
-                                                      if (btn) { btn.style.backgroundColor = '#c4ebf5'; btn.style.color = '#A1A1AA'; btn.style.cursor = 'not-allowed'; }
-                                                      return;
-                                                    }
-                                                    // Check duplicate
-                                                    if ((lesson.links || []).includes(value)) {
-                                                      if (errorSpan) { errorSpan.textContent = 'קישור זה כבר קיים'; errorSpan.style.display = 'block'; }
-                                                      return;
-                                                    }
-                                                    if ((lesson.links || []).length >= 3) {
-                                                      if (errorSpan) { errorSpan.textContent = 'ניתן להוסיף עד 3 קישורים'; errorSpan.style.display = 'block'; }
-                                                      return;
-                                                    }
-                                                    updateLesson(chapterIndex, lessonIndex, { links: [...(lesson.links || []), value] });
-                                                    input.value = '';
-                                                    if (errorSpan) errorSpan.style.display = 'none';
-                                                    const btn = document.getElementById(`link-add-btn-${chapterIndex}-${lessonIndex}`);
-                                                    if (btn) { btn.style.backgroundColor = '#c4ebf5'; btn.style.color = '#A1A1AA'; btn.style.cursor = 'not-allowed'; }
-                                                  }
+                                                  handleAddLink(chapterIndex, lessonIndex);
                                                 }
                                               }}
                                             />
-                                            <button
-                                              type="button"
-                                              id={`link-add-btn-${chapterIndex}-${lessonIndex}`}
-                                              onClick={() => {
-                                                const input = document.getElementById(`link-input-${chapterIndex}-${lessonIndex}`) as HTMLInputElement;
-                                                const errorSpan = document.getElementById(`link-error-${chapterIndex}-${lessonIndex}`);
-                                                if (input && input.value.trim()) {
-                                                  const value = input.value.trim();
-                                                  const urlPattern = /^(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/;
-                                                  if (!urlPattern.test(value)) {
-                                                    if (errorSpan) { errorSpan.textContent = 'קישור לא תקין'; errorSpan.style.display = 'block'; }
-                                                    return;
-                                                  }
-                                                  // Route video URLs to videoUrl field
-                                                  if (isValidVideoUrl(value)) {
-                                                    if (lesson.videoUrl) {
-                                                      if (errorSpan) { errorSpan.textContent = 'ניתן להוסיף סרטון אחד בלבד לשיעור'; errorSpan.style.display = 'block'; setTimeout(() => { errorSpan.style.display = 'none'; }, 5000); }
-                                                      return;
-                                                    }
-                                                    updateLesson(chapterIndex, lessonIndex, { videoUrl: value });
-                                                    input.value = '';
-                                                    if (errorSpan) errorSpan.style.display = 'none';
-                                                    const btn = document.getElementById(`link-add-btn-${chapterIndex}-${lessonIndex}`);
-                                                    if (btn) { btn.style.backgroundColor = '#c4ebf5'; btn.style.color = '#A1A1AA'; btn.style.cursor = 'not-allowed'; }
-                                                    return;
-                                                  }
-                                                  if ((lesson.links || []).includes(value)) {
-                                                    if (errorSpan) { errorSpan.textContent = 'קישור זה כבר קיים'; errorSpan.style.display = 'block'; }
-                                                    return;
-                                                  }
-                                                  if ((lesson.links || []).length >= 3) {
-                                                    if (errorSpan) { errorSpan.textContent = 'ניתן להוסיף עד 3 קישורים'; errorSpan.style.display = 'block'; }
-                                                    return;
-                                                  }
-                                                  updateLesson(chapterIndex, lessonIndex, { links: [...(lesson.links || []), value] });
-                                                  input.value = '';
-                                                  if (errorSpan) errorSpan.style.display = 'none';
-                                                  const btn = document.getElementById(`link-add-btn-${chapterIndex}-${lessonIndex}`);
-                                                  if (btn) { btn.style.backgroundColor = '#c4ebf5'; btn.style.color = '#A1A1AA'; btn.style.cursor = 'not-allowed'; }
-                                                }
-                                              }}
-                                              className="px-3 py-2 rounded-full text-sm transition"
-                                              style={{ backgroundColor: '#c4ebf5', color: '#A1A1AA', fontSize: '14px', cursor: 'not-allowed' }}
-                                            >
-                                              הוסף
-                                            </button>
+                                            {(() => {
+                                              const hasDraft = (linkDrafts[`${chapterIndex}-${lessonIndex}`] || '').trim().length > 0;
+                                              return (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleAddLink(chapterIndex, lessonIndex)}
+                                                  disabled={!hasDraft}
+                                                  className="px-3 py-2 rounded-full text-sm transition"
+                                                  style={{ backgroundColor: hasDraft ? '#91DCED' : '#c4ebf5', color: hasDraft ? 'black' : '#A1A1AA', fontSize: '14px', cursor: hasDraft ? 'pointer' : 'not-allowed' }}
+                                                >
+                                                  הוסף
+                                                </button>
+                                              );
+                                            })()}
                                             <button
                                               type="button"
                                               onClick={() => {
-                                                const input = document.getElementById(`link-input-${chapterIndex}-${lessonIndex}`) as HTMLInputElement;
-                                                if (input) {
-                                                  input.value = '';
-                                                  const btn = document.getElementById(`link-add-btn-${chapterIndex}-${lessonIndex}`);
-                                                  if (btn) { btn.style.backgroundColor = '#c4ebf5'; btn.style.color = '#A1A1AA'; btn.style.cursor = 'not-allowed'; }
-                                                }
+                                                setLinkDrafts(prev => ({ ...prev, [`${chapterIndex}-${lessonIndex}`]: '' }));
+                                                setErrors(prev => { const n = { ...prev }; delete n[`link_${chapterIndex}_${lessonIndex}`]; return n; });
                                               }}
                                               className="p-2 text-gray-400 hover:text-gray-600"
                                             >
                                               <CloseIcon size={16} color="currentColor" />
                                             </button>
                                           </div>
-                                          <span id={`link-error-${chapterIndex}-${lessonIndex}`} className="text-sm" style={{ color: '#B3261E', display: 'none', marginTop: '4px' }}>קישור לא תקין</span>
+                                          {errors[`link_${chapterIndex}_${lessonIndex}`] && (
+                                            <span className="text-sm block" style={{ color: '#B3261E', marginTop: '4px' }}>{errors[`link_${chapterIndex}_${lessonIndex}`]}</span>
+                                          )}
                                         </div>
                                         {/* Images Section */}
                                         <div>
