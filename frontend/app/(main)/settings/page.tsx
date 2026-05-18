@@ -18,6 +18,7 @@ import LeaveCommunityModal from '../../components/LeaveCommunityModal';
 import CancelSubscriptionModal from '../../components/CancelSubscriptionModal';
 import UpdateCardModal from '../../components/UpdateCardModal';
 import CreditCardForm, { isCardComplete } from '../../components/CreditCardForm';
+import StickySaveBar from '../../components/StickySaveBar';
 import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface Membership {
@@ -347,8 +348,22 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Revert the profile form to its last-saved values and stay on the page.
+  const handleResetProfile = () => {
+    const init = initialFormRef.current;
+    if (!init) return;
+    setName(init.name);
+    setBio(init.bio);
+    setLocation(init.location);
+    setProfileImage(null);
+    setImagePreview(
+      userProfile?.profileImage ? getImageUrl(userProfile.profileImage) : null
+    );
+    setMessage('');
+  };
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
 
     if (!user) {
       router.push('/login');
@@ -397,7 +412,9 @@ export default function SettingsPage() {
       // Show success message
       setMessage('השינויים נשמרו בהצלחה');
       setMessageType('success');
-      initialFormRef.current = null; // Reset so beforeunload won't trigger
+      // Re-snapshot to the just-saved values: clears the dirty state (bar hides,
+      // beforeunload won't trigger) while still tracking further edits.
+      initialFormRef.current = { name, bio, location };
     } catch (err: any) {
       console.error('Profile update error:', err);
       setMessage(err.message || 'שגיאה בעדכון הפרופיל');
@@ -594,7 +611,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <main className="min-h-screen text-right" style={{ backgroundColor: '#F4F4F5' }} dir="rtl">
+    <main className="min-h-[calc(100vh-72px)] text-right" style={{ backgroundColor: '#F4F4F5' }} dir="rtl">
       {/* Mobile Tab Bar */}
       <div className="md:hidden flex overflow-x-auto bg-white px-3 py-2 gap-1 border-b scrollbar-hide" style={{ borderColor: '#E1E1E2', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}>
         {[
@@ -619,7 +636,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Main Layout with Sidebar */}
-      <div className="flex min-h-[calc(100vh-65px)]">
+      <div className="flex min-h-[calc(100vh-72px)]">
         {/* Right Sidebar - Settings Tabs (hidden on mobile) */}
         <aside className="hidden md:block w-64 bg-white border-l p-6 flex-shrink-0" style={{ borderColor: '#E1E1E2' }}>
           <div className="flex items-center gap-2 mb-6">
@@ -693,7 +710,7 @@ export default function SettingsPage() {
 
         {/* Main Content */}
         <div className="flex-1 p-4 md:p-8">
-          <form onSubmit={handleSubmit} className="max-w-3xl">
+          <form onSubmit={handleSubmit} className="max-w-3xl pb-28">
             {/* Profile Tab */}
             {activeTab === 'profile' && (
               <div className="bg-white rounded-xl border p-4 md:p-6 space-y-6" style={{ borderColor: '#E1E1E2' }}>
@@ -826,16 +843,6 @@ export default function SettingsPage() {
                   </button>
                 </div>
 
-                {/* Save Button */}
-                <div className="pt-4">
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="w-full py-3 bg-black text-white rounded-lg font-medium hover:opacity-90 transition disabled:opacity-50"
-                  >
-                    {saving ? 'שומר...' : 'שמור שינויים'}
-                  </button>
-                </div>
               </div>
             )}
 
@@ -1589,7 +1596,7 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* Message Display */}
+            {/* Message Display — inline, just below the active tab card */}
             {message && (
               <div
                 ref={messageRef}
@@ -1603,6 +1610,15 @@ export default function SettingsPage() {
               </div>
             )}
           </form>
+
+          {activeTab === 'profile' && (
+            <StickySaveBar
+              visible={hasUnsavedChanges()}
+              saving={saving}
+              onSave={() => handleSubmit()}
+              onCancel={handleResetProfile}
+            />
+          )}
         </div>
       </div>
 
