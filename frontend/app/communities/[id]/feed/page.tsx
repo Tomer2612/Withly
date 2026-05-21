@@ -1359,7 +1359,8 @@ function CommunityFeedContent() {
             </div>
           )}
 
-          {/* Coming Soon: ערוצי טקסט */}
+          {/* Coming Soon: ערוצי טקסט — HIDDEN until feature ships; re-enable by removing the `false && ` wrapper */}
+          {false && (
           <div className="mb-2">
             <ComingSoonTooltip tailDirection="right">
               <div
@@ -1371,6 +1372,7 @@ function CommunityFeedContent() {
               </div>
             </ComingSoonTooltip>
           </div>
+          )}
         </div>
 
         {/* Spacer for fixed sidebar */}

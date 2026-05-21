@@ -1,22 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import UsersIcon from './icons/UsersIcon';
 import WithlyIcon from './icons/WithlyIcon';
 import NotificationBell from './NotificationBell';
 import { MessagesBell } from './ChatWidget';
 import UserProfileDropdown from './UserProfileDropdown';
-import { getImageUrl } from '@/app/lib/imageUrl';
+import UserCommunitiesDropdown from './UserCommunitiesDropdown';
 import ComingSoonTooltip from './ComingSoonTooltip';
-
-interface UserCommunity {
-  id: string;
-  name: string;
-  slug?: string | null;
-  logo?: string | null;
-}
 
 interface CommunityNavbarProps {
   communityId: string;
@@ -44,46 +35,7 @@ export default function CommunityNavbar({
   searchQuery = '',
   onSearchChange,
 }: CommunityNavbarProps) {
-  const router = useRouter();
-  const [userCommunities, setUserCommunities] = useState<UserCommunity[]>([]);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Fetch user's communities
-  useEffect(() => {
-    if (!userEmail) return;
-
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/user/my-communities`)
-      .then(res => res.ok ? res.json() : [])
-      .then(data => setUserCommunities(data))
-      .catch(console.error);
-  }, [userEmail]);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Close dropdown on Escape
-  useEffect(() => {
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsDropdownOpen(false);
-    };
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, []);
-
-  const handleCommunitySwitch = (comm: UserCommunity) => {
-    setIsDropdownOpen(false);
-    router.push(`/communities/${comm.slug || comm.id}/feed`);
-  };
 
   // Close mobile menu on resize past breakpoint
   useEffect(() => {
@@ -109,8 +61,6 @@ export default function CommunityNavbar({
     { key: 'about', label: 'אודות', href: `/communities/${communityId}/about` },
     ...(isOwnerOrManager ? [{ key: 'manage', label: 'ניהול קהילה', href: `/communities/${communityId}/manage` }] : []),
   ];
-
-  const showCommunityDropdown = userCommunities.length > 1;
 
   return (
     <>
@@ -144,79 +94,23 @@ export default function CommunityNavbar({
           </div>
         </Link>
         
-        <div className="w-px h-[30px] bg-gray-400 flex-shrink-0 mx-2 md:mx-4 hidden xl:block" />
+        <div className="w-px h-[30px] flex-shrink-0 mx-2 md:mx-4 hidden xl:block" style={{ backgroundColor: 'var(--color-gray-4)' }} />
         
         <div className="min-w-0">
         
-        {/* Community Switcher */}
-        <div className="relative" ref={dropdownRef}>
-          <button
-            onClick={() => showCommunityDropdown && setIsDropdownOpen(!isDropdownOpen)}
-            className={`flex items-center gap-2 min-w-0 ${showCommunityDropdown ? 'cursor-pointer hover:opacity-75 transition' : 'cursor-default'}`}
-          >
-            {community?.logo ? (
-              <img
-                src={getImageUrl(community.logo)}
-                alt={community.name}
-                className="w-8 h-8 md:w-10 md:h-10 rounded-lg object-cover flex-shrink-0"
-              />
-            ) : (
-              <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-                <UsersIcon className="w-4 h-4 md:w-5 md:h-5 text-gray-400" />
-              </div>
-            )}
-            <span className="font-medium text-black truncate max-w-[150px] sm:max-w-[200px] md:max-w-[250px]" style={{ fontSize: '16px' }}>{community?.name}</span>
-            
-            {showCommunityDropdown && (
-              <svg 
-                width="10" height="5" viewBox="0 0 10 5" fill="none" 
-                xmlns="http://www.w3.org/2000/svg"
-                className={`transform transition-transform duration-200 flex-shrink-0 overflow-visible ${isDropdownOpen ? 'rotate-180' : ''}`}
-              >
-                <path
-                  d="M1 1L5 5L9 1"
-                  stroke="#374151"
-                  strokeWidth="1.5" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                />
-              </svg>
-            )}
-          </button>
-
-          {/* Dropdown */}
-          {isDropdownOpen && showCommunityDropdown && (
-            <div 
-              className="absolute top-full mt-2 right-0 bg-white border border-gray-200 rounded-xl z-50 overflow-hidden p-1.5 min-w-[200px]"
-              style={{ boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.12)' }}
-            >
-              {userCommunities.map((comm) => (
-                <button
-                  key={comm.id}
-                  onClick={() => handleCommunitySwitch(comm)}
-                  className={`w-full flex items-center gap-2 px-3 py-2 text-right rounded-lg transition-colors ${
-                    comm.id === communityId 
-                      ? 'bg-gray-100 font-medium' 
-                      : 'hover:bg-gray-50'
-                  }`}
-                >
-                  {comm.logo ? (
-                    <img
-                      src={getImageUrl(comm.logo)}
-                      alt={comm.name}
-                      className="w-8 h-8 rounded-lg object-cover flex-shrink-0"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-                      <UsersIcon className="w-4 h-4 text-gray-400" />
-                    </div>
-                  )}
-                  <span className="text-black truncate" style={{ fontSize: '14px' }}>{comm.name}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Community Switcher — skeleton placeholder while community data
+            is still loading so the trigger doesn't briefly fall back to the
+            SiteHeader "הקהילות שלי" mode. */}
+        {community ? (
+          <UserCommunitiesDropdown
+            activeCommunity={{ id: communityId, name: community.name, logo: community.logo }}
+          />
+        ) : (
+          <div className="flex items-center gap-2 min-w-0" aria-hidden>
+            <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-gray-100 flex-shrink-0" />
+            <div className="h-4 w-24 bg-gray-100 rounded" />
+          </div>
+        )}
         </div>
       </div>
 
@@ -224,7 +118,8 @@ export default function CommunityNavbar({
       <nav className="hidden xl:flex absolute left-1/2 -translate-x-1/2 items-center gap-4">
         {navLinks.map((link) => {
           // Insert חנות (coming soon) between לוח תוצאות and אודות
-          const showShopAfter = link.key === 'leaderboard';
+          // HIDDEN until feature ships — re-enable with: link.key === 'leaderboard'
+          const showShopAfter = false;
           return (
             <span key={link.key} className="contents">
               <Link

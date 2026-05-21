@@ -864,11 +864,11 @@ export class CommunitiesService {
 
     // Combine and deduplicate
     const communityMap = new Map<string, { id: string; name: string; slug: string | null; logo: string | null }>();
-    
+
     for (const m of memberships) {
       communityMap.set(m.community.id, m.community);
     }
-    
+
     for (const c of ownedCommunities) {
       communityMap.set(c.id, c);
     }

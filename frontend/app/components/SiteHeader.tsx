@@ -6,6 +6,7 @@ import WithlyLogo from './icons/WithlyLogo';
 import NotificationBell from './NotificationBell';
 import { MessagesBell } from './ChatWidget';
 import UserProfileDropdown from './UserProfileDropdown';
+import UserCommunitiesDropdown from './UserCommunitiesDropdown';
 import { useUser } from '../lib/UserContext';
 
 interface SiteHeaderProps {
@@ -42,7 +43,7 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
   return (
     <>
     <header dir="rtl" className="flex items-center justify-between px-4 md:px-8 py-4 bg-white border-b h-[72px]" style={{ borderColor: '#E1E1E2' }}>
-      {/* Right side: hamburger (mobile) + logo */}
+      {/* Right side: hamburger (mobile) + logo + (logged-in) divider + communities dropdown */}
       <div className="flex items-center gap-1">
         {/* Mobile hamburger - on right side in RTL */}
         <button
@@ -66,6 +67,15 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
         <Link href="/" className="flex items-center hover:opacity-75 transition">
           <WithlyLogo height={28} />
         </Link>
+        {/* Logged-in: vertical divider + user communities switcher (matches
+            CommunityNavbar layout). The divider is hidden on mobile to save
+            space, matching CommunityNavbar's `hidden xl:block` pattern. */}
+        {userEmail && (
+          <>
+            <div className="w-px h-[30px] flex-shrink-0 mx-2 md:mx-4 hidden xl:block" style={{ backgroundColor: 'var(--color-gray-4)' }} />
+            <UserCommunitiesDropdown />
+          </>
+        )}
       </div>
       
       {/* Desktop nav + auth */}
