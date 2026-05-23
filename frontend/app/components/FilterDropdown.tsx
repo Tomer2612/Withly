@@ -15,16 +15,18 @@ interface FilterDropdownProps {
   allLabel?: string;
   className?: string;
   size?: 'default' | 'small';
+  buttonFontSize?: string;
 }
 
-export default function FilterDropdown({ 
-  value, 
-  onChange, 
-  options, 
+export default function FilterDropdown({
+  value,
+  onChange,
+  options,
   placeholder,
   allLabel,
   className = '',
-  size = 'default'
+  size = 'default',
+  buttonFontSize
 }: FilterDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -55,7 +57,7 @@ export default function FilterDropdown({
   const buttonHeight = isSmall ? '36px' : '51px';
   const buttonRadius = isSmall ? '10px' : '15.5px';
   const buttonPadding = isSmall ? '6px 12px' : '0 16px';
-  const fontSize = isSmall ? '14px' : '18px';
+  const fontSize = buttonFontSize ?? (isSmall ? '14px' : '18px');
   const minWidth = isSmall ? '90px' : '110px';
   const dropdownFontSize = isSmall ? '14px' : '16px';
 

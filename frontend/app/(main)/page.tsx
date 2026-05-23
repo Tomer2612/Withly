@@ -196,11 +196,11 @@ export default function Home() {
     <main className="min-h-screen text-right" style={{ backgroundColor: '#F4F4F5' }}>
       {/* Title + CTA */}
       <section className="text-center mb-8 mt-8 md:mt-12 px-4">
-        <h1 className="font-semibold text-black mb-3 text-3xl md:text-5xl lg:text-[3.5rem]">
-          מאגר הקהילות הגדול בארץ
+        <h1 className="text-black mb-3" style={{ fontWeight: 600, fontSize: '48px' }}>
+          גלו קהילות שמעניינות אתכם
         </h1>
-        <p className="text-lg" style={{ color: '#52525B' }}>
-          חפשו, הצטרפו או צרו קהילה לפי תחומי עניין.
+        <p style={{ color: '#3F3F46', fontSize: '21px' }}>
+          חפשו והצטרפו לקהילות, או הקימו קהילה משלכם בקלות.
         </p>
       </section>
 
@@ -255,26 +255,29 @@ export default function Home() {
           onChange={setSelectedPrice}
           placeholder="מחיר"
           allLabel="כל המחירים"
+          buttonFontSize="18px"
           options={[
             { value: 'free', label: 'חינם' },
             { value: 'low', label: '₪1-50' },
             { value: 'high', label: '₪51-100' },
           ]}
         />
-        
+
         <FilterDropdown
           value={selectedTopic}
           onChange={setSelectedTopic}
           placeholder="נושא"
           allLabel="כל הנושאים"
+          buttonFontSize="18px"
           options={COMMUNITY_TOPICS.map(topic => ({ value: topic, label: topic }))}
         />
-        
+
         <FilterDropdown
           value={selectedSize}
           onChange={setSelectedSize}
           placeholder="גודל"
           allLabel="כל הגדלים"
+          buttonFontSize="18px"
           options={COMMUNITY_SIZES.map(size => ({ value: size.value, label: size.label }))}
         />
       </div>
