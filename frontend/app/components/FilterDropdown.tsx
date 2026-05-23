@@ -73,10 +73,11 @@ export default function FilterDropdown({
           borderWidth: '1px',
           borderStyle: 'solid',
           borderColor: isOpen ? '#3F3F46' : '#D0D0D4',
+          fontWeight: 400,
         }}
         className="flex items-center justify-between gap-2 bg-white font-normal text-black transition-colors duration-200 hover:border-gray-400 overflow-visible"
       >
-        <span style={{ fontSize }}>{displayLabel}</span>
+        <span style={{ fontSize, fontWeight: 400 }}>{displayLabel}</span>
         <svg 
           width="10" height="5" viewBox="0 0 10 5" fill="none" 
           xmlns="http://www.w3.org/2000/svg"

@@ -242,8 +242,8 @@ export default function Home() {
             placeholder="חפשו קהילה"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="mr-3 flex-1 bg-transparent outline-none focus:ring-0 text-right"
-            style={{ '--placeholder-color': '#A1A1AA' } as React.CSSProperties}
+            className="mr-3 flex-1 bg-transparent outline-none focus:ring-0 text-right font-normal"
+            style={{ '--placeholder-color': '#A1A1AA', fontWeight: 400 } as React.CSSProperties}
             dir="rtl"
           />
         </div>
