@@ -88,6 +88,11 @@ model UserPaymentMethod {
   // HYP-tokenized payment method id. Null on rows that predate HYP wiring;
   // backfilled lazily on next card-update (Phase 6.1).
   hypPaymentMethodId  String?              @unique
+  // Card expiry from HYP's Tokef (YYMM) on getToken. Required to build
+  // Tmonth/Tyear on every recurring SOFT charge — HYP doesn't store validity
+  // with the token. NULL pre-HYP and until Phase 3 token capture populates.
+  cardExpMonth        Int?
+  cardExpYear         Int?
   // Reverse relations: communities and member subscriptions billing on this card.
   communitiesBilled   Community[]
   memberSubscriptions MemberSubscription[]
