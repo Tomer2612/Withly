@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Logger, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
-import type { Response } from 'express';
+import { All, Body, Controller, Get, Logger, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { HypService } from './hyp.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
@@ -68,5 +68,42 @@ export class PaymentsController {
     } catch {
       return res.redirect(buildUrl('paid=error'));
     }
+  }
+
+  // HYP webhook: async server-to-server delivery of transaction results for
+  // hosted-page (action=pay) charges. Does NOT fire for action=SOFT token
+  // charges — those are reconciled synchronously inside the SOFT response.
+  // Real job: reliability for the redirect-orphan case where the browser
+  // fails to deliver the success redirect (closed tab, network blip, server
+  // restart). HYP retries non-200 with linear 10-min backoff up to ~4h40m,
+  // so we ALWAYS return 200 — even when processing fails, retrying won't help.
+  //
+  // No JWT guard — auth is the signature inside the payload, validated via
+  // verifyTransaction() (same scheme as the redirect callback).
+  //
+  // @All because HYP confirmed payload format matches the redirect query
+  // string but didn't specify the HTTP method; defensive against either.
+  // Params come from query (GET) or body (POST urlencoded/JSON); merge both.
+  //
+  // State reconciliation (upserting charges, advancing subscriptions) is
+  // deferred to Phase 3 — until first-payment entry points exist there are
+  // no charges to reconcile, and the charge-record schema falls out of
+  // Phase 3's design.
+  @All('hyp-webhook')
+  async hypWebhook(@Req() req: Request, @Res() res: Response) {
+    const params = { ...req.query, ...(req.body ?? {}) } as Record<string, string>;
+    try {
+      const result = await this.hypService.verifyTransaction(params);
+      this.logger.log(
+        `HYP webhook: Id=${params.Id} CCode=${params.CCode} Amount=${params.Amount} ` +
+        `Order=${params.Order} verified=${result.ok}`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `HYP webhook processing failed: ${(err as Error).message} ` +
+        `Id=${params.Id} CCode=${params.CCode}`,
+      );
+    }
+    res.status(200).send('OK');
   }
 }
