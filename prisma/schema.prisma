@@ -13,6 +13,9 @@ model User {
   name                     String
   password                 String
   createdAt                DateTime             @default(now())
+  // When the user accepted Terms + Privacy (implicit consent at signup).
+  // Null for accounts created before consent capture; their createdAt is the implicit proof.
+  termsAcceptedAt          DateTime?
   profileImage             String?
   googleId                 String?              @unique
   lastActiveAt             DateTime?            @default(now())

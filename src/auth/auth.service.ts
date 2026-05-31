@@ -30,6 +30,7 @@ export class AuthService {
           password: hashedPassword,
           emailVerificationToken: verificationToken,
           emailVerificationExpires: verificationExpires,
+          termsAcceptedAt: new Date(), // implicit consent: signup page shows the Terms/Privacy disclaimer
         },
       });
 
@@ -102,6 +103,7 @@ export class AuthService {
           googleId: googleUser.email,
           profileImage: googleUser.picture || null,
           isEmailVerified: true, // Google users are verified
+          termsAcceptedAt: new Date(), // implicit consent: signup page shows the Terms/Privacy disclaimer
         },
       });
 

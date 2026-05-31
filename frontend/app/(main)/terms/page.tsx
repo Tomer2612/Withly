@@ -19,6 +19,7 @@ export default function TermsPage() {
       </section>
 
       {/* About Section */}
+      {/*
       <section className="max-w-4xl mx-auto px-4 pb-12">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
           <h2 className="text-2xl font-bold text-black mb-4">אודות Withly</h2>
@@ -35,6 +36,7 @@ export default function TermsPage() {
           </div>
         </div>
       </section>
+      */}
 
       {/* Intro */}
       <section className="max-w-4xl mx-auto px-4 pb-8">
@@ -57,13 +59,13 @@ export default function TermsPage() {
           <h2 className="text-2xl font-bold text-black mb-6">1. רישום וחשבון משתמש</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
-              <strong>1.1.</strong> כדי להשתמש בשירותי הפלטפורמה, עליך ליצור חשבון ולספק פרטים מדויקים (שם מלא וכתובת דוא"ל).
+              <strong>1.1.</strong> כדי להשתמש בשירותי הפלטפורמה,יש ליצור חשבון ולספק פרטים מדויקים (שם מלא וכתובת דוא"ל).
             </p>
             <p>
-              <strong>1.2.</strong> הנך אחראי בלעדי לשמירה על סודיות פרטי ההתחברות שלך ועל כל פעולה שתתבצע תחת חשבונך.
+              <strong>1.2.</strong> האחריות הבלעדית לשמירה על סודיות, פרטי ההתחברות ועל כל פעולה שתתבצע בחשבון, חלה עליך.
             </p>
             <p>
-              <strong>1.3.</strong> השימוש בפלטפורמה מותר למי שכשיר לבצע פעולות משפטיות מחייבות. בעצם הרשמתך, אתה מצהיר כי אתה רשאי כדין להשתמש בשירות ולהתקשר בתנאים אלו.
+              <strong>1.3.</strong> השימוש בפלטפורמה מותר למי שכשיר לבצע פעולות משפטיות מחייבות. בעצם הרשמתך, ניתנת הצהרתך כי קיימת לך הזכות כדין להשתמש בשירות ולהתקשר בתנאים אלו.
             </p>
             <p>
               <strong>1.4.</strong> השימוש בפלטפורמה מותר לבני 13 ומעלה בלבד. משתמשים בני 13-18 מצהירים, בעצם השימוש, כי קיבלו את הסכמת ההורה או האפוטרופוס שלהם להשתמש בפלטפורמה ולהתקשר בתנאים אלו. רכישת מנויים בתשלום מותרת לבני 18 ומעלה, או למשתמשים צעירים יותר בכפוף להסכמת הורה. איננו מבצעים אימות גיל אקטיבי, אך נסיר חשבונות של משתמשים מתחת לגיל 13 אם נדע על קיומם.
@@ -135,7 +137,7 @@ export default function TermsPage() {
           <h2 className="text-2xl font-bold text-black mb-6">5. הסרת תוכן מפר זכויות יוצרים</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
-              <strong>5.1.</strong> אם ראית תוכן בפלטפורמה שאתה סבור שמפר זכויות יוצרים שלך או של אחרים, אנא פנה אלינו במייל לכתובת <a href="mailto:support@withly.co.il" className="underline hover:opacity-70" style={{ color: '#003233' }}>support@withly.co.il</a> וכלול בפנייתך:
+              <strong>5.1.</strong> על מנת לדווח על תוכן המפר זכויות יוצרים,שלך או של אחרים, יש לפנות אלינו במייל לכתובת <a href="mailto:support@withly.co.il" className="underline hover:opacity-70" style={{ color: '#003233' }}>support@withly.co.il</a> וכלול בפנייתך:
             </p>
             <ul className="list-disc list-inside space-y-2 mr-4">
               <li>קישור מדויק לתוכן המפר.</li>

@@ -90,7 +90,7 @@ export default function AccessibilityPage() {
           <h2 className="text-2xl font-bold text-black mb-6">5. יצירת קשר בנושא נגישות</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
-              אם נתקלתם בבעיית נגישות כלשהי בפלטפורמה, נשמח מאוד לשמוע מכם כדי שנוכל לתקן ולשפר. ניתן לפנות אלינו דרך{' '}
+              אם נתקלת בבעיית נגישות כלשהי בפלטפורמה, נשמח מאוד לשמוע על כך כדי שנוכל לתקן ולשפר. ניתן לפנות אלינו דרך{' '}
               <Link href="/contact" className="underline hover:opacity-70" style={{ color: '#003233' }}>
                 עמוד צרו קשר
               </Link>

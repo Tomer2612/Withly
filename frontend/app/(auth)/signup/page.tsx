@@ -681,6 +681,14 @@ function SignupContent() {
               {isSubmitting ? 'נרשם...' : 'הרשמה'}
             </button>
 
+            {/* Implicit consent disclaimer — covers both email and Google signup */}
+            <p className="text-center text-[14px] leading-relaxed" style={{ color: '#7A7A83' }}>
+              בהרשמה ל-Withly (במייל או דרך Google), ניתנת הסכמתך ל
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-70" style={{ color: '#003233' }}>תנאי השימוש</a>
+              {' '}ול
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-70" style={{ color: '#003233' }}>מדיניות הפרטיות</a>.
+            </p>
+
             {message && <p className="text-center text-[14px]" style={{ color: '#B3261E' }}>{message}</p>}
 
             {/* Login Redirect */}
