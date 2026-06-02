@@ -7,7 +7,12 @@ import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common
 //   - verifyTransaction(): validate a redirect callback to confirm a charge
 // (verifyTransaction is the next step — not implemented in this commit.)
 
-const HYP_BASE = 'https://pay.hyp.co.il/p/';
+// /p3 = HYP's 3DS-enabled processor (yaadpay3ds.pl). HYP-confirmed
+// 2026-06-02: switching from /p to /p3 makes the new-template console
+// settings (button color/text, hidden ID field, terms link) actually
+// apply on the live page. The old /p still routes through the legacy
+// processor where the design panel is inert.
+const HYP_BASE = 'https://pay.hyp.co.il/p3';
 
 interface SignPaymentInput {
   /** Amount in ILS (whole number). */
@@ -91,6 +96,13 @@ export class HypService {
       ...(input.info ? { Info: input.info } : {}),
       ...(input.bof ? { BOF: 'True' } : {}),
       ...(input.j5 ? { J5: input.j5 } : {}),
+      // tmp=17 is HYP's hidden-amount template designed specifically for
+      // J5=J2 card-validation flows (HYP-confirmed 2026-06-02). Pairing
+      // them suppresses the amount line on the page entirely — which is
+      // what we want for "save card, no charge" UX. Don't apply outside
+      // J5=J2 since this template is purpose-built and may not render
+      // correctly for actual charge flows.
+      ...(input.j5 === 'J2' ? { tmp: '17' } : {}),
       // MoreData=True unlocks the extra redirect fields (L4digit, Bank,
       // Brand, etc.) we need to store human-readable card info alongside
       // the token. Baseline-on — useful for logging on every flow.
