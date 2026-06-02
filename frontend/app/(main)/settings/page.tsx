@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { compressImage, MAX_IMAGE_SIZE_BYTES } from '../../lib/imageCompression';
 import { useUser } from '../../lib/UserContext';
@@ -17,7 +17,7 @@ import CalendarIcon from '../../components/icons/CalendarIcon';
 import LeaveCommunityModal from '../../components/LeaveCommunityModal';
 import CancelSubscriptionModal from '../../components/CancelSubscriptionModal';
 import UpdateCardModal from '../../components/UpdateCardModal';
-import CreditCardForm, { isCardComplete } from '../../components/CreditCardForm';
+import HypPaymentIframeModal from '../../components/HypPaymentIframeModal';
 import StickySaveBar from '../../components/StickySaveBar';
 import { getImageUrl } from '@/app/lib/imageUrl';
 
@@ -158,12 +158,8 @@ export default function SettingsPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   // Credit card state
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvv, setCardCvv] = useState('');
-  const [savingCard, setSavingCard] = useState(false);
   const [showAddCardModal, setShowAddCardModal] = useState(false);
-  const [paymentMethods, setPaymentMethods] = useState<{ id: string; cardLastFour: string; cardBrand: string; createdAt: string; inUseCommunities: string[] }[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<{ id: string; cardLastFour: string; cardBrand: string; createdAt: string; isPrimary: boolean; inUseCommunities: string[] }[]>([]);
   const [deletingCardId, setDeletingCardId] = useState<string | null>(null);
   const [settingPrimaryId, setSettingPrimaryId] = useState<string | null>(null);
   const [cardToDelete, setCardToDelete] = useState<{ id: string; cardBrand: string; cardLastFour: string } | null>(null);
@@ -177,8 +173,6 @@ export default function SettingsPage() {
   const [communityToRenew, setCommunityToRenew] = useState<Membership | null>(null);
   const [leavingCommunityId, setLeavingCommunityId] = useState<string | null>(null);
   const [undoingId, setUndoingId] = useState<string | null>(null);
-  
-  const isCardValid = isCardComplete(cardNumber, cardExpiry, cardCvv);
   
   // Message state
   const [message, setMessage] = useState('');
@@ -327,6 +321,28 @@ export default function SettingsPage() {
       .then(data => setMemberships(Array.isArray(data) ? data : []))
       .catch(console.error);
   }, [router, user]);
+
+  // After a successful tokenize redirect (Phase 3.1), the backend lands the
+  // user here with ?card=added (or ?card=error). Surface the result, refresh
+  // the card list, and scrub the query so a refresh doesn't replay the toast.
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const cardStatus = searchParams.get('card');
+    if (!cardStatus) return;
+    if (cardStatus === 'added') {
+      setMessage('הכרטיס נוסף בהצלחה');
+      setMessageType('success');
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/payment-methods`)
+        .then(res => res.json())
+        .then(data => setPaymentMethods(data))
+        .catch(console.error);
+    } else if (cardStatus === 'error') {
+      setMessage('שגיאה בהוספת הכרטיס. נסה שוב.');
+      setMessageType('error');
+    }
+    // Strip the query but keep the #payment hash so we stay on the right tab.
+    window.history.replaceState(null, '', '/settings#payment');
+  }, [searchParams]);
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1133,8 +1149,15 @@ export default function SettingsPage() {
                 {/* Saved Cards List - Simple text format */}
                 {paymentMethods.length > 0 ? (
                   <div className="space-y-3">
-                    {/* Sort by createdAt - most recent first */}
-                    {[...paymentMethods].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((method, index) => (
+                    {/* Sort by isPrimary first, then createdAt desc within each group. The
+                        actual DB isPrimary flag is the source of truth — index === 0 is the
+                        primary card, everything else is "saved". */}
+                    {[...paymentMethods]
+                      .sort((a, b) =>
+                        Number(b.isPrimary) - Number(a.isPrimary)
+                        || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                      )
+                      .map((method, index) => (
                       <div key={method.id} className="flex items-center justify-between p-4 rounded-xl border" style={{ backgroundColor: index === 0 ? 'white' : '#F4F4F5', borderColor: index === 0 ? '#D0D0D4' : '#E1E1E2' }}>
                         <div className="flex items-center gap-3" style={{ color: '#3F3F46' }}>
                           {/* Radio-style dot - clickable for non-primary cards */}
@@ -1149,17 +1172,17 @@ export default function SettingsPage() {
                                   method: 'PATCH',
                                 });
                                 if (!res.ok) throw new Error('Failed to set primary');
-                                setPaymentMethods(prev => prev.map(m => 
-                                  m.id === method.id ? { ...m, createdAt: new Date().toISOString() } : m
-                                ));
+                                // Flip isPrimary locally — the new sort relies on this flag,
+                                // so just bumping createdAt would no longer move the card.
+                                setPaymentMethods(prev => prev.map(m => ({
+                                  ...m,
+                                  isPrimary: m.id === method.id,
+                                })));
                                 setMessage('הכרטיס הוגדר כראשי');
                                 setMessageType('success');
                               } catch {
-                                setPaymentMethods(prev => prev.map(m => 
-                                  m.id === method.id ? { ...m, createdAt: new Date().toISOString() } : m
-                                ));
-                                setMessage('הכרטיס הוגדר כראשי');
-                                setMessageType('success');
+                                setMessage('לא ניתן להגדיר את הכרטיס כראשי כעת');
+                                setMessageType('error');
                               } finally {
                                 setSettingPrimaryId(null);
                               }
@@ -1521,79 +1544,17 @@ export default function SettingsPage() {
             )}
 
             {/* Add Card Modal - styled like pay popups with live validation */}
-            {showAddCardModal && (
-              <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-2xl max-w-md w-full p-8 relative shadow-lg" dir="rtl">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAddCardModal(false);
-                      setCardNumber('');
-                      setCardExpiry('');
-                      setCardCvv('');
-                    }}
-                    className="absolute top-4 left-4"
-                    style={{ color: '#A1A1AA' }}
-                  >
-                    <CloseIcon size={20} />
-                  </button>
-
-                  <h2 className="text-2xl font-bold text-center mb-8">הוספת כרטיס אשראי</h2>
-
-                  <CreditCardForm
-                    cardNumber={cardNumber}
-                    cardExpiry={cardExpiry}
-                    cardCvv={cardCvv}
-                    onCardNumberChange={setCardNumber}
-                    onCardExpiryChange={setCardExpiry}
-                    onCardCvvChange={setCardCvv}
-                  />
-
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!isCardValid) {
-                        return;
-                      }
-                      if (!user) return;
-
-                      setSavingCard(true);
-                      try {
-                        const cardLast4 = cardNumber.slice(-4);
-                        const brand = cardNumber.startsWith('4') ? 'Visa' : cardNumber.startsWith('5') ? 'Mastercard' : 'Card';
-
-                        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/payment-methods`, {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                          },
-                          body: JSON.stringify({ cardLastFour: cardLast4, cardBrand: brand })
-                        });
-                        
-                        if (!res.ok) throw new Error('Failed to save card');
-                        const newCard = await res.json();
-                        
-                        setPaymentMethods(prev => [...prev, newCard]);
-                        setShowAddCardModal(false);
-                        setCardNumber('');
-                        setCardExpiry('');
-                        setCardCvv('');
-                        setMessage('הכרטיס נוסף בהצלחה');
-                        setMessageType('success');
-                      } catch {
-                        setMessage('שגיאה בשמירת הכרטיס');
-                        setMessageType('error');
-                      } finally {
-                        setSavingCard(false);
-                      }
-                    }}
-                    disabled={savingCard || !isCardValid}
-                    className="w-full mt-8 bg-black text-white py-4 rounded-xl font-bold text-lg hover:opacity-90 transition disabled:opacity-50"
-                  >
-                    {savingCard ? 'שומר...' : 'שמור כרטיס'}
-                  </button>
-                </div>
-              </div>
+            {showAddCardModal && user && (
+              <HypPaymentIframeModal
+                amount={5}
+                j5="J2"
+                bof
+                orderPrefix="tokenize-cardOnFile"
+                clientName={userProfile?.name || user.email}
+                email={user.email}
+                userId={user.userId}
+                onClose={() => setShowAddCardModal(false)}
+              />
             )}
 
             {/* Message Display — inline, just below the active tab card */}
