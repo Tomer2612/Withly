@@ -19,6 +19,31 @@ interface SignPaymentInput {
   order: string;
   /** Free-text description shown on the HYP page (optional). */
   info?: string;
+  /**
+   * Phase 3 iframe support. When true, sends BOF=True so HYP redirects the
+   * parent window (instead of inside the iframe) after payment completes.
+   * HYP-confirmed top-level SIGN param (2026-06).
+   */
+  bof?: boolean;
+  /**
+   * Card-validation mode. 'J2' = card credibility check only, no charge,
+   * no credit-line preservation (Settings Add-Card pattern). 'True' = 3-day
+   * credit-line preservation. Omit for normal charge.
+   */
+  j5?: 'J2' | 'True';
+}
+
+export interface GetTokenResult {
+  /** True when CCode === '0' and a token was minted. */
+  ok: boolean;
+  /** Raw HYP CCode from the response (null only on unparseable response). */
+  ccode: string | null;
+  /** 19-digit HYP token (null on failure). */
+  token: string | null;
+  /** Card expiry month, 1-12, parsed from HYP's Tokef (YYMM). Null on failure. */
+  expMonth: number | null;
+  /** Card expiry year, 4-digit (e.g., 2026). Null on failure. */
+  expYear: number | null;
 }
 
 @Injectable()
@@ -64,6 +89,8 @@ export class HypService {
       email: input.email,
       Order: input.order,
       ...(input.info ? { Info: input.info } : {}),
+      ...(input.bof ? { BOF: 'True' } : {}),
+      ...(input.j5 ? { J5: input.j5 } : {}),
       UTF8: 'True',
       UTF8out: 'True',
       Sign: 'True',
@@ -156,5 +183,76 @@ export class HypService {
     }
 
     return { ok, ccode, body };
+  }
+
+  /**
+   * Mint a 19-digit HYP token from a completed transaction.
+   *
+   * Called after a successful hosted-page / iframe payment (typically a
+   * J5=J2 card-validation in Phase 3.1, but works for any successful pay).
+   * Returns the token + card expiry split out from HYP's Tokef (YYMM).
+   *
+   * Runs on the ORIGINAL payment terminal (the same Masof the transaction
+   * was made on) — NOT the new token-charging terminal. The token-terminal
+   * is for SOFT charges only; getToken always runs on the pay-terminal.
+   *
+   * HYP doesn't store card expiry alongside the token, so we extract it
+   * from Tokef here and the caller stores it in UserPaymentMethod.
+   */
+  async getToken(transactionId: string): Promise<GetTokenResult> {
+    const params = new URLSearchParams({
+      action: 'getToken',
+      Masof: this.masof,
+      PassP: this.passp,
+      TransId: transactionId,
+    });
+
+    let res: Response;
+    try {
+      res = await fetch(HYP_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString(),
+      });
+    } catch (err) {
+      this.logger.error(`HYP getToken network error: ${(err as Error).message}`);
+      throw new InternalServerErrorException('Payment provider unreachable');
+    }
+
+    if (!res.ok) {
+      this.logger.error(`HYP getToken HTTP ${res.status}`);
+      throw new InternalServerErrorException('Payment provider error');
+    }
+
+    const text = await res.text();
+    // Same trailing-newline trim as verifyTransaction — HYP responses end
+    // in \n which would otherwise attach to the last value.
+    const body: Record<string, string> = {};
+    for (const [k, v] of new URLSearchParams(text).entries()) {
+      body[k] = v.trim();
+    }
+
+    const ccode = body.CCode ?? null;
+    const ok = ccode === '0';
+
+    if (!ok) {
+      this.logger.warn(`HYP getToken rejected: CCode=${ccode} body=${text}`);
+      return { ok: false, ccode, token: null, expMonth: null, expYear: null };
+    }
+
+    const token = body.Token ?? null;
+    const tokef = body.Tokef ?? null;
+
+    let expMonth: number | null = null;
+    let expYear: number | null = null;
+    // HYP returns Tokef as 4-digit YYMM (e.g., "2604" = April 2026). Store
+    // as full year + month for typed querying; convert back to Tmonth/Tyear
+    // on each SOFT charge.
+    if (tokef && /^\d{4}$/.test(tokef)) {
+      expYear = 2000 + parseInt(tokef.slice(0, 2), 10);
+      expMonth = parseInt(tokef.slice(2, 4), 10);
+    }
+
+    return { ok, ccode, token, expMonth, expYear };
   }
 }

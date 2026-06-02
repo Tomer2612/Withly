@@ -1,4 +1,4 @@
-import { IsEmail, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsEmail, IsIn, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export class CreatePaymentDto {
   // In ILS (whole number for HYP). 99 for owner Withly subscription;
@@ -26,4 +26,19 @@ export class CreatePaymentDto {
   @IsString()
   @MaxLength(200)
   info?: string;
+
+  // Phase 3 iframe support. When true, HYP redirects the PARENT window after
+  // the iframe payment completes (instead of redirecting inside the iframe).
+  // HYP-confirmed param name (2026-06). Sent as top-level SIGN param.
+  @IsOptional()
+  @IsBoolean()
+  bof?: boolean;
+
+  // Phase 3 card-validation mode. 'J2' = check card credibility only, no
+  // charge, no credit-line preservation (the recommended pattern for
+  // card-on-file in Settings Add-Card). 'True' = preserve credit line 3
+  // days. Omit for normal charge flow.
+  @IsOptional()
+  @IsIn(['J2', 'True'])
+  j5?: 'J2' | 'True';
 }

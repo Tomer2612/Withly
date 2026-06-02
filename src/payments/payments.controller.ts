@@ -26,6 +26,8 @@ export class PaymentsController {
       email: body.email,
       order: body.order,
       info: body.info ?? `userId:${req.user.userId}`,
+      bof: body.bof,
+      j5: body.j5,
     });
     return { url };
   }
