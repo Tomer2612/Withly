@@ -125,10 +125,14 @@ export class PaymentsController {
         this.logger.error(
           `getToken failed: Id=${query.Id} userId=${userId} CCode=${tokenResult.ccode}`,
         );
-        return res.redirect(`${frontend}/settings?card=error`);
+        return res.redirect(`${frontend}/settings?card=error#payment`);
       }
 
-      const cardLastFour = verifiedBody.L4digit ?? '';
+      // J5=J2 redirects don't include L4digit / Bank in the verified body
+      // (MoreData=True only populates them on full charge flows). Fall back
+      // to the last 4 of the 19-digit token, which by HYP convention matches
+      // the underlying card's last 4 (confirmed empirically 2026-06).
+      const cardLastFour = verifiedBody.L4digit || tokenResult.token.slice(-4);
       const cardBrand = bankIdToBrand(verifiedBody.Bank);
 
       await this.usersService.addTokenizedPaymentMethod(userId, {
@@ -143,10 +147,12 @@ export class PaymentsController {
         `Card tokenized: userId=${userId} last4=${cardLastFour} brand=${cardBrand} ` +
         `exp=${tokenResult.expMonth}/${tokenResult.expYear} tokenSuffix=${tokenResult.token.slice(-4)}`,
       );
-      return res.redirect(`${frontend}/settings?card=added`);
+      // Hash routes the user to the תשלומים tab (settings page reads
+      // window.location.hash to select active tab).
+      return res.redirect(`${frontend}/settings?card=added#payment`);
     } catch (err) {
       this.logger.error(`Tokenize flow error: ${(err as Error).message}`);
-      return res.redirect(`${frontend}/settings?card=error`);
+      return res.redirect(`${frontend}/settings?card=error#payment`);
     }
   }
 
