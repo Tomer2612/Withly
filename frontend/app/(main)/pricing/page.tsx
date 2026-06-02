@@ -234,7 +234,7 @@ function PricingContent() {
             tokenize HYP redirects parent to /communities/<id>/manage?card=updated. */}
         {showCardModal && user && newCommunityId && (
           <HypPaymentIframeModal
-            amount={plan.price}
+            amount={Math.max(1, plan.price)}
             j5="J2"
             bof
             orderPrefix={`tokenize-community-${newCommunityId}`}

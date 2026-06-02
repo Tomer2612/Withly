@@ -48,7 +48,9 @@ export default function UpdateCardModal({
 
   return (
     <HypPaymentIframeModal
-      amount={amount ?? 1}
+      // Clamp to >= 1: HYP rejects 0 (donation mode); our DTO has @Min(1).
+      // A community with price=0 (free) would otherwise crash the modal here.
+      amount={Math.max(1, amount ?? 1)}
       j5="J2"
       bof
       orderPrefix={orderPrefix}
