@@ -345,6 +345,15 @@ export default function ManageCommunityPage() {
       setActiveTab('payments');
       setMessage(wasSuspended ? 'הקהילה חזרה לפעילות!' : 'אמצעי התשלום עודכן בהצלחה');
       setMessageType('success');
+    } else if (cardStatus === 'existing') {
+      // Community already had this exact card bound. Still refresh in case
+      // the suspended-status flipped (saving a card on a SUSPENDED community
+      // reactivates even when the card itself didn't change).
+      const wasSuspended = isSuspended;
+      refreshCommunity().catch(() => {});
+      setActiveTab('payments');
+      setMessage(wasSuspended ? 'הקהילה חזרה לפעילות!' : 'הכרטיס כבר מקושר לקהילה זו');
+      setMessageType('success');
     } else if (cardStatus === 'error') {
       setMessage('שגיאה בעדכון אמצעי התשלום. נסה שוב.');
       setMessageType('error');
@@ -2155,6 +2164,7 @@ export default function ManageCommunityPage() {
             onClose={() => setShowCardModal(false)}
             communityId={communityId}
             wasSuspended={isSuspended}
+            amount={price}
           />
 
 

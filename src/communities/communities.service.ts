@@ -530,7 +530,7 @@ export class CommunitiesService {
   ) {
     const community = await this.prisma.community.findUnique({
       where: { id: communityId },
-      select: { ownerId: true, subscriptionStatus: true },
+      select: { ownerId: true, subscriptionStatus: true, paymentMethodId: true },
     });
     if (!community) {
       throw new NotFoundException('Community not found');
@@ -538,6 +538,12 @@ export class CommunitiesService {
     if (community.ownerId !== userId) {
       throw new ForbiddenException('Only the community owner can update payment info');
     }
+
+    // Same card already bound? Caller surfaces a different toast.
+    // Note: even when wasAlreadyBound, if the community is SUSPENDED we still
+    // run the reactivation flip — saving a card on a suspended community IS
+    // the renewal action regardless of whether the card itself changed.
+    const wasAlreadyBound = community.paymentMethodId === paymentMethod.id;
 
     const updateData: Prisma.CommunityUpdateInput = {
       paymentMethod: { connect: { id: paymentMethod.id } },
@@ -562,7 +568,7 @@ export class CommunitiesService {
       void this.notifyCommunityReactivated(communityId, userId).catch(() => {});
     }
 
-    return updated;
+    return { community: updated, wasAlreadyBound, wasReactivated: firingReactivated };
   }
 
   private async notifyCommunityReactivated(communityId: string, ownerId: string) {

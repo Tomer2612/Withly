@@ -149,7 +149,7 @@ export class PaymentsController {
       const cardLastFour = verifiedBody.L4digit || tokenResult.token.slice(-4);
       const cardBrand = bankIdToBrand(verifiedBody.Bank);
 
-      await this.usersService.addTokenizedPaymentMethod(userId, {
+      const { isNew } = await this.usersService.addTokenizedPaymentMethod(userId, {
         token: tokenResult.token,
         expMonth: tokenResult.expMonth,
         expYear: tokenResult.expYear,
@@ -159,11 +159,13 @@ export class PaymentsController {
 
       this.logger.log(
         `Card tokenized: userId=${userId} last4=${cardLastFour} brand=${cardBrand} ` +
-        `exp=${tokenResult.expMonth}/${tokenResult.expYear} tokenSuffix=${tokenResult.token.slice(-4)}`,
+        `exp=${tokenResult.expMonth}/${tokenResult.expYear} tokenSuffix=${tokenResult.token.slice(-4)} ` +
+        `isNew=${isNew}`,
       );
-      // Hash routes the user to the תשלומים tab (settings page reads
-      // window.location.hash to select active tab).
-      return res.redirect(`${frontend}/settings?card=added#payment`);
+      // Hash routes the user to the תשלומים tab. The card query param tells
+      // the page which toast to show (added = new card, existing = had it).
+      const cardParam = isNew ? 'added' : 'existing';
+      return res.redirect(`${frontend}/settings?card=${cardParam}#payment`);
     } catch (err) {
       this.logger.error(`Tokenize flow error: ${(err as Error).message}`);
       return res.redirect(`${frontend}/settings?card=error#payment`);
@@ -203,7 +205,7 @@ export class PaymentsController {
       const cardLastFour = verifiedBody.L4digit || tokenResult.token.slice(-4);
       const cardBrand = bankIdToBrand(verifiedBody.Bank);
 
-      const paymentMethod = await this.usersService.addTokenizedPaymentMethod(userId, {
+      const { paymentMethod } = await this.usersService.addTokenizedPaymentMethod(userId, {
         token: tokenResult.token,
         expMonth: tokenResult.expMonth,
         expYear: tokenResult.expYear,
@@ -211,18 +213,26 @@ export class PaymentsController {
         cardBrand,
       });
 
-      await this.communitiesService.bindTokenizedPaymentMethod(communityId, userId, {
-        id: paymentMethod.id,
-        cardLastFour: paymentMethod.cardLastFour,
-        cardBrand: paymentMethod.cardBrand,
-      });
+      const { wasAlreadyBound } = await this.communitiesService.bindTokenizedPaymentMethod(
+        communityId,
+        userId,
+        {
+          id: paymentMethod.id,
+          cardLastFour: paymentMethod.cardLastFour,
+          cardBrand: paymentMethod.cardBrand,
+        },
+      );
 
       this.logger.log(
         `Community card bound: userId=${userId} communityId=${communityId} ` +
         `last4=${cardLastFour} brand=${cardBrand} ` +
-        `tokenSuffix=${tokenResult.token.slice(-4)}`,
+        `tokenSuffix=${tokenResult.token.slice(-4)} wasAlreadyBound=${wasAlreadyBound}`,
       );
-      return res.redirect(`${frontend}/communities/${communityId}/manage?card=updated`);
+      // existing = community already had this card. updated = new card (or
+      // first time binding). Either way the manage page picks up the
+      // ACTIVE flip (if the community was SUSPENDED) on refresh.
+      const cardParam = wasAlreadyBound ? 'existing' : 'updated';
+      return res.redirect(`${frontend}/communities/${communityId}/manage?card=${cardParam}`);
     } catch (err) {
       this.logger.error(`Community tokenize flow error: ${(err as Error).message}`);
       return res.redirect(failureRedirect);

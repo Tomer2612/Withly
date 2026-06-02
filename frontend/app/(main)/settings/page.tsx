@@ -329,8 +329,12 @@ export default function SettingsPage() {
   useEffect(() => {
     const cardStatus = searchParams.get('card');
     if (!cardStatus) return;
-    if (cardStatus === 'added') {
-      setMessage('הכרטיס נוסף בהצלחה');
+    if (cardStatus === 'added' || cardStatus === 'existing') {
+      setMessage(
+        cardStatus === 'added'
+          ? 'הכרטיס נוסף בהצלחה'
+          : 'הכרטיס היה כבר שמור, פרטיו עודכנו',
+      );
       setMessageType('success');
       fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/payment-methods`)
         .then(res => res.json())
@@ -1522,6 +1526,7 @@ export default function SettingsPage() {
                 onClose={() => setCommunityToRenew(null)}
                 communityId={communityToRenew.communityId}
                 wasSuspended
+                amount={communityToRenew.price ?? 1}
               />
             )}
 

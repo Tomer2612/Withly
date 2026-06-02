@@ -468,6 +468,9 @@ export class UsersService {
   // newer tokens are functionally equivalent but represent the latest
   // tokenization HYP issued for this card, so we prefer them for future
   // SOFT charges.
+  //
+  // Returns `isNew` so callers can distinguish "user added a brand new card"
+  // from "user re-added a card they already had" and surface different toasts.
   async addTokenizedPaymentMethod(
     userId: string,
     data: {
@@ -488,15 +491,16 @@ export class UsersService {
       },
     });
     if (existing) {
-      return this.prisma.userPaymentMethod.update({
+      const updated = await this.prisma.userPaymentMethod.update({
         where: { id: existing.id },
         data: { hypPaymentMethodId: data.token },
       });
+      return { paymentMethod: updated, isNew: false };
     }
 
     const hasAny = await this.prisma.userPaymentMethod.count({ where: { userId } });
 
-    return this.prisma.userPaymentMethod.create({
+    const created = await this.prisma.userPaymentMethod.create({
       data: {
         userId,
         hypPaymentMethodId: data.token,
@@ -507,6 +511,7 @@ export class UsersService {
         isPrimary: hasAny === 0,
       },
     });
+    return { paymentMethod: created, isNew: true };
   }
 
   async deletePaymentMethod(userId: string, paymentMethodId: string) {
