@@ -1546,7 +1546,7 @@ export default function SettingsPage() {
             {/* Add Card Modal - styled like pay popups with live validation */}
             {showAddCardModal && user && (
               <HypPaymentIframeModal
-                amount={5}
+                amount={0}
                 j5="J2"
                 bof
                 orderPrefix="tokenize-cardOnFile"

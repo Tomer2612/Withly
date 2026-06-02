@@ -2,9 +2,12 @@ import { IsBoolean, IsEmail, IsIn, IsNumber, IsOptional, IsString, MaxLength, Mi
 
 export class CreatePaymentDto {
   // In ILS (whole number for HYP). 99 for owner Withly subscription;
-  // community.price for paid-member subscriptions.
+  // community.price for paid-member subscriptions. 0 is allowed only for
+  // J5=J2 card-on-file validations (Phase 3.1) where we'd like HYP to
+  // suppress the amount display — caller passes 0; HYP either renders
+  // ₪0.00 or rejects the SIGN (empirical test in progress).
   @IsNumber()
-  @Min(1)
+  @Min(0)
   amount!: number;
 
   // Shows up on the HYP payment page + on the receipt.

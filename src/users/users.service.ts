@@ -459,9 +459,15 @@ export class UsersService {
 
   // Phase 3 tokenization. Called after a successful J5=J2 validation (or any
   // successful pay) followed by getToken. Stores the HYP token + card expiry
-  // + display fields. Dedup is by the token itself, not last4 — same card
-  // re-added would mint a fresh token (HYP design), so token-level dedup
-  // keeps semantics clean.
+  // + display fields.
+  //
+  // Dedup by physical-card identity (last4 + brand + expiry), NOT by token:
+  // every fresh tokenization mints a new HYP token even for the same card,
+  // so token-only dedup would create duplicate rows (verified empirically
+  // 2026-06). On a match, UPDATE the existing row with the newer token —
+  // newer tokens are functionally equivalent but represent the latest
+  // tokenization HYP issued for this card, so we prefer them for future
+  // SOFT charges.
   async addTokenizedPaymentMethod(
     userId: string,
     data: {
@@ -473,10 +479,19 @@ export class UsersService {
     },
   ) {
     const existing = await this.prisma.userPaymentMethod.findFirst({
-      where: { userId, hypPaymentMethodId: data.token },
+      where: {
+        userId,
+        cardLastFour: data.cardLastFour,
+        cardBrand: data.cardBrand,
+        cardExpMonth: data.expMonth,
+        cardExpYear: data.expYear,
+      },
     });
     if (existing) {
-      return existing;
+      return this.prisma.userPaymentMethod.update({
+        where: { id: existing.id },
+        data: { hypPaymentMethodId: data.token },
+      });
     }
 
     const hasAny = await this.prisma.userPaymentMethod.count({ where: { userId } });
