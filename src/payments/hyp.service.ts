@@ -91,6 +91,10 @@ export class HypService {
       ...(input.info ? { Info: input.info } : {}),
       ...(input.bof ? { BOF: 'True' } : {}),
       ...(input.j5 ? { J5: input.j5 } : {}),
+      // MoreData=True unlocks the extra redirect fields (L4digit, Bank,
+      // Brand, etc.) we need to store human-readable card info alongside
+      // the token. Baseline-on — useful for logging on every flow.
+      MoreData: 'True',
       UTF8: 'True',
       UTF8out: 'True',
       Sign: 'True',
