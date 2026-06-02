@@ -4,6 +4,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { HypService } from './hyp.service';
 import { UsersService } from '../users/users.service';
 import { CommunitiesService } from '../communities/communities.service';
+import { EmailService } from '../email/email.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 
 // HYP returns `Bank` as a small integer indicating the card brand. Map to
@@ -43,6 +44,7 @@ export class PaymentsController {
     private readonly hypService: HypService,
     private readonly usersService: UsersService,
     private readonly communitiesService: CommunitiesService,
+    private readonly emailService: EmailService,
   ) {}
 
   // Returns a signed HYP payment URL the frontend redirects to. The user's
@@ -162,6 +164,14 @@ export class PaymentsController {
         `exp=${tokenResult.expMonth}/${tokenResult.expYear} tokenSuffix=${tokenResult.token.slice(-4)} ` +
         `isNew=${isNew}`,
       );
+
+      // Phase 3.6 — fire-and-forget security email on truly new cards only.
+      // Suppress on token-refresh (isNew=false) so re-adding the same card
+      // doesn't spam the user.
+      if (isNew) {
+        void this.sendCardAddedEmailSafely(userId, cardBrand, cardLastFour);
+      }
+
       // Hash routes the user to the תשלומים tab. The card query param tells
       // the page which toast to show (added = new card, existing = had it).
       const cardParam = isNew ? 'added' : 'existing';
@@ -213,7 +223,7 @@ export class PaymentsController {
         cardBrand,
       });
 
-      const { wasAlreadyBound } = await this.communitiesService.bindTokenizedPaymentMethod(
+      const { community, wasAlreadyBound } = await this.communitiesService.bindTokenizedPaymentMethod(
         communityId,
         userId,
         {
@@ -228,6 +238,20 @@ export class PaymentsController {
         `last4=${cardLastFour} brand=${cardBrand} ` +
         `tokenSuffix=${tokenResult.token.slice(-4)} wasAlreadyBound=${wasAlreadyBound}`,
       );
+
+      // Phase 3.6 — fire-and-forget security email when the community's
+      // billing card actually changed. Skip on wasAlreadyBound to avoid
+      // noise when an owner re-enters the same card (e.g., on the
+      // suspended-renewal flow where the card is intentionally unchanged).
+      if (!wasAlreadyBound) {
+        void this.sendCommunityCardUpdatedEmailSafely(
+          userId,
+          community.name,
+          cardBrand,
+          cardLastFour,
+        );
+      }
+
       // existing = community already had this card. updated = new card (or
       // first time binding). Either way the manage page picks up the
       // ACTIVE flip (if the community was SUSPENDED) on refresh.
@@ -236,6 +260,52 @@ export class PaymentsController {
     } catch (err) {
       this.logger.error(`Community tokenize flow error: ${(err as Error).message}`);
       return res.redirect(failureRedirect);
+    }
+  }
+
+  // Phase 3.6 — fire-and-forget email helpers. Look up user once, swallow
+  // any send error (Resend hiccup, user without email, etc.) — these emails
+  // are confirmation/security notifications, not transactional gates, so a
+  // failed send must never block the tokenize redirect.
+  private async sendCardAddedEmailSafely(
+    userId: string,
+    cardBrand: string,
+    cardLastFour: string,
+  ): Promise<void> {
+    try {
+      const user = await this.usersService.findById(userId);
+      if (!user?.email) return;
+      await this.emailService.sendPaymentMethodAddedEmail(
+        user.email,
+        user.name ?? user.email,
+        cardBrand,
+        cardLastFour,
+      );
+    } catch (err) {
+      this.logger.warn(`Card-added email failed (userId=${userId}): ${(err as Error).message}`);
+    }
+  }
+
+  private async sendCommunityCardUpdatedEmailSafely(
+    userId: string,
+    communityName: string,
+    cardBrand: string,
+    cardLastFour: string,
+  ): Promise<void> {
+    try {
+      const user = await this.usersService.findById(userId);
+      if (!user?.email) return;
+      await this.emailService.sendCommunityCardUpdatedEmail(
+        user.email,
+        user.name ?? user.email,
+        communityName,
+        cardBrand,
+        cardLastFour,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Community-card-updated email failed (userId=${userId}): ${(err as Error).message}`,
+      );
     }
   }
 

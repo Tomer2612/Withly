@@ -288,6 +288,76 @@ export class EmailService {
                 </tr>`;
   }
 
+  // Shared body shape for informational payment-confirmation emails — no
+  // CTA button, just greeting + two short paragraphs + signoff. Matches
+  // the existing template's padding/typography.
+  private buildPaymentInfoBody(name: string, lines: string[]): string {
+    const escape = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const paragraphs = lines
+      .map(
+        (line) =>
+          `<p style="margin: 0 0 16px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif; color: #000000;">${escape(line)}</p>`,
+      )
+      .join('\n                    ');
+    return `
+                <!-- 9. Email text -->
+                <tr>
+                  <td style="padding: 0 48px;">
+                    <p style="margin: 0 0 16px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif; color: #000000;">שלום <span style="font-weight: 600;">${escape(name)}</span>,</p>
+                    ${paragraphs}
+                    <p style="margin: 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif; color: #000000;">בברכה,<br>צוות <span dir="ltr" style="unicode-bidi: embed;">Withly</span></p>
+                  </td>
+                </tr>`;
+  }
+
+  // Phase 3.6 — sent after the user adds a NEW card to their personal
+  // wallet via Settings (Phase 3.1). For security: any time a new payment
+  // method lands on the account, the user gets notified by email so an
+  // attacker can't quietly attach a card without their knowledge. Not sent
+  // on token-refresh (same card re-added) to avoid spam.
+  async sendPaymentMethodAddedEmail(
+    email: string,
+    name: string,
+    cardBrand: string,
+    cardLastFour: string,
+  ): Promise<void> {
+    const cardLine = `${cardBrand} ************${cardLastFour}`;
+    const bodyContent = this.buildPaymentInfoBody(name, [
+      `כרטיס אשראי חדש נוסף לחשבון שלך ב-Withly:`,
+      cardLine,
+      `אם לא ביצעת את הפעולה הזו בעצמך, אנא צור איתנו קשר מיד.`,
+    ]);
+    const htmlBody = this.buildEmailHtml(bodyContent);
+    const textBody = `שלום ${name},\n\nכרטיס אשראי חדש נוסף לחשבון שלך ב-Withly:\n${cardLine}\n\nאם לא ביצעת את הפעולה הזו בעצמך, אנא צור איתנו קשר מיד.\n\nבברכה,\nצוות Withly`;
+
+    await this.sendEmail(email, 'כרטיס אשראי נוסף לחשבון Withly שלך', htmlBody, textBody);
+  }
+
+  // Phase 3.6 — sent after the billing card for a specific community is
+  // changed (Phase 3.2/3.3). Only on actual card change — not on
+  // wasAlreadyBound re-binds — to avoid noise on suspended-community
+  // renewal flows where the user re-enters the same card.
+  async sendCommunityCardUpdatedEmail(
+    email: string,
+    name: string,
+    communityName: string,
+    cardBrand: string,
+    cardLastFour: string,
+  ): Promise<void> {
+    const cardLine = `${cardBrand} ************${cardLastFour}`;
+    const bodyContent = this.buildPaymentInfoBody(name, [
+      `אמצעי התשלום של הקהילה "${communityName}" עודכן בהצלחה:`,
+      cardLine,
+      `חיובים עתידיים של המנוי יבוצעו לכרטיס זה.`,
+      `אם לא ביצעת את הפעולה הזו בעצמך, אנא צור איתנו קשר מיד.`,
+    ]);
+    const htmlBody = this.buildEmailHtml(bodyContent);
+    const textBody = `שלום ${name},\n\nאמצעי התשלום של הקהילה "${communityName}" עודכן בהצלחה:\n${cardLine}\n\nחיובים עתידיים של המנוי יבוצעו לכרטיס זה.\n\nאם לא ביצעת את הפעולה הזו בעצמך, אנא צור איתנו קשר מיד.\n\nבברכה,\nצוות Withly`;
+
+    await this.sendEmail(email, `אמצעי התשלום של ${communityName} עודכן`, htmlBody, textBody);
+  }
+
   async sendEventReminder(
     email: string,
     userName: string,
