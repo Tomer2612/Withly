@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import SiteFooter from '../../components/SiteFooter';
 import FormSelect from '../../components/FormSelect';
 import { useUser } from '../../lib/UserContext';
-import CreditCardForm, { isCardComplete } from '../../components/CreditCardForm';
+import HypPaymentIframeModal from '../../components/HypPaymentIframeModal';
 
 // Checkmark Icon component
 const CheckmarkIcon = ({ className = "w-3 h-2.5" }: { className?: string }) => (
@@ -101,14 +101,16 @@ function PricingContent() {
   const userEmail = user?.email ?? null;
   const [openFaqs, setOpenFaqs] = useState<Set<number>>(new Set());
 
-  // Flow states - 'create' is first popup (name+category), then 'payment'
-  const [currentStep, setCurrentStep] = useState<'pricing' | 'create' | 'payment'>('pricing');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvv, setCardCvv] = useState('');
+  // Flow states - 'create' is the name+category popup; the iframe modal
+  // handles payment (no separate 'payment' step page anymore).
+  const [currentStep, setCurrentStep] = useState<'pricing' | 'create'>('pricing');
   const [communityName, setCommunityName] = useState('');
   const [communityTopic, setCommunityTopic] = useState('');
   const [creatingCommunity, setCreatingCommunity] = useState(false);
+  // Set once the DRAFT community is created. Reused if the user closes the
+  // iframe modal and re-clicks "Continue" so we don't duplicate-create.
+  const [newCommunityId, setNewCommunityId] = useState<string | null>(null);
+  const [showCardModal, setShowCardModal] = useState(false);
 
   // Check for step parameter on mount (from signup redirect)
   useEffect(() => {
@@ -140,18 +142,26 @@ function PricingContent() {
     }
   };
 
-  const handleContinueToPayment = () => {
-    // After entering community details, go to payment
+  // After entering community details: create the community (DRAFT) and then
+  // open the iframe modal for card tokenization. Reuses Phase 3.2's
+  // tokenize-community-<communityId> dispatch — backend mints the token,
+  // persists a UserPaymentMethod for the owner, and binds it to this
+  // community. On modal-completion HYP redirects parent to
+  // /communities/<id>/manage?card=updated.
+  //
+  // If the user closes the modal mid-flow, the DRAFT community persists.
+  // Re-clicking continue reopens the modal against the existing community
+  // instead of creating a duplicate.
+  const handleContinueToPayment = async () => {
     if (!communityName.trim()) return;
-    setCurrentStep('payment');
-  };
 
-  const handlePaymentAndCreate = async () => {
-    // Create community and save payment info
-    if (!communityName.trim()) return;
-    
+    if (newCommunityId) {
+      // Community already created in a prior attempt — just reopen modal.
+      setShowCardModal(true);
+      return;
+    }
+
     setCreatingCommunity(true);
-
     try {
       const formData = new FormData();
       formData.append('name', communityName);
@@ -162,37 +172,10 @@ function PricingContent() {
         method: 'POST',
         body: formData,
       });
-
-      if (res.ok) {
-        const newCommunity = await res.json();
-
-        // Save credit card info to the new community
-        const lastFour = cardNumber.slice(-4);
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${newCommunity.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            cardLastFour: lastFour,
-            cardBrand: 'Visa',
-          }),
-        });
-
-        // Also save to user payment methods
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/payment-methods`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            cardLastFour: lastFour,
-            cardBrand: 'Visa',
-          }),
-        });
-        
-        router.push(`/communities/${newCommunity.slug || newCommunity.id}/feed`);
-      }
+      if (!res.ok) throw new Error('Failed to create community');
+      const newCommunity = await res.json();
+      setNewCommunityId(newCommunity.id);
+      setShowCardModal(true);
     } catch (err) {
       console.error('Failed to create community:', err);
     } finally {
@@ -233,47 +216,35 @@ function PricingContent() {
           
           <button
             onClick={handleContinueToPayment}
-            disabled={!communityName.trim()}
+            disabled={!communityName.trim() || creatingCommunity}
             className="w-full mt-8 bg-black text-white py-4 rounded-xl font-bold text-lg hover:opacity-90 transition disabled:opacity-50"
           >
-            המשך
+            {creatingCommunity ? 'יוצרים קהילה...' : 'המשך'}
           </button>
-        </div>
-      </main>
-    );
-  }
 
-  const isPaymentValid = isCardComplete(cardNumber, cardExpiry, cardCvv);
-
-  // Step 2: Payment Modal
-  if (currentStep === 'payment') {
-    return (
-      <main className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#F4F4F5' }} dir="rtl">
-        <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-md">
-          <h2 className="text-2xl font-bold text-center mb-8">מתחילים 3 חודשי ניסיון חינם</h2>
-
-          <CreditCardForm
-            cardNumber={cardNumber}
-            cardExpiry={cardExpiry}
-            cardCvv={cardCvv}
-            onCardNumberChange={setCardNumber}
-            onCardExpiryChange={setCardExpiry}
-            onCardCvvChange={setCardCvv}
-          />
-          
-          <button
-            onClick={handlePaymentAndCreate}
-            disabled={!isPaymentValid || creatingCommunity}
-            className="w-full mt-8 bg-black text-white py-4 rounded-xl font-bold text-lg hover:opacity-90 transition disabled:opacity-50"
-          >
-            {creatingCommunity ? 'מקים קהילה...' : 'הקמת קהילה'}
-          </button>
-          
           <p className="text-center text-sm mt-4" style={{ color: '#71717A' }}>
-            תזכורת תשלח במייל 3 ימים לפני סיום הניסיון. אפשר<br />
+            תזכורת תשלח במייל 3 ימים לפני סיום הניסיון. אפשר
+            <br />
             לבטל בקליק דרך הגדרות הקהילה.
           </p>
         </div>
+
+        {/* Phase 3.3 — iframe-based card tokenization. Mounted on the
+            create-step page so the user stays in flow. On successful
+            tokenize HYP redirects parent to /communities/<id>/manage?card=updated. */}
+        {showCardModal && user && newCommunityId && (
+          <HypPaymentIframeModal
+            amount={1}
+            j5="J2"
+            bof
+            orderPrefix={`tokenize-community-${newCommunityId}`}
+            clientName={user.name || user.email}
+            email={user.email}
+            userId={user.userId}
+            title="הוספת אמצעי תשלום לקהילה"
+            onClose={() => setShowCardModal(false)}
+          />
+        )}
       </main>
     );
   }
