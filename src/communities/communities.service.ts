@@ -513,6 +513,58 @@ export class CommunitiesService {
     });
   }
 
+  // Phase 3.2 — bind a freshly tokenized UserPaymentMethod to a community.
+  // Called from paymentSuccess after the iframe-driven J5=J2 flow completes
+  // and getToken has persisted a UserPaymentMethod row.
+  //
+  // Mirrors updatePaymentInfo's reactivation behavior: if the community is
+  // SUSPENDED, treat the new card as a renewal action (placeholder until
+  // Phase 4.4 runs an actual SOFT-charge retry).
+  //
+  // Also writes the legacy cardLastFour/cardBrand mirror so the existing UI
+  // and back-compat consumers keep working until Phase 6.1 drops them.
+  async bindTokenizedPaymentMethod(
+    communityId: string,
+    userId: string,
+    paymentMethod: { id: string; cardLastFour: string; cardBrand: string },
+  ) {
+    const community = await this.prisma.community.findUnique({
+      where: { id: communityId },
+      select: { ownerId: true, subscriptionStatus: true },
+    });
+    if (!community) {
+      throw new NotFoundException('Community not found');
+    }
+    if (community.ownerId !== userId) {
+      throw new ForbiddenException('Only the community owner can update payment info');
+    }
+
+    const updateData: Prisma.CommunityUpdateInput = {
+      paymentMethod: { connect: { id: paymentMethod.id } },
+      cardLastFour: paymentMethod.cardLastFour,
+      cardBrand: paymentMethod.cardBrand,
+    };
+
+    let firingReactivated = false;
+    if (community.subscriptionStatus === 'SUSPENDED') {
+      updateData.subscriptionStatus = 'ACTIVE';
+      updateData.suspendedAt = null;
+      updateData.subscriptionCancelledAt = null;
+      firingReactivated = true;
+    }
+
+    const updated = await this.prisma.community.update({
+      where: { id: communityId },
+      data: updateData,
+    });
+
+    if (firingReactivated) {
+      void this.notifyCommunityReactivated(communityId, userId).catch(() => {});
+    }
+
+    return updated;
+  }
+
   private async notifyCommunityReactivated(communityId: string, ownerId: string) {
     const memberships = await this.prisma.communityMember.findMany({
       where: { communityId },

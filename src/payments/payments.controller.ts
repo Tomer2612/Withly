@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { HypService } from './hyp.service';
 import { UsersService } from '../users/users.service';
+import { CommunitiesService } from '../communities/communities.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 
 // HYP returns `Bank` as a small integer indicating the card brand. Map to
@@ -26,6 +27,13 @@ function bankIdToBrand(bank: string | undefined): string {
 // round-trips reliably from SIGN to redirect (verified on prod) and HYP's
 // signature covers it, so we can trust the values here.
 const TOKENIZE_CARD_ON_FILE_ORDER_RE = /^tokenize-cardOnFile-([a-zA-Z0-9_-]+)-\d+$/;
+// Phase 3.2 — community card update / suspended-community renewal.
+// Order shape: tokenize-community-<communityId>-<userId>-<ts>. The frontend
+// modal puts communityId in its prefix and the shared HypPaymentIframeModal
+// appends userId+timestamp. Captures: 1 = communityId, 2 = userId. Cuids
+// are lowercase alphanumeric so the regex parses unambiguously across
+// the two id boundaries.
+const TOKENIZE_COMMUNITY_ORDER_RE = /^tokenize-community-([a-z0-9]+)-([a-z0-9]+)-\d+$/;
 
 @Controller('payments')
 export class PaymentsController {
@@ -34,6 +42,7 @@ export class PaymentsController {
   constructor(
     private readonly hypService: HypService,
     private readonly usersService: UsersService,
+    private readonly communitiesService: CommunitiesService,
   ) {}
 
   // Returns a signed HYP payment URL the frontend redirects to. The user's
@@ -87,6 +96,11 @@ export class PaymentsController {
       const tokenizeMatch = order.match(TOKENIZE_CARD_ON_FILE_ORDER_RE);
       if (tokenizeMatch) {
         return this.handleTokenizeCardOnFile(query, result.body, tokenizeMatch[1], res, frontend);
+      }
+      const communityMatch = order.match(TOKENIZE_COMMUNITY_ORDER_RE);
+      if (communityMatch) {
+        const [, communityId, userId] = communityMatch;
+        return this.handleTokenizeCommunity(query, result.body, userId, communityId, res, frontend);
       }
 
       // Default successful-payment redirect (legacy charge flow).
@@ -153,6 +167,65 @@ export class PaymentsController {
     } catch (err) {
       this.logger.error(`Tokenize flow error: ${(err as Error).message}`);
       return res.redirect(`${frontend}/settings?card=error#payment`);
+    }
+  }
+
+  // Phase 3.2 — community card update / suspended-community renewal.
+  // Same shape as handleTokenizeCardOnFile but also binds the resulting
+  // UserPaymentMethod to the community via CommunitiesService. The bind
+  // step replicates the legacy SUSPENDED→ACTIVE placeholder (real SOFT
+  // retry comes in Phase 4.4).
+  private async handleTokenizeCommunity(
+    query: Record<string, string>,
+    verifiedBody: Record<string, string>,
+    userId: string,
+    communityId: string,
+    res: Response,
+    frontend: string,
+  ) {
+    const failureRedirect = `${frontend}/communities/${communityId}/manage?card=error`;
+    try {
+      const tokenResult = await this.hypService.getToken(query.Id);
+      if (
+        !tokenResult.ok
+        || !tokenResult.token
+        || tokenResult.expMonth === null
+        || tokenResult.expYear === null
+      ) {
+        this.logger.error(
+          `getToken failed (community): Id=${query.Id} userId=${userId} ` +
+          `communityId=${communityId} CCode=${tokenResult.ccode}`,
+        );
+        return res.redirect(failureRedirect);
+      }
+
+      // J5=J2 redirects omit L4digit/Bank — same fallback as cardOnFile.
+      const cardLastFour = verifiedBody.L4digit || tokenResult.token.slice(-4);
+      const cardBrand = bankIdToBrand(verifiedBody.Bank);
+
+      const paymentMethod = await this.usersService.addTokenizedPaymentMethod(userId, {
+        token: tokenResult.token,
+        expMonth: tokenResult.expMonth,
+        expYear: tokenResult.expYear,
+        cardLastFour,
+        cardBrand,
+      });
+
+      await this.communitiesService.bindTokenizedPaymentMethod(communityId, userId, {
+        id: paymentMethod.id,
+        cardLastFour: paymentMethod.cardLastFour,
+        cardBrand: paymentMethod.cardBrand,
+      });
+
+      this.logger.log(
+        `Community card bound: userId=${userId} communityId=${communityId} ` +
+        `last4=${cardLastFour} brand=${cardBrand} ` +
+        `tokenSuffix=${tokenResult.token.slice(-4)}`,
+      );
+      return res.redirect(`${frontend}/communities/${communityId}/manage?card=updated`);
+    } catch (err) {
+      this.logger.error(`Community tokenize flow error: ${(err as Error).message}`);
+      return res.redirect(failureRedirect);
     }
   }
 

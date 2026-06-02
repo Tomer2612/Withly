@@ -331,6 +331,31 @@ export default function ManageCommunityPage() {
     }
   }, [message]);
 
+  // Phase 3.2 — after a successful (or failed) community card update via
+  // the HypPaymentIframeModal, the backend lands the user here with
+  // ?card=updated or ?card=error. Refresh the community to pick up the new
+  // card + any SUSPENDED→ACTIVE flip, surface a toast, then strip the
+  // query so a page refresh doesn't replay the toast.
+  useEffect(() => {
+    const cardStatus = searchParams.get('card');
+    if (!cardStatus) return;
+    if (cardStatus === 'updated') {
+      const wasSuspended = isSuspended;
+      refreshCommunity().catch(() => {});
+      setActiveTab('payments');
+      setMessage(wasSuspended ? 'הקהילה חזרה לפעילות!' : 'אמצעי התשלום עודכן בהצלחה');
+      setMessageType('success');
+    } else if (cardStatus === 'error') {
+      setMessage('שגיאה בעדכון אמצעי התשלום. נסה שוב.');
+      setMessageType('error');
+    }
+    window.history.replaceState(null, '', window.location.pathname);
+    // refreshCommunity intentionally omitted — capturing the function would
+    // re-fire the effect every time it changes identity. We just want to
+    // react when the search params change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   // Fetch community details and check permissions
   useEffect(() => {
     const fetchCommunity = async () => {
@@ -2122,28 +2147,14 @@ export default function ManageCommunityPage() {
             onCancel={handleResetCommunity}
           />
 
-          {/* Credit Card Modal - extracted to shared component */}
+          {/* Credit Card Modal — iframe-based (Phase 3.2). After payment
+              completes, HYP redirects the parent window to ?card=updated;
+              the URL-param handler below picks it up. */}
           <UpdateCardModal
             isOpen={showCardModal}
             onClose={() => setShowCardModal(false)}
             communityId={communityId}
-            currentCardBrand={cardBrand}
-            currentCardLastFour={cardLastFour}
             wasSuspended={isSuspended}
-            onSuccess={(data) => {
-              setCardLastFour(data.cardLastFour);
-              setCardBrand(data.cardBrand);
-              setSubscriptionCancelledAt(data.subscriptionCancelledAt ? new Date(data.subscriptionCancelledAt) : null);
-              refreshCommunity().catch(() => {});
-              setShowCardModal(false);
-              setActiveTab('payments');
-              setMessage(data.wasSuspended ? 'הקהילה חזרה לפעילות!' : 'אמצעי התשלום עודכן בהצלחה');
-              setMessageType('success');
-            }}
-            onError={(msg) => {
-              setMessage(msg);
-              setMessageType('error');
-            }}
           />
 
 

@@ -11,3 +11,4 @@ import { NotificationsModule } from '../notifications/notifications.module';
   exports: [CommunitiesService],
 })
 export class CommunitiesModule {}
+

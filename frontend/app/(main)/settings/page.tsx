@@ -1511,35 +1511,17 @@ export default function SettingsPage() {
               />
             )}
 
-            {/* Renew suspended-community subscription via card update */}
+            {/* Renew suspended-community subscription via card update.
+                Iframe flow (Phase 3.2) — on success the parent window
+                redirects to /communities/<id>/manage?card=updated and the
+                manage page handles the toast/refetch. Memberships shown on
+                this page will reflect the new state on next /settings visit. */}
             {communityToRenew && (
               <UpdateCardModal
                 isOpen
                 onClose={() => setCommunityToRenew(null)}
                 communityId={communityToRenew.communityId}
                 wasSuspended
-                onSuccess={(data) => {
-                  const id = communityToRenew.communityId;
-                  setMemberships((prev) =>
-                    prev.map((x) =>
-                      x.communityId === id
-                        ? {
-                            ...x,
-                            subscriptionStatus: data.subscriptionStatus,
-                            suspendedAt: data.suspendedAt,
-                            subscriptionCancelledAt: data.subscriptionCancelledAt,
-                          }
-                        : x,
-                    ),
-                  );
-                  setCommunityToRenew(null);
-                  setMessage(data.wasSuspended ? 'הקהילה חזרה לפעילות!' : 'אמצעי התשלום עודכן בהצלחה');
-                  setMessageType('success');
-                }}
-                onError={(msg) => {
-                  setMessage(msg);
-                  setMessageType('error');
-                }}
               />
             )}
 
