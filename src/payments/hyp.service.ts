@@ -7,12 +7,13 @@ import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common
 //   - verifyTransaction(): validate a redirect callback to confirm a charge
 // (verifyTransaction is the next step — not implemented in this commit.)
 
-// /p3 = HYP's 3DS-enabled processor (yaadpay3ds.pl). HYP-confirmed
-// 2026-06-02: switching from /p to /p3 makes the new-template console
+// /p3/ = HYP's 3DS-enabled processor (yaadpay3ds.pl). HYP-confirmed
+// 2026-06-02: switching from /p/ to /p3/ makes the new-template console
 // settings (button color/text, hidden ID field, terms link) actually
-// apply on the live page. The old /p still routes through the legacy
-// processor where the design panel is inert.
-const HYP_BASE = 'https://pay.hyp.co.il/p3';
+// apply on the live page. The old /p/ still routes through the legacy
+// processor where the design panel is inert. Trailing slash required —
+// /p3 without it returns 404 (matches the legacy /p/ format).
+const HYP_BASE = 'https://pay.hyp.co.il/p3/';
 
 interface SignPaymentInput {
   /** Amount in ILS (whole number). */
