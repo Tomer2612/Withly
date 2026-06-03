@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../common/prisma.service';
 import { EmailService } from '../email/email.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
@@ -12,6 +13,7 @@ export class EventReminderService {
   constructor(
     private prisma: PrismaService,
     private emailService: EmailService,
+    private notificationsService: NotificationsService,
     private configService: ConfigService,
   ) {
     this.frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3001');
@@ -89,7 +91,15 @@ export class EventReminderService {
         const slug = event.community.slug || event.community.id;
         const eventLink = `${this.frontendUrl}/communities/${slug}/events`;
 
-        // Send reminder to each attendee
+        // Send reminder to each attendee — email + in-app bell.
+        // Failures on either channel are logged and skipped: a failed
+        // email shouldn't block the in-app notification (or vice versa).
+        // No `actor` in the conventional sense (it's a cron tick), so
+        // we pass the event creator's userId if available, otherwise
+        // the event author can stand in. For now, pass the community
+        // owner via the existing event.creatorId-ish channel — falling
+        // back to recipient self if not available (notification's
+        // self-skip drops the row in that case, which is acceptable).
         for (const user of users) {
           try {
             await this.emailService.sendEventReminder(
@@ -101,10 +111,28 @@ export class EventReminderService {
               event.community.name,
               eventLink,
             );
-            this.logger.log(`Sent reminder for "${event.title}" to ${user.email}`);
           } catch (error) {
-            this.logger.error(`Failed to send reminder to ${user.email} for event ${event.id}`, error);
+            this.logger.error(`Failed to send reminder email to ${user.email} for event ${event.id}`, error);
           }
+          try {
+            // Fire-and-forget the bell-icon notification alongside the
+            // email so users who don't check inbox still see "your
+            // event is coming up" in the app. Actor = event creator
+            // so the notification has a sensible "from" link. If the
+            // recipient IS the creator (organizer RSVPed to their own
+            // event), createUnconditional self-skips — fine.
+            await this.notificationsService.notifyEventReminder(
+              user.id,
+              event.createdById,
+              event.community.id,
+            );
+          } catch (error) {
+            this.logger.error(
+              `Failed to create reminder notification for ${user.email} (event ${event.id})`,
+              error,
+            );
+          }
+          this.logger.log(`Sent reminder for "${event.title}" to ${user.email}`);
         }
 
         // Mark reminder as sent

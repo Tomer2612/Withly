@@ -413,4 +413,205 @@ export class EmailService {
       throw error;
     }
   }
+
+  // Generalized body builder for lifecycle emails (price changes, owner
+  // welcomes, cancellations, reminders). Same greeting + paragraphs +
+  // optional CTA + signoff layout the existing emails use, just with
+  // the CTA made optional and the paragraph list driven by the caller.
+  // All text passes through the same XSS escape as buildPaymentInfoBody.
+  private buildLifecycleBody(
+    name: string | null,
+    lines: string[],
+    cta?: { label: string; url: string },
+  ): string {
+    const escape = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const paragraphs = lines
+      .map(
+        (line) =>
+          `<p style="margin: 0 0 16px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif; color: #000000;">${escape(line)}</p>`,
+      )
+      .join('\n                    ');
+
+    // Greeting line: "שלום {name}," with the name bolded. When name is
+    // null (e.g., final account-deleted email), drop the name entirely.
+    const greeting = name
+      ? `<p style="margin: 0 0 16px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif; color: #000000;">שלום <span style="font-weight: 600;">${escape(name)}</span>,</p>`
+      : `<p style="margin: 0 0 16px 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif; color: #000000;">שלום,</p>`;
+
+    const ctaBlock = cta
+      ? `
+                <!-- Spacing 32px before button -->
+                <tr>
+                  <td style="height: 32px; line-height: 0; font-size: 0;">&nbsp;</td>
+                </tr>
+                <!-- Button -->
+                <tr>
+                  <td align="center" style="padding: 0;">
+                    <a href="${cta.url}" style="display: inline-block; min-width: 167px; height: 50px; line-height: 50px; padding: 0 24px; background-color: #000000; color: #FFFFFF !important; font-family: 'Assistant', Arial, sans-serif; font-size: 18px; font-weight: 400; text-decoration: none; border-radius: 12px; text-align: center;">${escape(cta.label)}</a>
+                  </td>
+                </tr>
+                <!-- Spacing 32px after button -->
+                <tr>
+                  <td style="height: 32px; line-height: 0; font-size: 0;">&nbsp;</td>
+                </tr>`
+      : '';
+
+    return `
+                <!-- Email text -->
+                <tr>
+                  <td style="padding: 0 48px;">
+                    ${greeting}
+                    ${paragraphs}
+                  </td>
+                </tr>
+                ${ctaBlock}
+                <!-- Signoff -->
+                <tr>
+                  <td style="padding: 0 48px;">
+                    <p style="margin: 0; font-size: 16px; font-weight: 400; line-height: 1.7; text-align: right; direction: rtl; unicode-bidi: embed; font-family: 'Assistant', Arial, sans-serif; color: #000000;">בברכה,<br>צוות <span dir="ltr" style="unicode-bidi: embed;">Withly</span></p>
+                  </td>
+                </tr>`;
+  }
+
+  // #1 — Owner announced a price change. Sent to every member of the
+  // community. Mirrors the existing in-app popup (which fires on next
+  // community visit) and the new PRICE_CHANGE_ANNOUNCED notification
+  // (bell icon, fires immediately). Members who don't open the
+  // community AND don't check the bell still get this email.
+  async sendPriceChangeAnnouncementEmail(
+    email: string,
+    name: string,
+    communityName: string,
+    oldPrice: number,
+    newPrice: number,
+    effectiveDate: string,
+  ): Promise<void> {
+    const subject = `שינוי מחיר בקהילה "${communityName}"`;
+    const lines = [
+      `ברצוננו להודיע כי החל מ-${effectiveDate}, המחיר החודשי של הקהילה "${communityName}" ישתנה מ-${oldPrice}₪ ל-${newPrice}₪ בחודש.`,
+      `המנוי הנוכחי ימשיך לפעול במחיר הנוכחי (${oldPrice}₪) עד למועד המעבר. אין צורך בפעולה כדי להמשיך כרגיל.`,
+      `במידה ותרצו לבטל את המנוי לפני המעבר, ניתן לעשות זאת דרך הגדרות החשבון.`,
+    ];
+    const bodyContent = this.buildLifecycleBody(name, lines, {
+      label: 'ניהול מנויים',
+      url: `${this.frontendUrl}/settings#payment`,
+    });
+    const htmlBody = this.buildEmailHtml(bodyContent);
+    const textBody = `שלום ${name},\n\n${lines.join('\n\n')}\n\nניהול מנויים: ${this.frontendUrl}/settings#payment\n\nבברכה,\nצוות Withly`;
+    await this.sendEmail(email, subject, htmlBody, textBody);
+  }
+
+  // #2 — 7-day reminder before a previously-announced price change
+  // takes effect. Fires from the daily cron via priceChangeReminderSentAt.
+  async sendPriceChangeReminderEmail(
+    email: string,
+    name: string,
+    communityName: string,
+    newPrice: number,
+    effectiveDate: string,
+  ): Promise<void> {
+    const subject = `תזכורת — מחיר הקהילה "${communityName}" משתנה בעוד 7 ימים`;
+    const lines = [
+      `זוהי תזכורת — בעוד 7 ימים, ב-${effectiveDate}, המחיר החודשי של הקהילה "${communityName}" ישתנה ל-${newPrice}₪ בחודש.`,
+      `החיוב הבא יתבצע במחיר החדש. אם תרצו להמשיך, אין צורך בפעולה.`,
+      `במידה ותרצו לבטל את המנוי לפני המעבר, ניתן לעשות זאת דרך הגדרות החשבון.`,
+    ];
+    const bodyContent = this.buildLifecycleBody(name, lines, {
+      label: 'ניהול מנויים',
+      url: `${this.frontendUrl}/settings#payment`,
+    });
+    const htmlBody = this.buildEmailHtml(bodyContent);
+    const textBody = `שלום ${name},\n\n${lines.join('\n\n')}\n\nניהול מנויים: ${this.frontendUrl}/settings#payment\n\nבברכה,\nצוות Withly`;
+    await this.sendEmail(email, subject, htmlBody, textBody);
+  }
+
+  // #4 — Owner just created their community via the pricing flow. Sent
+  // immediately after finalizeCommunityFromPending succeeds. No invoice
+  // line (community is in free trial; no charge has happened yet —
+  // EasyCount only sends a tax receipt after a real SOFT charge).
+  async sendOwnerCommunityWelcomeEmail(
+    email: string,
+    name: string,
+    communityId: string,
+    trialEndDate: string,
+  ): Promise<void> {
+    const subject = `ברוכים הבאים ל-Withly — הקהילה שלך מוכנה!`;
+    const lines = [
+      `ברוכים הבאים ל-Withly! הקהילה שלך נפתחה בהצלחה ומוכנה להתחיל.`,
+      `תקופת הניסיון מסתיימת ב-${trialEndDate}, ולאחר מכן יתחיל החיוב החודשי.`,
+      `מומלץ להשלים את הגדרות הקהילה לפני שמזמינים את החברים.`,
+    ];
+    const bodyContent = this.buildLifecycleBody(name, lines, {
+      label: 'עבור לקהילה שלי',
+      url: `${this.frontendUrl}/communities/${communityId}/manage`,
+    });
+    const htmlBody = this.buildEmailHtml(bodyContent);
+    const textBody = `שלום ${name},\n\n${lines.join('\n\n')}\n\nעבור לקהילה: ${this.frontendUrl}/communities/${communityId}/manage\n\nבברכה,\nצוות Withly`;
+    await this.sendEmail(email, subject, htmlBody, textBody);
+  }
+
+  // #8 — Owner cancelled their Withly subscription for a community.
+  // Confirmation only; no CTA. Members get the existing popup +
+  // COMMUNITY_SCHEDULED_FOR_SUSPENSION notification separately.
+  async sendOwnerCancellationConfirmationEmail(
+    email: string,
+    name: string,
+    communityName: string,
+    effectiveDate: string,
+  ): Promise<void> {
+    const subject = `אישור ביטול המנוי שלך ב-Withly`;
+    const lines = [
+      `ביטול המנוי שלך ב-Withly עבור הקהילה "${communityName}" התקבל בהצלחה.`,
+      `הקהילה תישאר פעילה עד ${effectiveDate}. החל מאותו תאריך, הקהילה תושעה והחברים לא יוכלו להיכנס. החיוב החודשי של חברים משלמים ייעצר אוטומטית.`,
+      `לכל שאלה או תקלה, אנחנו כאן.`,
+    ];
+    const bodyContent = this.buildLifecycleBody(name, lines);
+    const htmlBody = this.buildEmailHtml(bodyContent);
+    const textBody = `שלום ${name},\n\n${lines.join('\n\n')}\n\nבברכה,\nצוות Withly`;
+    await this.sendEmail(email, subject, htmlBody, textBody);
+  }
+
+  // #9 — 7-day reminder before an owner's cancelled subscription takes
+  // effect (community gets suspended). Last chance to renew. Fires from
+  // the daily cron via suspensionReminderSentAt.
+  async sendSuspensionReminderEmail(
+    email: string,
+    name: string,
+    communityName: string,
+    communityId: string,
+    suspensionDate: string,
+  ): Promise<void> {
+    const subject = `תזכורת — הקהילה "${communityName}" תושעה בעוד 7 ימים`;
+    const lines = [
+      `זוהי תזכורת — בעוד 7 ימים, ב-${suspensionDate}, הקהילה שלך "${communityName}" תושעה בעקבות ביטול המנוי.`,
+      `אם שינית את דעתך, ניתן לחדש את המנוי בכל עת והקהילה תמשיך לפעול ללא הפסקה.`,
+    ];
+    const bodyContent = this.buildLifecycleBody(name, lines, {
+      label: 'חידוש מנוי',
+      url: `${this.frontendUrl}/communities/${communityId}/manage`,
+    });
+    const htmlBody = this.buildEmailHtml(bodyContent);
+    const textBody = `שלום ${name},\n\n${lines.join('\n\n')}\n\nחידוש מנוי: ${this.frontendUrl}/communities/${communityId}/manage\n\nבברכה,\nצוות Withly`;
+    await this.sendEmail(email, subject, htmlBody, textBody);
+  }
+
+  // #12 — Account-deletion confirmation. Sent BEFORE the user row is
+  // deleted (caller must capture email + name first, then delete).
+  // No CTA — there's nothing to come back to.
+  async sendAccountDeletedEmail(email: string, name: string): Promise<void> {
+    const subject = `החשבון שלך ב-Withly נמחק`;
+    const lines = [
+      `החשבון שלך ב-Withly נמחק לצמיתות בהתאם לבקשתך.`,
+      `כל המנויים הפעילים בוטלו והחיובים החודשיים נעצרו.`,
+      `לכל שאלה או תקלה, אנחנו כאן.`,
+    ];
+    // Passing null for name so the greeting reads "שלום," (no name) —
+    // matches the user's spec mockup which has just "שלום," for this
+    // email (the deletion is final and impersonal at this point).
+    const bodyContent = this.buildLifecycleBody(null, lines);
+    const htmlBody = this.buildEmailHtml(bodyContent);
+    const textBody = `שלום ${name},\n\n${lines.join('\n\n')}\n\nבברכה,\nצוות Withly`;
+    await this.sendEmail(email, subject, htmlBody, textBody);
+  }
 }

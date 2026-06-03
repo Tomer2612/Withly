@@ -1,14 +1,26 @@
-import { Injectable, InternalServerErrorException, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
 import { Prisma, CommunityStatus } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { canManageCommunity, getEffectiveRole } from '../common/community-roles.helper';
 import { NotificationsService } from '../notifications/notifications.service';
+import { EmailService } from '../email/email.service';
+
+// Hebrew dd.M.yyyy format used in lifecycle emails (matches the user's
+// spec mockups — e.g., "1.7.2026"). Locale-formatted via he-IL would
+// produce "1.7.2026" too but locale settings are environment-dependent;
+// this is explicit.
+function formatHebrewDate(d: Date): string {
+  return `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
+}
 
 @Injectable()
 export class CommunitiesService {
+  private readonly logger = new Logger(CommunitiesService.name);
+
   constructor(
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
+    private emailService: EmailService,
   ) {}
 
   // Throws ForbiddenException('COMMUNITY_SUSPENDED') if the community's
@@ -370,14 +382,70 @@ export class CommunitiesService {
     const effectiveAt = new Date(now);
     effectiveAt.setMonth(effectiveAt.getMonth() + 1);
 
-    return this.prisma.community.update({
+    const updated = await this.prisma.community.update({
       where: { id },
       data: {
         pendingPrice: newPrice,
         pendingPriceEffectiveAt: effectiveAt,
         priceChangeAnnouncedAt: now,
+        // Fresh announcement cycle — the 7-day reminder cron should
+        // send again even if a prior reminder was sent for the
+        // previous (now-superseded) price change.
+        priceChangeReminderSentAt: null,
       },
     });
+
+    // Notify every member by email + bell icon. Fire-and-forget — the
+    // price change is already persisted, comms failures shouldn't roll
+    // back the DB transition. Owner is not a CommunityMember row, so
+    // the existing query naturally excludes them (which is right —
+    // the owner is the one who just announced the change).
+    void this.broadcastPriceChange(id, userId, updated.name, community.price ?? 0, newPrice, effectiveAt).catch((err) => {
+      this.logger.error(`Price change broadcast failed for community ${id}: ${(err as Error).message}`);
+    });
+
+    return updated;
+  }
+
+  // Fan-out helper: email + notification to every member of a community
+  // about a freshly-announced price change. Each per-recipient send is
+  // independent — one failed email doesn't block the rest.
+  private async broadcastPriceChange(
+    communityId: string,
+    ownerActorId: string,
+    communityName: string,
+    oldPrice: number,
+    newPrice: number,
+    effectiveAt: Date,
+  ) {
+    const members = await this.prisma.communityMember.findMany({
+      where: { communityId },
+      select: { userId: true, user: { select: { email: true, name: true } } },
+    });
+    const dateStr = formatHebrewDate(effectiveAt);
+    await Promise.all(
+      members.map(async (m) => {
+        await this.notificationsService
+          .notifyPriceChangeAnnounced(m.userId, ownerActorId, communityId)
+          .catch(() => {});
+        if (m.user?.email) {
+          await this.emailService
+            .sendPriceChangeAnnouncementEmail(
+              m.user.email,
+              m.user.name ?? m.user.email,
+              communityName,
+              oldPrice,
+              newPrice,
+              dateStr,
+            )
+            .catch((err) => {
+              this.logger.warn(
+                `Price change email failed (user=${m.userId}): ${(err as Error).message}`,
+              );
+            });
+        }
+      }),
+    );
   }
 
   // Member-side ack of the price-change popup. Sets the membership row's
@@ -446,6 +514,10 @@ export class CommunitiesService {
           clearingScheduledNotifications = true;
         }
         updateData.subscriptionCancelledAt = data.subscriptionCancelledAt;
+        // Fresh cancel cycle (or full revoke) — let the 7-day reminder
+        // cron re-evaluate from scratch instead of remembering an old
+        // send for a now-superseded cancellation date.
+        updateData.suspensionReminderSentAt = null;
       }
 
       // Pre-HYP placeholder: if the owner is saving a card while the community
@@ -469,6 +541,21 @@ export class CommunitiesService {
       // shouldn't roll back the state change.
       if (firingScheduledForSuspension) {
         void this.notifyCommunityScheduledForSuspension(id, userId).catch(() => {});
+        // Owner confirmation email (#8). Members get the popup +
+        // notification separately. The owner gets the audit-trail email
+        // here as their primary confirmation.
+        if (data.subscriptionCancelledAt) {
+          void this.sendOwnerCancellationEmailSafely(
+            id,
+            userId,
+            updated.name,
+            data.subscriptionCancelledAt,
+          ).catch((err) => {
+            this.logger.warn(
+              `Owner cancellation email failed (community=${id}): ${(err as Error).message}`,
+            );
+          });
+        }
       }
       if (clearingScheduledNotifications) {
         void this.clearScheduledSuspensionNotifications(id).catch(() => {});
@@ -758,7 +845,62 @@ export class CommunitiesService {
       return created;
     });
 
+    // Owner welcome email — fire-and-forget. Includes the trial-end
+    // date so the owner knows when the first SOFT charge (Phase 4)
+    // will hit. Falls back to 1-month trial if plan join failed.
+    void this.sendOwnerWelcomeEmailSafely(userId, community.id, community.trialStartDate).catch((err) => {
+      this.logger.warn(`Welcome email failed (community=${community.id}): ${(err as Error).message}`);
+    });
+
     return community;
+  }
+
+  // Owner welcome (#4). Looks up the user + their plan to compute the
+  // trial-end date. Plan lookup falls back gracefully — Phase 3.3
+  // restructure guarantees user.plan is non-null post-launch, but the
+  // default 1-month value matches the seed.
+  private async sendOwnerWelcomeEmailSafely(
+    userId: string,
+    communityId: string,
+    trialStartDate: Date | null,
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, name: true, plan: { select: { trialLengthMonths: true } } },
+    });
+    if (!user?.email) return;
+    const trialMonths = user.plan?.trialLengthMonths ?? 1;
+    const start = trialStartDate ?? new Date();
+    const trialEnd = new Date(start);
+    trialEnd.setMonth(trialEnd.getMonth() + trialMonths);
+    await this.emailService.sendOwnerCommunityWelcomeEmail(
+      user.email,
+      user.name ?? user.email,
+      communityId,
+      formatHebrewDate(trialEnd),
+    );
+  }
+
+  // Owner cancellation confirmation email (#8). Looks up the owner's
+  // email + name, sends. Effective date is when the community will
+  // actually flip to SUSPENDED (community.subscriptionCancelledAt).
+  private async sendOwnerCancellationEmailSafely(
+    communityId: string,
+    ownerId: string,
+    communityName: string,
+    effectiveDate: Date,
+  ): Promise<void> {
+    const owner = await this.prisma.user.findUnique({
+      where: { id: ownerId },
+      select: { email: true, name: true },
+    });
+    if (!owner?.email) return;
+    await this.emailService.sendOwnerCancellationConfirmationEmail(
+      owner.email,
+      owner.name ?? owner.email,
+      communityName,
+      formatHebrewDate(effectiveDate),
+    );
   }
 
   private async notifyCommunityReactivated(communityId: string, ownerId: string) {

@@ -1,12 +1,18 @@
-import { Injectable, BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, NotFoundException, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
+import { EmailService } from '../email/email.service';
 import * as bcrypt from 'bcrypt';
 import { ERROR_MESSAGES } from '../common/messages';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(UsersService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+  ) {}
 
   // Search users by name for @mentions
   async searchUsersByName(query: string, excludeUserId?: string) {
@@ -192,10 +198,28 @@ export class UsersService {
       throw new BadRequestException('User not found');
     }
 
+    // Capture identity BEFORE the cascade — once the row is deleted
+    // we can't look up the email to send the confirmation. Email is
+    // sent after delete succeeds so failed deletions don't send a
+    // "your account is gone" message about an account that still exists.
+    const email = user.email;
+    const displayName = user.name ?? user.email;
+
     // Delete user - cascade will handle related records
     await this.prisma.user.delete({
       where: { id: user.id },
     });
+
+    // #12 — fire-and-forget confirmation email. Delete already succeeded;
+    // a Resend hiccup shouldn't make us bring the user "back" or alarm
+    // the caller. Log and continue.
+    void this.emailService
+      .sendAccountDeletedEmail(email, displayName)
+      .catch((err) => {
+        this.logger.warn(
+          `Account-deleted email failed (userId=${userId}): ${(err as Error).message}`,
+        );
+      });
 
     return { message: 'Account deleted successfully' };
   }

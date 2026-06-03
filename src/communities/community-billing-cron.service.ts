@@ -3,6 +3,14 @@ import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../common/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../common/storage.service';
+import { EmailService } from '../email/email.service';
+
+// Hebrew dd.M.yyyy format — matches the format used in lifecycle email
+// triggers in CommunitiesService. Kept local here to avoid a cross-module
+// import for a one-liner.
+function formatHebrewDate(d: Date): string {
+  return `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
+}
 
 @Injectable()
 export class CommunityBillingCronService {
@@ -12,6 +20,7 @@ export class CommunityBillingCronService {
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
     private storageService: StorageService,
+    private emailService: EmailService,
   ) {}
 
   // Midnight Israel time. Owns the two time-based transitions that used to
@@ -24,6 +33,8 @@ export class CommunityBillingCronService {
     await this.applyDuePriceChanges();
     await this.cleanupAbandonedDraftCommunities();
     await this.cleanupAbandonedPendingCheckouts();
+    await this.sendPriceChangeReminders();
+    await this.sendSuspensionReminders();
   }
 
   private async applyDueOwnerCancellations() {
@@ -163,6 +174,129 @@ export class CommunityBillingCronService {
 
     if (orphans.length > 0) {
       this.logger.log(`Deleted ${orphans.length} abandoned pending checkout(s)`);
+    }
+  }
+
+  // 7-day reminder before a pending price change takes effect. Fires
+  // once per scheduled price change (tracked via
+  // Community.priceChangeReminderSentAt). Owner sets a new price →
+  // announcePriceChange clears the timestamp → cron sends the reminder
+  // when we're inside the [eff - 8d, eff - 6d] window.
+  // 2-day window (not exactly 7d) is intentional: if the cron skips a
+  // day (server restart, deploy, etc.) the reminder still fires on the
+  // next run instead of being missed entirely.
+  private async sendPriceChangeReminders() {
+    const now = new Date();
+    const windowStart = new Date(now);
+    windowStart.setDate(windowStart.getDate() + 6);
+    const windowEnd = new Date(now);
+    windowEnd.setDate(windowEnd.getDate() + 8);
+
+    const due = await this.prisma.community.findMany({
+      where: {
+        pendingPrice: { not: null },
+        pendingPriceEffectiveAt: { gte: windowStart, lte: windowEnd },
+        priceChangeReminderSentAt: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        pendingPrice: true,
+        pendingPriceEffectiveAt: true,
+      },
+    });
+
+    for (const c of due) {
+      if (c.pendingPrice == null || !c.pendingPriceEffectiveAt) continue;
+      const members = await this.prisma.communityMember.findMany({
+        where: { communityId: c.id },
+        select: { user: { select: { email: true, name: true } } },
+      });
+      const dateStr = formatHebrewDate(c.pendingPriceEffectiveAt);
+      for (const m of members) {
+        if (!m.user?.email) continue;
+        try {
+          await this.emailService.sendPriceChangeReminderEmail(
+            m.user.email,
+            m.user.name ?? m.user.email,
+            c.name,
+            c.pendingPrice,
+            dateStr,
+          );
+        } catch (err) {
+          this.logger.warn(
+            `Price-change reminder email failed (community=${c.id} email=${m.user.email}): ${(err as Error).message}`,
+          );
+        }
+      }
+      try {
+        await this.prisma.community.update({
+          where: { id: c.id },
+          data: { priceChangeReminderSentAt: now },
+        });
+      } catch (err) {
+        this.logger.error(`Failed to stamp priceChangeReminderSentAt for ${c.id}`, err as Error);
+      }
+    }
+
+    if (due.length > 0) {
+      this.logger.log(`Sent price-change reminders for ${due.length} community/communities`);
+    }
+  }
+
+  // 7-day reminder before an owner-scheduled subscription cancellation
+  // takes effect (community will be SUSPENDED on that date). Goes to the
+  // owner only — members get the existing scheduled-for-suspension
+  // popup + notification at announce time. Same dedup pattern as the
+  // price-change reminder (suspensionReminderSentAt + 2-day window).
+  private async sendSuspensionReminders() {
+    const now = new Date();
+    const windowStart = new Date(now);
+    windowStart.setDate(windowStart.getDate() + 6);
+    const windowEnd = new Date(now);
+    windowEnd.setDate(windowEnd.getDate() + 8);
+
+    const due = await this.prisma.community.findMany({
+      where: {
+        subscriptionCancelledAt: { gte: windowStart, lte: windowEnd },
+        suspensionReminderSentAt: null,
+        subscriptionStatus: 'ACTIVE',
+      },
+      select: {
+        id: true,
+        name: true,
+        subscriptionCancelledAt: true,
+        owner: { select: { email: true, name: true } },
+      },
+    });
+
+    for (const c of due) {
+      if (!c.subscriptionCancelledAt || !c.owner?.email) continue;
+      try {
+        await this.emailService.sendSuspensionReminderEmail(
+          c.owner.email,
+          c.owner.name ?? c.owner.email,
+          c.name,
+          c.id,
+          formatHebrewDate(c.subscriptionCancelledAt),
+        );
+      } catch (err) {
+        this.logger.warn(
+          `Suspension reminder email failed (community=${c.id}): ${(err as Error).message}`,
+        );
+      }
+      try {
+        await this.prisma.community.update({
+          where: { id: c.id },
+          data: { suspensionReminderSentAt: now },
+        });
+      } catch (err) {
+        this.logger.error(`Failed to stamp suspensionReminderSentAt for ${c.id}`, err as Error);
+      }
+    }
+
+    if (due.length > 0) {
+      this.logger.log(`Sent suspension reminders for ${due.length} community/communities`);
     }
   }
 

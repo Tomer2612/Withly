@@ -321,6 +321,32 @@ export class NotificationsService {
     });
   }
 
+  // Mirrors the existing PriceChangeAnnouncementModal + new email — bell
+  // icon entry so members who don't open the community AND don't check
+  // email still know. Unconditional (can't opt out): pricing changes
+  // affect what they pay; we must surface them everywhere.
+  async notifyPriceChangeAnnounced(recipientUserId: string, actorId: string, communityId: string) {
+    return this.createUnconditional({
+      type: 'PRICE_CHANGE_ANNOUNCED',
+      recipientId: recipientUserId,
+      actorId,
+      communityId,
+    });
+  }
+
+  // Mirrors the existing event-reminder email — bell-icon entry for
+  // attendees an hour before / day before / whatever reminderDays is.
+  // Unconditional (can't opt out): the user already RSVPed GOING, so
+  // they want to know.
+  async notifyEventReminder(recipientUserId: string, actorId: string, communityId: string) {
+    return this.createUnconditional({
+      type: 'EVENT_REMINDER',
+      recipientId: recipientUserId,
+      actorId,
+      communityId,
+    });
+  }
+
   // Internal: create + emit without checking the user's preference flags.
   // Used for moderation events the recipient cannot opt out of.
   private async createUnconditional(data: {

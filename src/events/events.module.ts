@@ -5,9 +5,10 @@ import { EventsService } from './events.service';
 import { EventReminderService } from './event-reminder.service';
 import { CommunitiesModule } from '../communities/communities.module';
 import { EmailModule } from '../email/email.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [CommunitiesModule, EmailModule, ConfigModule],
+  imports: [CommunitiesModule, EmailModule, ConfigModule, NotificationsModule],
   controllers: [EventsController],
   providers: [EventsService, EventReminderService],
   exports: [EventsService],
