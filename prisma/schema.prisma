@@ -232,6 +232,14 @@ model Community {
   pendingPrice            Float?
   pendingPriceEffectiveAt DateTime?
   priceChangeAnnouncedAt  DateTime?
+  // Daily cron sets this when it sends the 7-day-before reminder so the
+  // reminder fires exactly once per scheduled price change. Cleared
+  // alongside pendingPrice when the change applies or gets cancelled.
+  priceChangeReminderSentAt DateTime?
+  // Same pattern for the 7-day-before-suspension reminder: cron sends
+  // once, sets this timestamp, won't resend if the cancellation is
+  // unrevoked-then-rescheduled (caller clears it when needed).
+  suspensionReminderSentAt  DateTime?
   slug                    String?                     @unique
   // HYP-era billing fields (added Phase 1.2). Old cardLastFour/cardBrand
   // strings stay until Phase 6.1 backfill is verified, then dropped.
@@ -596,6 +604,19 @@ enum NotificationType {
   COMMUNITY_SCHEDULED_FOR_SUSPENSION
   COMMUNITY_SUSPENDED
   COMMUNITY_REACTIVATED
+  // Member gets a bell-icon entry when the owner announces a price
+  // change. Mirrors the existing email + popup so users who don't open
+  // the community between announcement and effective-date still know.
+  PRICE_CHANGE_ANNOUNCED
+  // User gets a bell-icon entry alongside the event reminder email.
+  // Closes the email-only gap — active users see the reminder in-app
+  // without checking inbox.
+  EVENT_REMINDER
+  // Owner gets a bell-icon entry alongside the email when a recurring
+  // SOFT charge fails. Highest-stakes notification — losing email
+  // visibility while a community is heading toward suspension is a
+  // serious failure mode. (Fires from Phase 4 cron, not yet wired.)
+  PAYMENT_FAILED
 }
 
 enum CommunityStatus {
