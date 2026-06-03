@@ -42,6 +42,11 @@ const TOKENIZE_COMMUNITY_ORDER_RE = /^tokenize-community-([a-z0-9]+)-([a-z0-9]+)
 // Order shape: tokenize-newCommunity-<pendingId>-<userId>-<ts>.
 // Captures: 1 = pendingId, 2 = userId.
 const TOKENIZE_NEW_COMMUNITY_ORDER_RE = /^tokenize-newCommunity-([a-z0-9]+)-([a-z0-9]+)-\d+$/;
+// Phase 4 Mission 3 — paid member-join through the iframe (new card).
+// After tokenize, the backend creates CommunityMember + MemberSubscription
+// AND runs the first SOFT charge atomically. Failure: rollback, no join.
+// Order shape: tokenize-memberJoin-<communityId>-<userId>-<ts>.
+const TOKENIZE_MEMBER_JOIN_ORDER_RE = /^tokenize-memberJoin-([a-z0-9]+)-([a-z0-9]+)-\d+$/;
 
 @Controller('payments')
 export class PaymentsController {
@@ -115,6 +120,11 @@ export class PaymentsController {
       if (newCommunityMatch) {
         const [, pendingId, userId] = newCommunityMatch;
         return this.handleTokenizeNewCommunity(query, result.body, userId, pendingId, res, frontend);
+      }
+      const memberJoinMatch = order.match(TOKENIZE_MEMBER_JOIN_ORDER_RE);
+      if (memberJoinMatch) {
+        const [, communityId, userId] = memberJoinMatch;
+        return this.handleTokenizeMemberJoin(query, result.body, userId, communityId, res, frontend);
       }
 
       // Default successful-payment redirect (legacy charge flow).
@@ -235,7 +245,7 @@ export class PaymentsController {
         cardBrand,
       });
 
-      const { community, wasAlreadyBound } = await this.communitiesService.bindTokenizedPaymentMethod(
+      const bindResult = await this.communitiesService.bindTokenizedPaymentMethod(
         communityId,
         userId,
         {
@@ -244,11 +254,14 @@ export class PaymentsController {
           cardBrand: paymentMethod.cardBrand,
         },
       );
+      const { community, wasAlreadyBound, wasReactivated, chargeAttempted, chargeFailed, chargeCCode } = bindResult;
 
       this.logger.log(
         `Community card bound: userId=${userId} communityId=${communityId} ` +
         `last4=${cardLastFour} brand=${cardBrand} ` +
-        `tokenSuffix=${tokenResult.token.slice(-4)} wasAlreadyBound=${wasAlreadyBound}`,
+        `tokenSuffix=${tokenResult.token.slice(-4)} ` +
+        `wasAlreadyBound=${wasAlreadyBound} chargeAttempted=${chargeAttempted} ` +
+        `wasReactivated=${wasReactivated} chargeCCode=${chargeCCode ?? '-'}`,
       );
 
       // Phase 3.6 — fire-and-forget security email when the community's
@@ -264,10 +277,17 @@ export class PaymentsController {
         );
       }
 
-      // existing = community already had this card. updated = new card (or
-      // first time binding). Either way the manage page picks up the
-      // ACTIVE flip (if the community was SUSPENDED) on refresh.
-      const cardParam = wasAlreadyBound ? 'existing' : 'updated';
+      // Mission 5 redirect taxonomy:
+      //   reactivated   = was SUSPENDED, recovery SOFT succeeded
+      //   charge-failed = was SUSPENDED, recovery SOFT rejected (card
+      //                   still bound; owner can retry)
+      //   existing      = same card re-bound, no charge attempted
+      //   updated       = fresh card on ACTIVE community, no charge
+      const cardParam =
+        wasReactivated ? 'reactivated'
+        : chargeFailed ? 'charge-failed'
+        : wasAlreadyBound ? 'existing'
+        : 'updated';
       return res.redirect(`${frontend}/communities/${communityId}/manage?card=${cardParam}`);
     } catch (err) {
       this.logger.error(`Community tokenize flow error: ${(err as Error).message}`);
@@ -349,6 +369,82 @@ export class PaymentsController {
       return res.redirect(`${frontend}/communities/${community.id}/feed`);
     } catch (err) {
       this.logger.error(`New-community tokenize flow error: ${(err as Error).message}`);
+      return res.redirect(failureRedirect);
+    }
+  }
+
+  // Phase 4 Mission 3 — paid member-join via iframe (new card path).
+  // After tokenize: mint token + persist UserPaymentMethod (dedup-aware),
+  // then call CommunitiesService.finalizePaidJoinFromTokenize which
+  // atomically creates membership + runs first SOFT charge.
+  //
+  // Failure modes:
+  //   - getToken rejection → redirect to preview?card=error (no membership)
+  //   - finalize throws (HYP CCode != 0, already a member, etc.) →
+  //     redirect to preview?card=error (no membership — atomic rollback)
+  //   - success → /communities/<id>/feed?card=joined
+  private async handleTokenizeMemberJoin(
+    query: Record<string, string>,
+    verifiedBody: Record<string, string>,
+    userId: string,
+    communityId: string,
+    res: Response,
+    frontend: string,
+  ) {
+    const failureRedirect = `${frontend}/communities/${communityId}/preview?card=error`;
+    try {
+      const tokenResult = await this.hypService.getToken(query.Id);
+      if (
+        !tokenResult.ok
+        || !tokenResult.token
+        || tokenResult.expMonth === null
+        || tokenResult.expYear === null
+      ) {
+        this.logger.error(
+          `getToken failed (memberJoin): Id=${query.Id} userId=${userId} ` +
+          `communityId=${communityId} CCode=${tokenResult.ccode}`,
+        );
+        return res.redirect(failureRedirect);
+      }
+
+      // Same J5=J2 fallback as the other Phase 3.x flows — last4/Bank
+      // aren't populated on validation-only flows.
+      const cardLastFour = verifiedBody.L4digit || tokenResult.token.slice(-4);
+      const cardBrand = bankIdToBrand(verifiedBody.Bank);
+
+      const { paymentMethod } = await this.usersService.addTokenizedPaymentMethod(userId, {
+        token: tokenResult.token,
+        expMonth: tokenResult.expMonth,
+        expYear: tokenResult.expYear,
+        cardLastFour,
+        cardBrand,
+      });
+
+      try {
+        await this.communitiesService.finalizePaidJoinFromTokenize(communityId, userId, {
+          id: paymentMethod.id,
+          hypPaymentMethodId: tokenResult.token,
+          cardExpMonth: tokenResult.expMonth,
+          cardExpYear: tokenResult.expYear,
+          cardLastFour,
+          cardBrand,
+        });
+      } catch (err) {
+        // Atomic rollback already happened inside the service; just log
+        // and redirect with an error param so the frontend shows a toast.
+        this.logger.warn(
+          `Paid join finalize failed: user=${userId} community=${communityId}: ${(err as Error).message}`,
+        );
+        return res.redirect(failureRedirect);
+      }
+
+      this.logger.log(
+        `Paid join (iframe): userId=${userId} communityId=${communityId} ` +
+        `last4=${cardLastFour} brand=${cardBrand} tokenSuffix=${tokenResult.token.slice(-4)}`,
+      );
+      return res.redirect(`${frontend}/communities/${communityId}/feed?card=joined`);
+    } catch (err) {
+      this.logger.error(`Paid join tokenize flow error: ${(err as Error).message}`);
       return res.redirect(failureRedirect);
     }
   }

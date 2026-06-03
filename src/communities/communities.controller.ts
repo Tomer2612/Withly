@@ -13,6 +13,7 @@ import {
   BindExistingCardDto,
   CreateCommunityDto,
   FinalizeWithExistingCardDto,
+  JoinPaidWithExistingCardDto,
   UpdateCommunityDto,
   UpdateMemberRoleDto,
   UpdatePaymentInfoDto,
@@ -389,6 +390,25 @@ export class CommunitiesController {
   ) {
     const userId = req.user.userId;
     return this.communitiesService.bindExistingCardToCommunity(
+      id,
+      userId,
+      body.paymentMethodId,
+    );
+  }
+
+  // Phase 4 Mission 3 — paid member-join using an existing wallet card.
+  // No iframe. Atomic: creates CommunityMember + MemberSubscription and
+  // runs the first SOFT charge in a single transaction; charge failure
+  // rolls back the rows. Throws CHARGE_FAILED:<CCode> on HYP rejection.
+  @UseGuards(AuthGuard('jwt'))
+  @Post(':id/join-paid-with-existing-card')
+  joinPaidWithExistingCard(
+    @Param('id') id: string,
+    @Req() req,
+    @Body() body: JoinPaidWithExistingCardDto,
+  ) {
+    const userId = req.user.userId;
+    return this.communitiesService.joinPaidCommunityWithExistingCard(
       id,
       userId,
       body.paymentMethodId,

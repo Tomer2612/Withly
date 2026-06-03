@@ -42,6 +42,16 @@ export class FinalizeWithExistingCardDto {
   paymentMethodId!: string;
 }
 
+// Phase 4 Mission 3 — member joins a paid community using a card
+// already on file. Iframe path uses tokenize-memberJoin dispatch and
+// doesn't go through this DTO.
+export class JoinPaidWithExistingCardDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(50)
+  paymentMethodId!: string;
+}
+
 // Pricing-checkout staging: same shape as CreateCommunityDto. Persisted as
 // a PendingCommunityCreation row until the tokenize iframe completes, then
 // promoted to a real Community in the same transaction that binds the card.

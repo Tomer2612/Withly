@@ -177,9 +177,17 @@ export default function UpdateCardModal({
         return;
       }
       const result = await res.json();
-      // bindTokenizedPaymentMethod returns { community, wasAlreadyBound, wasReactivated }.
-      // Match the iframe redirect's ?card=updated vs ?card=existing semantics.
-      const cardParam = result?.wasAlreadyBound ? 'existing' : 'updated';
+      // Same redirect taxonomy as the iframe path (Mission 5):
+      //   reactivated    = was SUSPENDED, recovery SOFT succeeded
+      //   charge-failed  = was SUSPENDED, recovery SOFT rejected
+      //                    (card still bound; owner can try a different one)
+      //   existing       = same card re-bound, no charge
+      //   updated        = fresh card on ACTIVE community, no charge
+      const cardParam =
+        result?.wasReactivated ? 'reactivated'
+        : result?.chargeFailed ? 'charge-failed'
+        : result?.wasAlreadyBound ? 'existing'
+        : 'updated';
       window.location.href = `/communities/${communityId}/manage?card=${cardParam}`;
     } catch {
       window.location.href = `/communities/${communityId}/manage?card=error`;

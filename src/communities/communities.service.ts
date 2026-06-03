@@ -1,9 +1,11 @@
-import { Injectable, InternalServerErrorException, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException, ForbiddenException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
 import { Prisma, CommunityStatus } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../common/prisma.service';
 import { canManageCommunity, getEffectiveRole } from '../common/community-roles.helper';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailService } from '../email/email.service';
+import { HypService } from '../payments/hyp.service';
 
 // Hebrew dd.M.yyyy format used in lifecycle emails (matches the user's
 // spec mockups — e.g., "1.7.2026"). Locale-formatted via he-IL would
@@ -21,6 +23,7 @@ export class CommunitiesService {
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
     private emailService: EmailService,
+    private hypService: HypService,
   ) {}
 
   // Throws ForbiddenException('COMMUNITY_SUSPENDED') if the community's
@@ -614,13 +617,20 @@ export class CommunitiesService {
     });
   }
 
-  // Phase 3.2 — bind a freshly tokenized UserPaymentMethod to a community.
-  // Called from paymentSuccess after the iframe-driven J5=J2 flow completes
-  // and getToken has persisted a UserPaymentMethod row.
+  // Phase 3.2 + Phase 4 Mission 5 — bind a UserPaymentMethod to a
+  // community. The bind itself is always unconditional: even on charge
+  // failure the new card stays bound (owner can retry without re-
+  // entering details).
   //
-  // Mirrors updatePaymentInfo's reactivation behavior: if the community is
-  // SUSPENDED, treat the new card as a renewal action (placeholder until
-  // Phase 4.4 runs an actual SOFT-charge retry).
+  // Reactivation behavior:
+  //   - Community ACTIVE  → just swap the card. No charge. Next monthly
+  //     cron pass will use the new card.
+  //   - Community SUSPENDED → attempt SOFT retry for plan.monthlyPriceILS.
+  //     On success: flip ACTIVE, reset nextBillingDate to now+1 month
+  //     (member-friendly: gives a clean 30-day window from reactivation,
+  //     not from the original due date that may have been weeks ago).
+  //     On failure: stay SUSPENDED, return chargeFailed=true so the
+  //     caller surfaces a toast.
   //
   // Also writes the legacy cardLastFour/cardBrand mirror so the existing UI
   // and back-compat consumers keep working until Phase 6.1 drops them.
@@ -631,7 +641,19 @@ export class CommunitiesService {
   ) {
     const community = await this.prisma.community.findUnique({
       where: { id: communityId },
-      select: { ownerId: true, subscriptionStatus: true, paymentMethodId: true },
+      // Wider select than before — we need owner email/name/plan to
+      // build the SOFT charge if a retry is warranted, plus community
+      // name for the merchant-report Info line.
+      select: {
+        id: true, name: true, ownerId: true,
+        subscriptionStatus: true, paymentMethodId: true,
+        owner: {
+          select: {
+            email: true, name: true,
+            plan: { select: { monthlyPriceILS: true } },
+          },
+        },
+      },
     });
     if (!community) {
       throw new NotFoundException('Community not found');
@@ -641,10 +663,8 @@ export class CommunitiesService {
     }
 
     // Same card already bound? Caller surfaces a different toast.
-    // Note: even when wasAlreadyBound, if the community is SUSPENDED we still
-    // run the reactivation flip — saving a card on a suspended community IS
-    // the renewal action regardless of whether the card itself changed.
     const wasAlreadyBound = community.paymentMethodId === paymentMethod.id;
+    const wasSuspended = community.subscriptionStatus === 'SUSPENDED';
 
     const updateData: Prisma.CommunityUpdateInput = {
       paymentMethod: { connect: { id: paymentMethod.id } },
@@ -652,12 +672,70 @@ export class CommunitiesService {
       cardBrand: paymentMethod.cardBrand,
     };
 
-    let firingReactivated = false;
-    if (community.subscriptionStatus === 'SUSPENDED') {
-      updateData.subscriptionStatus = 'ACTIVE';
-      updateData.suspendedAt = null;
-      updateData.subscriptionCancelledAt = null;
-      firingReactivated = true;
+    // Suspension-recovery SOFT retry (Mission 5). Only when the
+    // community was SUSPENDED — an ACTIVE community swap is just a
+    // card change, no charge. Needs the full payment-method row for
+    // token + expiry; fetch it separately since the caller only hands
+    // us id + display info.
+    let chargeAttempted = false;
+    let chargeOk = false;
+    let chargeCCode: string | null = null;
+    if (wasSuspended) {
+      chargeAttempted = true;
+      const pmRow = await this.prisma.userPaymentMethod.findUnique({
+        where: { id: paymentMethod.id },
+        select: { hypPaymentMethodId: true, cardExpMonth: true, cardExpYear: true },
+      });
+      const planPrice = community.owner?.plan?.monthlyPriceILS;
+      if (
+        !pmRow?.hypPaymentMethodId
+        || pmRow.cardExpMonth == null
+        || pmRow.cardExpYear == null
+        || !planPrice
+        || !community.owner?.email
+      ) {
+        // Missing data needed for SOFT — log + leave the community
+        // SUSPENDED. Card is still bound; owner can try a different
+        // card or retry once data is fixed.
+        this.logger.warn(
+          `Recovery SOFT not attempted for community ${communityId}: missing data ` +
+          `(token=${!!pmRow?.hypPaymentMethodId} expM=${pmRow?.cardExpMonth} ` +
+          `expY=${pmRow?.cardExpYear} planPrice=${planPrice} email=${community.owner?.email})`,
+        );
+        chargeOk = false;
+      } else {
+        try {
+          const result = await this.hypService.softCharge({
+            token: pmRow.hypPaymentMethodId,
+            amount: planPrice,
+            cardExpMonth: pmRow.cardExpMonth,
+            cardExpYear: pmRow.cardExpYear,
+            clientName: community.owner.name ?? community.owner.email,
+            email: community.owner.email,
+            order: `recovery-${communityId}-${Date.now()}`,
+            info: `Suspension recovery for community "${community.name}"`,
+          });
+          chargeOk = result.ok;
+          chargeCCode = result.ccode;
+        } catch (err) {
+          this.logger.error(`Recovery SOFT threw for community ${communityId}: ${(err as Error).message}`);
+          chargeOk = false;
+        }
+      }
+
+      if (chargeOk) {
+        // Reactivate + set a fresh 30-day window from reactivation.
+        const now = new Date();
+        const nextBillingDate = new Date(now);
+        nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
+        updateData.subscriptionStatus = 'ACTIVE';
+        updateData.suspendedAt = null;
+        updateData.subscriptionCancelledAt = null;
+        updateData.nextBillingDate = nextBillingDate;
+        updateData.currentPeriodStart = now;
+        updateData.currentPeriodEnd = nextBillingDate;
+      }
+      // On charge failure: leave status=SUSPENDED. Card is still bound.
     }
 
     const updated = await this.prisma.community.update({
@@ -665,11 +743,22 @@ export class CommunitiesService {
       data: updateData,
     });
 
-    if (firingReactivated) {
+    const wasReactivated = chargeAttempted && chargeOk;
+    if (wasReactivated) {
       void this.notifyCommunityReactivated(communityId, userId).catch(() => {});
     }
 
-    return { community: updated, wasAlreadyBound, wasReactivated: firingReactivated };
+    return {
+      community: updated,
+      wasAlreadyBound,
+      wasReactivated,
+      // Mission 5 additions — null when no charge was attempted (active
+      // community card swap), false when attempted but rejected, true
+      // when attempted and succeeded.
+      chargeAttempted,
+      chargeFailed: chargeAttempted && !chargeOk,
+      chargeCCode,
+    };
   }
 
   // Phase 3.3 — pricing checkout staging. The pricing page collects community
@@ -895,6 +984,207 @@ export class CommunitiesService {
       communityId,
       formatHebrewDate(trialEnd),
     );
+  }
+
+  // Phase 4 Mission 3 — paid-member-join with existing card on file.
+  // Member already has a tokenized payment method; just resolve it,
+  // validate, and route through the shared executor. The HYP iframe
+  // is bypassed entirely (no tokenize step needed).
+  async joinPaidCommunityWithExistingCard(
+    communityId: string,
+    userId: string,
+    paymentMethodId: string,
+  ) {
+    const pm = await this.prisma.userPaymentMethod.findUnique({
+      where: { id: paymentMethodId },
+      select: {
+        id: true, userId: true, cardLastFour: true, cardBrand: true,
+        hypPaymentMethodId: true, cardExpMonth: true, cardExpYear: true,
+      },
+    });
+    if (!pm || pm.userId !== userId) {
+      throw new NotFoundException('Payment method not found');
+    }
+    if (!pm.hypPaymentMethodId) {
+      // Pre-Phase-3 row without a HYP token. Member needs to re-tokenize.
+      throw new BadRequestException('TOKEN_MISSING');
+    }
+    if (this.isExpired(pm.cardExpMonth, pm.cardExpYear)) {
+      throw new BadRequestException('CARD_EXPIRED');
+    }
+    return this.executePaidJoin(communityId, userId, {
+      id: pm.id,
+      hypPaymentMethodId: pm.hypPaymentMethodId,
+      cardExpMonth: pm.cardExpMonth!,
+      cardExpYear: pm.cardExpYear!,
+      cardLastFour: pm.cardLastFour,
+      cardBrand: pm.cardBrand,
+    });
+  }
+
+  // Phase 4 Mission 3 — same join logic, called from the payments-
+  // controller dispatch after a fresh tokenize through the HYP iframe.
+  // The caller has already minted the token + stored the
+  // UserPaymentMethod via UsersService.addTokenizedPaymentMethod; we
+  // just run the join + first SOFT.
+  async finalizePaidJoinFromTokenize(
+    communityId: string,
+    userId: string,
+    paymentMethod: {
+      id: string;
+      hypPaymentMethodId: string;
+      cardExpMonth: number;
+      cardExpYear: number;
+      cardLastFour: string;
+      cardBrand: string;
+    },
+  ) {
+    return this.executePaidJoin(communityId, userId, paymentMethod);
+  }
+
+  // Atomic execution: validate community + membership state, create
+  // CommunityMember + MemberSubscription, fire the first SOFT charge.
+  // Wraps the writes + the SOFT call in a Prisma transaction so a
+  // CCode != 0 (or thrown error) rolls back the rows — no orphan
+  // memberships if the charge fails. Edge case (charge succeeds but
+  // tx throws after) is unavoidable without idempotency keys; accept
+  // for MVP and reconcile manually if it ever happens.
+  private async executePaidJoin(
+    communityId: string,
+    userId: string,
+    paymentMethod: {
+      id: string;
+      hypPaymentMethodId: string;
+      cardExpMonth: number;
+      cardExpYear: number;
+      cardLastFour: string;
+      cardBrand: string;
+    },
+  ) {
+    const community = await this.prisma.community.findUnique({
+      where: { id: communityId },
+      select: {
+        id: true, name: true, ownerId: true, status: true, price: true,
+        subscriptionStatus: true, subscriptionCancelledAt: true,
+      },
+    });
+    if (!community) {
+      throw new NotFoundException('Community not found');
+    }
+    if (community.status === 'DRAFT') {
+      throw new ForbiddenException('Community is not published');
+    }
+    if (community.subscriptionStatus === 'SUSPENDED') {
+      throw new ForbiddenException('COMMUNITY_SUSPENDED');
+    }
+    if (community.ownerId === userId) {
+      throw new ForbiddenException('Owner cannot join own community');
+    }
+    if (!community.price || community.price <= 0) {
+      // Free community — use the regular join endpoint, not this one.
+      throw new BadRequestException('Community is free');
+    }
+
+    const existingMember = await this.prisma.communityMember.findUnique({
+      where: { userId_communityId: { userId, communityId } },
+    });
+    if (existingMember) {
+      throw new ConflictException('Already a member');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, name: true },
+    });
+    if (!user?.email) {
+      throw new NotFoundException('User not found');
+    }
+
+    const now = new Date();
+    const nextBillingDate = new Date(now);
+    nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
+    // HYP rejects non-integer amounts; community.price is Float but in
+    // practice always whole shekels. Round to be safe.
+    const amount = Math.round(community.price);
+
+    try {
+      const result = await this.prisma.$transaction(async (tx) => {
+        await tx.communityMember.create({
+          data: { userId, communityId, role: 'USER' },
+        });
+        const subscription = await tx.memberSubscription.create({
+          data: {
+            userId,
+            communityId,
+            paymentMethodId: paymentMethod.id,
+            // hypSubscriptionId is a legacy field (HYP doesn't have
+            // server-side subscription objects) — generate a unique
+            // placeholder until Phase 6.3 drops the column.
+            hypSubscriptionId: randomUUID(),
+            // Non-null narrowed by the price > 0 guard above; `!` here
+            // is because Prisma's Float? type doesn't propagate the
+            // narrowing through the if-check.
+            priceAtJoin: community.price!,
+            nextBillingDate,
+            currentPeriodStart: now,
+            currentPeriodEnd: nextBillingDate,
+            status: 'ACTIVE',
+          },
+        });
+
+        // First SOFT charge — last step in the tx so a non-zero CCode
+        // rolls back the rows we just created. Within-tx network call
+        // is slow (~1.5s) but acceptable for Withly's volume.
+        const chargeResult = await this.hypService.softCharge({
+          token: paymentMethod.hypPaymentMethodId,
+          amount,
+          cardExpMonth: paymentMethod.cardExpMonth,
+          cardExpYear: paymentMethod.cardExpYear,
+          clientName: user.name ?? user.email,
+          email: user.email,
+          order: `memberjoin-${communityId}-${userId}-${Date.now()}`,
+          info: `Join "${community.name}"`,
+        });
+        if (!chargeResult.ok) {
+          throw new BadRequestException(`CHARGE_FAILED:${chargeResult.ccode}`);
+        }
+
+        return { subscription, hypId: chargeResult.body.Id };
+      });
+
+      // Post-success side effects (outside tx, fire-and-forget).
+      void this.emailService
+        .sendPaidMemberJoinedEmail(
+          user.email,
+          user.name ?? user.email,
+          community.name,
+          community.id,
+          amount,
+          formatHebrewDate(nextBillingDate),
+        )
+        .catch((err) => {
+          this.logger.warn(`Paid-joined email failed (user=${userId}): ${(err as Error).message}`);
+        });
+      // Owner gets the bell-icon notification — existing
+      // notifyCommunityJoin handles the per-type prefs (owner can
+      // opt-in/out via the join notification toggle).
+      void this.notificationsService
+        .notifyCommunityJoin(community.ownerId, userId, community.id)
+        .catch(() => {});
+
+      this.logger.log(
+        `Paid join: user=${userId} community=${communityId} amount=${amount} hypId=${result.hypId}`,
+      );
+      return {
+        community,
+        memberSubscription: result.subscription,
+      };
+    } catch (err) {
+      // Re-throw NestJS exceptions as-is (they have HTTP status info).
+      // Pure database errors bubble up as 500s, which is fine — they
+      // indicate an unexpected bug.
+      throw err;
+    }
   }
 
   // Owner cancellation confirmation email (#8). Looks up the owner's

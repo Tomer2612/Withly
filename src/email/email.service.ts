@@ -596,6 +596,34 @@ export class EmailService {
     await this.sendEmail(email, subject, htmlBody, textBody);
   }
 
+  // #3 — Member just joined a paid community and the first month's SOFT
+  // charge succeeded. EasyCount sends the tax receipt automatically;
+  // this email is the Withly-branded confirmation + entry CTA so the
+  // member knows they're in and when the next charge fires.
+  async sendPaidMemberJoinedEmail(
+    email: string,
+    name: string,
+    communityName: string,
+    communityId: string,
+    amountILS: number,
+    nextBillingDate: string,
+  ): Promise<void> {
+    const subject = `אישור הצטרפות לקהילה "${communityName}"`;
+    const lines = [
+      `תודה על ההצטרפות לקהילה "${communityName}".`,
+      `החיוב הראשון בסכום של ₪${amountILS} בוצע בהצלחה.`,
+      `תאריך החיוב הבא: ${nextBillingDate}.`,
+      `החשבונית מצורפת לאימייל זה.`,
+    ];
+    const bodyContent = this.buildLifecycleBody(name, lines, {
+      label: 'כניסה לקהילה',
+      url: `${this.frontendUrl}/communities/${communityId}/feed`,
+    });
+    const htmlBody = this.buildEmailHtml(bodyContent);
+    const textBody = `שלום ${name},\n\n${lines.join('\n\n')}\n\nכניסה לקהילה: ${this.frontendUrl}/communities/${communityId}/feed\n\nבברכה,\nצוות Withly`;
+    await this.sendEmail(email, subject, htmlBody, textBody);
+  }
+
   // #6 — Phase 4 monthly SOFT charge failed. Community has already been
   // suspended by the cron at the moment this email fires; owner needs
   // to update the payment method to reactivate. No auto-retry in the
@@ -620,6 +648,33 @@ export class EmailService {
     });
     const htmlBody = this.buildEmailHtml(bodyContent);
     const textBody = `שלום ${name},\n\n${lines.join('\n\n')}\n\nעדכון אמצעי תשלום: ${this.frontendUrl}/communities/${communityId}/manage\n\nבברכה,\nצוות Withly`;
+    await this.sendEmail(email, subject, htmlBody, textBody);
+  }
+
+  // #6 (member variant) — Phase 4 Mission 4: member-side recurring
+  // SOFT charge failed. The member's MemberSubscription is now PAST_DUE
+  // but the community itself is still active (unlike the owner-side
+  // failure which suspends the whole community). Different recipient
+  // context = different copy: speaks to the member about THEIR sub,
+  // not the community's overall status. CTA points to their wallet.
+  async sendMemberPaymentFailedEmail(
+    email: string,
+    name: string,
+    communityName: string,
+    amountILS: number,
+  ): Promise<void> {
+    const subject = `התשלום החודשי לקהילה "${communityName}" לא עבר`;
+    const lines = [
+      `ניסינו לחייב את אמצעי התשלום עבור המנוי לקהילה "${communityName}" בסכום של ₪${amountILS}, אך החיוב לא עבר.`,
+      `המנוי הושהה. הגישה לקהילה תיחסם בקרוב.`,
+      `לחידוש המנוי, יש לעדכן את אמצעי התשלום בהגדרות החשבון.`,
+    ];
+    const bodyContent = this.buildLifecycleBody(name, lines, {
+      label: 'עדכון אמצעי תשלום',
+      url: `${this.frontendUrl}/settings#payment`,
+    });
+    const htmlBody = this.buildEmailHtml(bodyContent);
+    const textBody = `שלום ${name},\n\n${lines.join('\n\n')}\n\nעדכון אמצעי תשלום: ${this.frontendUrl}/settings#payment\n\nבברכה,\nצוות Withly`;
     await this.sendEmail(email, subject, htmlBody, textBody);
   }
 

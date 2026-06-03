@@ -11,8 +11,10 @@ import VideoPlayer, { VideoThumbnail } from '../../../components/VideoPlayer';
 import CloseIcon from '../../../components/icons/CloseIcon';
 import ChevronLeftIcon from '../../../components/icons/ChevronLeftIcon';
 import ChevronRightIcon from '../../../components/icons/ChevronRightIcon';
-import CreditCardForm, { isCardComplete } from '../../../components/CreditCardForm';
 import { getImageUrl } from '@/app/lib/imageUrl';
+import HypPaymentIframeModal from '../../../components/HypPaymentIframeModal';
+import ExistingCardConfirmModal from '../../../components/ExistingCardConfirmModal';
+import CardPickerModal from '../../../components/CardPickerModal';
 
 interface Community {
   id: string;
@@ -181,21 +183,42 @@ function CommunityPreviewContent() {
   const [loading, setLoading] = useState(true);
   const [managerCount, setManagerCount] = useState(0);
   const [joining, setJoining] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [isBanned, setIsBanned] = useState(false);
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvv, setCardCvv] = useState('');
+  const [paidJoinError, setPaidJoinError] = useState<string | null>(null);
 
-  // Check if we should show payment modal (coming back from signup).
-  // Banned users skip this - the banner replaces the join flow entirely.
+  // Phase 4 Mission 3 — paid-join flow. Mirrors the Phase 3.3 pricing
+  // page picker: fetch wallet on click; empty → HYP iframe; ≥1 → confirm
+  // popup with primary pre-selected.
+  const [pickerView, setPickerView] = useState<'none' | 'confirm' | 'picker' | 'iframe'>('none');
+  const [savedCards, setSavedCards] = useState<{
+    id: string; cardLastFour: string; cardBrand: string;
+    cardExpMonth: number | null; cardExpYear: number | null;
+    isPrimary: boolean; createdAt: string;
+  }[]>([]);
+  const [selectedCardId, setSelectedCardId] = useState<string>('');
+  const [finalizingPaidJoin, setFinalizingPaidJoin] = useState(false);
+
+  // Show payment popup after returning from signup. Banned users skip
+  // this - the banner replaces the join flow entirely.
   useEffect(() => {
     if (searchParams.get('showPayment') === 'true' && community && !isBanned) {
-      setShowPaymentModal(true);
-      // Remove the query param from URL
+      // Re-trigger the join click path so the wallet is fetched + the
+      // right modal is opened. handleJoinClick is async-safe here.
+      void handleJoinClickForResume();
       router.replace(`/communities/${communityId}/preview`);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, community, communityId, router, isBanned]);
+
+  // Surface a toast/banner when the iframe-redirect path bounced back
+  // with ?card=error (charge failed or tokenize failed).
+  useEffect(() => {
+    if (searchParams.get('card') === 'error') {
+      setPaidJoinError('החיוב לא עבר. אפשר לנסות שוב או להשתמש בכרטיס אחר.');
+      router.replace(`/communities/${communityId}/preview`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchCommunity = async () => {
@@ -277,7 +300,7 @@ function CommunityPreviewContent() {
     fetchCommunity();
   }, [communityId, router, user]);
 
-  const handleJoinClick = () => {
+  const handleJoinClick = async () => {
     // Banned users can't rejoin — bail before any signup/payment side trips.
     if (isBanned) return;
 
@@ -293,10 +316,98 @@ function CommunityPreviewContent() {
       return;
     }
 
-    if (effectivePrice > 0) {
-      setShowPaymentModal(true);
-    } else {
+    if (effectivePrice <= 0) {
       joinCommunity();
+      return;
+    }
+
+    // Paid path — fetch wallet, decide picker vs iframe.
+    await openPaidJoinPicker();
+  };
+
+  // Same flow used by ?showPayment=true URL return-from-signup.
+  const handleJoinClickForResume = async () => {
+    if (!community || isBanned) return;
+    const effectivePrice = joinPrice(community);
+    if (effectivePrice <= 0) return;
+    await openPaidJoinPicker();
+  };
+
+  // Fetches the user's wallet, filters to unexpired cards, sorts primary-
+  // first/newest-first, and opens either ExistingCardConfirmModal (≥1 card)
+  // or the HYP iframe directly (empty wallet). Identical pattern to the
+  // pricing page Phase 3.3 picker.
+  const openPaidJoinPicker = async () => {
+    setPaidJoinError(null);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/payment-methods`, {
+        credentials: 'include',
+      });
+      const allCards: typeof savedCards = res.ok ? await res.json() : [];
+      const now = new Date();
+      const nowYM = now.getFullYear() * 100 + (now.getMonth() + 1);
+      const unexpired = allCards.filter(c => {
+        if (c.cardExpMonth == null || c.cardExpYear == null) return true;
+        return c.cardExpYear * 100 + c.cardExpMonth >= nowYM;
+      });
+      unexpired.sort((a, b) => {
+        if (a.isPrimary !== b.isPrimary) return a.isPrimary ? -1 : 1;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+      setSavedCards(unexpired);
+      if (unexpired.length === 0) {
+        setPickerView('iframe');
+      } else {
+        setSelectedCardId(unexpired[0].id);
+        setPickerView('confirm');
+      }
+    } catch {
+      // Network blip — fall back to the iframe (legacy behavior).
+      setPickerView('iframe');
+    }
+  };
+
+  // Existing-card path: POST to backend; on success it returns the
+  // community + memberSubscription. Redirect to feed.
+  const finalizePaidJoinWithExistingCard = async () => {
+    setFinalizingPaidJoin(true);
+    setPaidJoinError(null);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/join-paid-with-existing-card`,
+        {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paymentMethodId: selectedCardId }),
+        },
+      );
+      if (!res.ok) {
+        // Backend returns NestJS-style { message, statusCode }. Map known
+        // business errors to friendly Hebrew toasts; everything else is
+        // a generic failure.
+        const errorBody = await res.json().catch(() => ({}));
+        const msg = String(errorBody?.message ?? '');
+        if (msg.startsWith('CHARGE_FAILED')) {
+          setPaidJoinError('החיוב לא עבר. אפשר לנסות שוב או להשתמש בכרטיס אחר.');
+        } else if (msg === 'CARD_EXPIRED') {
+          setPaidJoinError('הכרטיס פג תוקף. יש להוסיף כרטיס חדש.');
+        } else if (msg === 'COMMUNITY_SUSPENDED') {
+          setPaidJoinError('הקהילה מושעית כרגע, לא ניתן להצטרף.');
+        } else {
+          setPaidJoinError('שגיאה בהצטרפות לקהילה. יש לנסות שוב.');
+        }
+        setPickerView('none');
+        return;
+      }
+      // Success → land on feed with a "joined" toast.
+      const redirectId = community?.slug || communityId;
+      window.location.href = `/communities/${redirectId}/feed?card=joined`;
+    } catch {
+      setPaidJoinError('שגיאה בהצטרפות לקהילה. יש לנסות שוב.');
+      setPickerView('none');
+    } finally {
+      setFinalizingPaidJoin(false);
     }
   };
 
@@ -323,33 +434,6 @@ function CommunityPreviewContent() {
     }
   };
 
-  const handlePaymentSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isPaymentValid) return;
-    setJoining(true);
-
-    // Save credit card info to user payment methods
-    const lastFour = cardNumber.slice(-4);
-    try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/payment-methods`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          cardLastFour: lastFour,
-          cardBrand: 'Visa',
-        }),
-      });
-    } catch (err) {
-      console.error('Failed to save card info:', err);
-    }
-    
-    await joinCommunity();
-    setShowPaymentModal(false);
-  };
-
-  const isPaymentValid = isCardComplete(cardNumber, cardExpiry, cardCvv);
 
   if (loading || !community) {
     return (
@@ -632,42 +716,71 @@ function CommunityPreviewContent() {
         )}
       </div>
 
-      {/* Payment Modal */}
-      {showPaymentModal && community && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-8 relative shadow-lg" dir="rtl">
-            <button
-              onClick={() => setShowPaymentModal(false)}
-              className="absolute top-4 left-4 text-gray-400 hover:text-gray-600"
-            >
-              <CloseIcon className="w-5 h-5" />
-            </button>
-
-            <h2 className="text-2xl font-bold text-center mb-8">מתחילים חודש ניסיון חינם</h2>
-
-            <CreditCardForm
-              cardNumber={cardNumber}
-              cardExpiry={cardExpiry}
-              cardCvv={cardCvv}
-              onCardNumberChange={setCardNumber}
-              onCardExpiryChange={setCardExpiry}
-              onCardCvvChange={setCardCvv}
-            />
-
-            <button
-              onClick={handlePaymentSubmit}
-              disabled={!isPaymentValid || joining}
-              className="w-full mt-8 bg-black text-white py-4 rounded-xl font-bold text-lg hover:opacity-90 transition disabled:opacity-50"
-            >
-              {joining ? 'מצטרף לקהילה...' : 'הצטרפות לקהילה'}
-            </button>
-
-            <p className="text-center text-sm text-gray-500 mt-4">
-              תזכורת תשלח במייל 3 ימים לפני סיום הניסיון. אפשר<br />
-              לבטל בקליק דרך הגדרות הקהילה.
-            </p>
-          </div>
+      {/* Paid-join error toast (banner-style) — appears after a failed
+          iframe redirect or a failed existing-card POST. Uses the
+          paid-join error state, dismissable. */}
+      {paidJoinError && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] bg-white border shadow-lg rounded-xl px-4 py-3 flex items-center gap-3" style={{ borderColor: 'var(--color-gray-4)', maxWidth: '90vw' }} dir="rtl">
+          <span style={{ fontSize: '14px', color: 'var(--color-black)' }}>{paidJoinError}</span>
+          <button onClick={() => setPaidJoinError(null)} className="opacity-60 hover:opacity-100">
+            <CloseIcon className="w-4 h-4" />
+          </button>
         </div>
+      )}
+
+      {/* Phase 4 Mission 3 — paid-join confirm modal (≥1 card in wallet) */}
+      {pickerView === 'confirm' && community && user && savedCards.length > 0 && (
+        <ExistingCardConfirmModal
+          title={community.name}
+          logoUrl={community.logo ?? community.image ?? null}
+          monthlyPrice={Math.max(1, joinPrice(community))}
+          selectedCard={(() => {
+            const card = savedCards.find(c => c.id === selectedCardId) ?? savedCards[0];
+            return {
+              id: card.id,
+              cardLastFour: card.cardLastFour,
+              cardBrand: card.cardBrand,
+            };
+          })()}
+          actionLabel={`הצטרפות ב₪${joinPrice(community)}`}
+          loading={finalizingPaidJoin}
+          onCancel={() => setPickerView('none')}
+          onSwitchCard={() => setPickerView('picker')}
+          onConfirm={finalizePaidJoinWithExistingCard}
+        />
+      )}
+
+      {/* Phase 4 Mission 3 — wallet picker (Screen 2) */}
+      {pickerView === 'picker' && (
+        <CardPickerModal
+          cards={savedCards.map(c => ({ id: c.id, cardLastFour: c.cardLastFour, cardBrand: c.cardBrand }))}
+          selectedId={selectedCardId}
+          onCancel={() => setPickerView('none')}
+          onSelect={(id) => {
+            setSelectedCardId(id);
+            setPickerView('confirm');
+          }}
+          onAddNew={() => setPickerView('iframe')}
+        />
+      )}
+
+      {/* Phase 4 Mission 3 — HYP iframe (new card). The backend handles
+          the post-tokenize SOFT charge + membership creation atomically;
+          on success HYP redirects parent to /communities/<id>/feed?card=joined.
+          On failure, redirect lands on /preview?card=error and the
+          banner above renders. */}
+      {pickerView === 'iframe' && community && user && (
+        <HypPaymentIframeModal
+          amount={Math.max(1, joinPrice(community))}
+          j5="J2"
+          bof
+          orderPrefix={`tokenize-memberJoin-${communityId}`}
+          clientName={user.name || user.email}
+          email={user.email}
+          userId={user.userId}
+          title={`הצטרפות לקהילה "${community.name}"`}
+          onClose={() => setPickerView('none')}
+        />
       )}
     </main>
   );

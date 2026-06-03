@@ -335,31 +335,45 @@ export default function ManageCommunityPage() {
     }
   }, [message]);
 
-  // Phase 3.2 — after a successful (or failed) community card update via
-  // the HypPaymentIframeModal, the backend lands the user here with
-  // ?card=updated or ?card=error. Refresh the community to pick up the new
-  // card + any SUSPENDED→ACTIVE flip, surface a toast, then strip the
-  // query so a page refresh doesn't replay the toast.
+  // Phase 3.2 + Phase 4 Mission 5 — after a community card update or
+  // suspension-recovery attempt, the backend lands the user here with a
+  // ?card=<status> param. Refresh community state, show the matching
+  // toast, strip the query so a refresh doesn't replay.
+  //
+  // Param taxonomy (matches the backend's bind result):
+  //   updated       = ACTIVE community, fresh card swap, no charge
+  //   existing      = ACTIVE community, same card re-bound, no charge
+  //   reactivated   = was SUSPENDED, recovery SOFT succeeded — community
+  //                   back online, new monthly period started
+  //   charge-failed = was SUSPENDED, recovery SOFT rejected — card is
+  //                   still bound; community stays SUSPENDED; owner
+  //                   can try again with a different card
+  //   error         = generic error (tokenize failed, network blip)
   useEffect(() => {
     const cardStatus = searchParams.get('card');
     if (!cardStatus) return;
     if (cardStatus === 'updated') {
-      const wasSuspended = isSuspended;
       refreshCommunity().catch(() => {});
       setActiveTab('payments');
-      setMessage(wasSuspended ? 'הקהילה חזרה לפעילות!' : 'אמצעי התשלום עודכן בהצלחה');
+      setMessage('אמצעי התשלום עודכן בהצלחה');
       setMessageType('success');
     } else if (cardStatus === 'existing') {
-      // Community already had this exact card bound. Still refresh in case
-      // the suspended-status flipped (saving a card on a SUSPENDED community
-      // reactivates even when the card itself didn't change).
-      const wasSuspended = isSuspended;
       refreshCommunity().catch(() => {});
       setActiveTab('payments');
-      setMessage(wasSuspended ? 'הקהילה חזרה לפעילות!' : 'הכרטיס כבר מקושר לקהילה זו');
+      setMessage('הכרטיס כבר מקושר לקהילה זו');
       setMessageType('success');
+    } else if (cardStatus === 'reactivated') {
+      refreshCommunity().catch(() => {});
+      setActiveTab('payments');
+      setMessage('הקהילה חזרה לפעילות והחיוב בוצע בהצלחה');
+      setMessageType('success');
+    } else if (cardStatus === 'charge-failed') {
+      refreshCommunity().catch(() => {});
+      setActiveTab('payments');
+      setMessage('החיוב לא עבר. הכרטיס נשמר, ניתן לנסות שוב או להשתמש בכרטיס אחר.');
+      setMessageType('error');
     } else if (cardStatus === 'error') {
-      setMessage('שגיאה בעדכון אמצעי התשלום. נסה שוב.');
+      setMessage('שגיאה בעדכון אמצעי התשלום. יש לנסות שוב.');
       setMessageType('error');
     }
     window.history.replaceState(null, '', window.location.pathname);

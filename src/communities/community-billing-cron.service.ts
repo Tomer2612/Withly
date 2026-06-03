@@ -40,6 +40,7 @@ export class CommunityBillingCronService {
     await this.sendPriceChangeReminders();
     await this.sendSuspensionReminders();
     await this.applyMonthlyOwnerCharges();
+    await this.applyMonthlyMemberCharges();
   }
 
   private async applyDueOwnerCancellations() {
@@ -498,6 +499,172 @@ export class CommunityBillingCronService {
     await this.notifyMembersSuspended(c.id, c.ownerId).catch(() => {});
 
     this.logger.warn(`Suspended community ${c.id} due to charge failure (${reason})`);
+  }
+
+  // Phase 4 Mission 4 — recurring SOFT charges for paying members. Picks
+  // up MemberSubscription rows whose nextBillingDate has rolled over and
+  // runs softCharge against the member's stored token for priceAtJoin.
+  // Success advances the period by 1 month; failure flips the sub to
+  // PAST_DUE + emails/notifies the member. Unlike the owner-side path,
+  // this does NOT suspend the whole community — just the one membership.
+  // Community.subscriptionStatus and other members are unaffected.
+  private async applyMonthlyMemberCharges() {
+    const now = new Date();
+    const due = await this.prisma.memberSubscription.findMany({
+      where: {
+        status: 'ACTIVE',
+        nextBillingDate: { lte: now },
+        paymentMethodId: { not: null },
+        // Skip subs whose community is itself suspended — no point
+        // charging if access is already gone. Cron will retry once the
+        // community is reactivated (Mission 5).
+        community: { subscriptionStatus: 'ACTIVE' },
+      },
+      select: {
+        id: true,
+        userId: true,
+        communityId: true,
+        priceAtJoin: true,
+        nextBillingDate: true,
+        paymentMethod: {
+          select: {
+            hypPaymentMethodId: true,
+            cardExpMonth: true,
+            cardExpYear: true,
+            cardLastFour: true,
+          },
+        },
+        community: { select: { name: true } },
+        user: { select: { email: true, name: true } },
+      },
+    });
+
+    for (const sub of due) {
+      await this.processMemberCharge(sub, now);
+    }
+
+    if (due.length > 0) {
+      this.logger.log(`Processed ${due.length} member monthly charge(s)`);
+    }
+  }
+
+  // One iteration of the member-side SOFT loop. Same shape as the owner
+  // version but operates on MemberSubscription rows and PAST_DUEs on
+  // failure instead of SUSPENDing the community.
+  private async processMemberCharge(
+    sub: {
+      id: string;
+      userId: string;
+      communityId: string;
+      priceAtJoin: number;
+      nextBillingDate: Date;
+      paymentMethod: {
+        hypPaymentMethodId: string | null;
+        cardExpMonth: number | null;
+        cardExpYear: number | null;
+        cardLastFour: string;
+      } | null;
+      community: { name: string };
+      user: { email: string; name: string | null };
+    },
+    now: Date,
+  ) {
+    if (
+      !sub.paymentMethod?.hypPaymentMethodId
+      || sub.paymentMethod.cardExpMonth == null
+      || sub.paymentMethod.cardExpYear == null
+    ) {
+      this.logger.error(`MemberSubscription ${sub.id}: missing token/expiry; skipping`);
+      return;
+    }
+
+    const expYM = sub.paymentMethod.cardExpYear * 100 + sub.paymentMethod.cardExpMonth;
+    const nowYM = now.getFullYear() * 100 + (now.getMonth() + 1);
+    if (expYM < nowYM) {
+      this.logger.warn(
+        `MemberSubscription ${sub.id}: card expired ${sub.paymentMethod.cardExpMonth}/${sub.paymentMethod.cardExpYear}, PAST_DUE`,
+      );
+      await this.handleMemberChargeFailure(sub, 'CARD_EXPIRED', now);
+      return;
+    }
+
+    const amount = Math.round(sub.priceAtJoin);
+    let result: Awaited<ReturnType<HypService['softCharge']>>;
+    try {
+      result = await this.hypService.softCharge({
+        token: sub.paymentMethod.hypPaymentMethodId,
+        amount,
+        cardExpMonth: sub.paymentMethod.cardExpMonth,
+        cardExpYear: sub.paymentMethod.cardExpYear,
+        clientName: sub.user.name ?? sub.user.email,
+        email: sub.user.email,
+        order: `member-monthly-${sub.id}-${Date.now()}`,
+        info: `Monthly charge for membership in "${sub.community.name}"`,
+      });
+    } catch (err) {
+      this.logger.error(
+        `MemberSubscription ${sub.id}: SOFT charge threw, leaving ACTIVE for next pass: ${(err as Error).message}`,
+      );
+      return;
+    }
+
+    if (result.ok) {
+      const prevBillingDate = sub.nextBillingDate;
+      const nextBillingDate = new Date(prevBillingDate);
+      nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
+      await this.prisma.memberSubscription.update({
+        where: { id: sub.id },
+        data: {
+          nextBillingDate,
+          currentPeriodStart: prevBillingDate,
+          currentPeriodEnd: nextBillingDate,
+        },
+      });
+      this.logger.log(
+        `Charged member ${sub.user.email} ₪${amount} for membership ${sub.id} ` +
+        `(community "${sub.community.name}"): hypId=${result.body.Id}, next=${nextBillingDate.toISOString()}`,
+      );
+    } else {
+      await this.handleMemberChargeFailure(sub, `CCode=${result.ccode}`, now);
+    }
+  }
+
+  // Member-side failure path: flip MemberSubscription to PAST_DUE +
+  // bell-icon + email. Community stays ACTIVE — only this member is
+  // affected. Member can rejoin (or reactivate via a future Mission)
+  // by going through the payment update flow.
+  private async handleMemberChargeFailure(
+    sub: {
+      id: string;
+      userId: string;
+      communityId: string;
+      priceAtJoin: number;
+      community: { name: string };
+      user: { email: string; name: string | null };
+    },
+    reason: string,
+    _now: Date,
+  ) {
+    await this.prisma.memberSubscription.update({
+      where: { id: sub.id },
+      data: { status: 'PAST_DUE' },
+    });
+
+    await this.notificationsService.notifyPaymentFailed(sub.userId, sub.communityId).catch(() => {});
+    try {
+      await this.emailService.sendMemberPaymentFailedEmail(
+        sub.user.email,
+        sub.user.name ?? sub.user.email,
+        sub.community.name,
+        Math.round(sub.priceAtJoin),
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Member payment-failed email error for sub ${sub.id}: ${(err as Error).message}`,
+      );
+    }
+
+    this.logger.warn(`MemberSubscription ${sub.id} → PAST_DUE (${reason})`);
   }
 
   private async notifyMembersSuspended(communityId: string, ownerId: string) {
