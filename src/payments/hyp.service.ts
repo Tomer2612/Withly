@@ -55,9 +55,17 @@ export interface GetTokenResult {
 @Injectable()
 export class HypService {
   private readonly logger = new Logger(HypService.name);
+  // Pay terminal (SIGN / VERIFY / getToken). The "original" terminal that
+  // tokenized the card.
   private readonly masof: string;
   private readonly key: string;
   private readonly passp: string;
+  // Token terminal (Phase 4 SOFT recurring charges). Different Masof and
+  // PassP — same KEY (HYP confirmed). Optional at boot time so dev
+  // environments without these env vars don't crash, but softCharge()
+  // throws loudly if called without them set.
+  private readonly masofToken: string | null;
+  private readonly passpToken: string | null;
 
   constructor() {
     const masof = process.env.HYP_MASOF;
@@ -71,6 +79,8 @@ export class HypService {
     this.masof = masof;
     this.key = key;
     this.passp = passp;
+    this.masofToken = process.env.HYP_MASOF_TOKEN || null;
+    this.passpToken = process.env.HYP_PASSP_TOKEN || null;
   }
 
   /**
@@ -271,5 +281,124 @@ export class HypService {
     }
 
     return { ok, ccode, token, expMonth, expYear };
+  }
+
+  /**
+   * Run a recurring SOFT charge against a previously-tokenized card.
+   *
+   * This is the Phase 4 engine: cron iterates due owner / member
+   * subscriptions and calls this with the stored token + expiry. The
+   * call is synchronous — HYP returns CCode=0 on success or a non-zero
+   * code on failure (no webhook for SOFT per HYP 2026-06-02).
+   *
+   * Runs on the TOKEN terminal (HYP_MASOF_TOKEN / HYP_PASSP_TOKEN), not
+   * the pay terminal that minted the token. `tOwner` is the cross-
+   * terminal authorization param that tells HYP the token belongs to
+   * the original pay terminal (4502276231). UserId='000000000' per
+   * HYP's guidance — required even on CVV-less terminals.
+   *
+   * SendHesh='True' triggers EasyCount to send a Hebrew tax receipt
+   * to the customer email after the charge succeeds (same mechanism
+   * used by the existing hosted-page charge in Phase 0.1).
+   *
+   * Throws if the token-terminal env vars aren't set — there is no
+   * sensible default for live payments.
+   */
+  async softCharge(input: {
+    /** 19-digit HYP token from getToken, stored in UserPaymentMethod.hypPaymentMethodId. */
+    token: string;
+    /** ILS amount to charge (positive integer; HYP rejects 0). */
+    amount: number;
+    /** Card expiry month 1-12 (from UserPaymentMethod.cardExpMonth). */
+    cardExpMonth: number;
+    /** Card expiry year, 4-digit (from UserPaymentMethod.cardExpYear). */
+    cardExpYear: number;
+    /** Customer display name on the EasyCount receipt. */
+    clientName: string;
+    /** Customer email for the EasyCount receipt (SendHesh=True target). */
+    email: string;
+    /** Internal order id — round-trips on responses, useful for log correlation. */
+    order: string;
+    /** Optional free-text description on the HYP merchant report. */
+    info?: string;
+  }): Promise<{ ok: boolean; ccode: string | null; body: Record<string, string> }> {
+    if (!this.masofToken || !this.passpToken) {
+      throw new Error(
+        'SOFT charge requires HYP_MASOF_TOKEN + HYP_PASSP_TOKEN env vars.',
+      );
+    }
+    if (!Number.isInteger(input.amount) || input.amount <= 0) {
+      throw new Error(`SOFT charge amount must be a positive integer (got ${input.amount}).`);
+    }
+    if (input.cardExpMonth < 1 || input.cardExpMonth > 12) {
+      throw new Error(`Invalid cardExpMonth ${input.cardExpMonth}.`);
+    }
+
+    // HYP's Tmonth/Tyear format. Tmonth zero-padded 2-digit. Tyear
+    // 4-digit per round-4 reference docs — if HYP wants YY (2-digit)
+    // instead the call will fail with a parseable error and we adjust.
+    const tmonth = String(input.cardExpMonth).padStart(2, '0');
+    const tyear = String(input.cardExpYear);
+
+    const params = new URLSearchParams({
+      action: 'soft',
+      Token: 'True',
+      Masof: this.masofToken,
+      KEY: this.key,
+      PassP: this.passpToken,
+      // tOwner names the ORIGINAL pay terminal that minted this token.
+      // Required because the token was issued by 4502276231 but we're
+      // calling SOFT on a different terminal (4502316833).
+      tOwner: this.masof,
+      CC: input.token,
+      Tmonth: tmonth,
+      Tyear: tyear,
+      Amount: input.amount.toString(),
+      Coin: '1', // 1 = ILS
+      // UserId=000000000 is HYP's documented placeholder for "no ID
+      // collected." Required even though Max confirmed no ID needed
+      // on terminal 2194095 (HYP layer expects the field regardless).
+      UserId: '000000000',
+      ClientName: input.clientName,
+      email: input.email,
+      Order: input.order,
+      ...(input.info ? { Info: input.info } : {}),
+      SendHesh: 'True',
+      UTF8: 'True',
+      UTF8out: 'True',
+    });
+
+    let res: Response;
+    try {
+      res = await fetch(HYP_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString(),
+      });
+    } catch (err) {
+      this.logger.error(`HYP softCharge network error: ${(err as Error).message}`);
+      throw new InternalServerErrorException('Payment provider unreachable');
+    }
+
+    if (!res.ok) {
+      this.logger.error(`HYP softCharge HTTP ${res.status}`);
+      throw new InternalServerErrorException('Payment provider error');
+    }
+
+    const text = await res.text();
+    const body: Record<string, string> = {};
+    for (const [k, v] of new URLSearchParams(text).entries()) {
+      body[k] = v.trim();
+    }
+    const ccode = body.CCode ?? null;
+    const ok = ccode === '0';
+
+    if (!ok) {
+      this.logger.warn(`HYP softCharge rejected: CCode=${ccode} Order=${input.order} body=${text}`);
+    } else {
+      this.logger.log(`HYP softCharge OK: Id=${body.Id} Amount=${input.amount} Order=${input.order}`);
+    }
+
+    return { ok, ccode, body };
   }
 }
