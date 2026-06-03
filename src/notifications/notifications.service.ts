@@ -119,7 +119,9 @@ export class NotificationsService {
             where: { id: { in: communityIds as string[] } },
             // slug is included so the bell can link to the canonical URL
             // and avoid a slug-redirect refetch on the destination page.
-            select: { id: true, name: true, slug: true },
+            // ownerId lets the bell route PAYMENT_FAILED to the owner's
+            // /manage vs a member's /settings#payment.
+            select: { id: true, name: true, slug: true, ownerId: true },
           })
         : [],
     ]);

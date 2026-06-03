@@ -12,7 +12,7 @@ import TrashIcon from './icons/TrashIcon';
 
 interface Notification {
   id: string;
-  type: 'LIKE' | 'COMMENT' | 'FOLLOW' | 'NEW_POST' | 'MENTION' | 'COMMUNITY_JOIN' | 'COMMUNITY_BAN' | 'COMMUNITY_BAN_LIFTED' | 'COMMUNITY_SCHEDULED_FOR_SUSPENSION' | 'COMMUNITY_SUSPENDED' | 'COMMUNITY_REACTIVATED';
+  type: 'LIKE' | 'COMMENT' | 'FOLLOW' | 'NEW_POST' | 'MENTION' | 'COMMUNITY_JOIN' | 'COMMUNITY_BAN' | 'COMMUNITY_BAN_LIFTED' | 'COMMUNITY_SCHEDULED_FOR_SUSPENSION' | 'COMMUNITY_SUSPENDED' | 'COMMUNITY_REACTIVATED' | 'PAYMENT_FAILED' | 'PRICE_CHANGE_ANNOUNCED' | 'EVENT_REMINDER';
   message?: string;
   isRead: boolean;
   createdAt: string;
@@ -35,12 +35,13 @@ interface Notification {
     id: string;
     name: string;
     slug?: string | null;
+    ownerId?: string;
   };
 }
 
 interface GroupedNotification {
   key: string;
-  type: 'LIKE' | 'COMMENT' | 'FOLLOW' | 'NEW_POST' | 'MENTION' | 'COMMUNITY_JOIN' | 'COMMUNITY_BAN' | 'COMMUNITY_BAN_LIFTED' | 'COMMUNITY_SCHEDULED_FOR_SUSPENSION' | 'COMMUNITY_SUSPENDED' | 'COMMUNITY_REACTIVATED';
+  type: 'LIKE' | 'COMMENT' | 'FOLLOW' | 'NEW_POST' | 'MENTION' | 'COMMUNITY_JOIN' | 'COMMUNITY_BAN' | 'COMMUNITY_BAN_LIFTED' | 'COMMUNITY_SCHEDULED_FOR_SUSPENSION' | 'COMMUNITY_SUSPENDED' | 'COMMUNITY_REACTIVATED' | 'PAYMENT_FAILED' | 'PRICE_CHANGE_ANNOUNCED' | 'EVENT_REMINDER';
   notifications: Notification[];
   latestAt: string;
   isRead: boolean;
@@ -128,12 +129,26 @@ const getGroupedNotificationText = (group: GroupedNotification) => {
       return `הקהילה ${group.community?.name || ''} הושבתה`;
     case 'COMMUNITY_REACTIVATED':
       return `${firstActor} הפעיל/ה מחדש את הקהילה ${group.community?.name || ''}`;
+    case 'PAYMENT_FAILED':
+      return group.community?.name
+        ? `החיוב לקהילה "${group.community.name}" לא עבר`
+        : 'החיוב לקהילה לא עבר';
+    case 'PRICE_CHANGE_ANNOUNCED':
+      return group.community?.name
+        ? `מחיר הקהילה "${group.community.name}" עומד להתעדכן`
+        : 'מחיר הקהילה עומד להתעדכן';
+    case 'EVENT_REMINDER':
+      // The Notification row carries no eventId/name (only communityId), so
+      // the title references the community, not the specific event.
+      return group.community?.name
+        ? `תזכורת לאירוע בקהילה "${group.community.name}"`
+        : 'תזכורת לאירוע קרוב';
     default:
       return 'התראה חדשה';
   }
 };
 
-const getGroupedNotificationLink = (group: GroupedNotification): string | null => {
+const getGroupedNotificationLink = (group: GroupedNotification, currentUserId?: string): string | null => {
   switch (group.type) {
     case 'LIKE':
     case 'COMMENT':
@@ -179,6 +194,32 @@ const getGroupedNotificationLink = (group: GroupedNotification): string | null =
       const idOrSlug = group.community?.slug || group.communityId || group.community?.id;
       if (idOrSlug) {
         return `/communities/${idOrSlug}/feed`;
+      }
+      return null;
+    }
+    case 'PAYMENT_FAILED': {
+      // Owner → community billing (manage uses the real id, not slug);
+      // member → their own wallet to fix the card on file.
+      const isOwner = !!currentUserId && group.community?.ownerId === currentUserId;
+      if (isOwner) {
+        const id = group.communityId || group.community?.id;
+        return id ? `/communities/${id}/manage` : '/settings#payment';
+      }
+      return '/settings#payment';
+    }
+    case 'PRICE_CHANGE_ANNOUNCED': {
+      // Preview shows the price + the announcement banner.
+      const idOrSlug = group.community?.slug || group.communityId || group.community?.id;
+      if (idOrSlug) {
+        return `/communities/${idOrSlug}/preview`;
+      }
+      return null;
+    }
+    case 'EVENT_REMINDER': {
+      // No eventId on the row → land on the community events list.
+      const idOrSlug = group.community?.slug || group.communityId || group.community?.id;
+      if (idOrSlug) {
+        return `/communities/${idOrSlug}/events`;
       }
       return null;
     }
@@ -500,7 +541,7 @@ export default function NotificationBell() {
               </div>
             ) : (
               groupedNotifications.map((group) => {
-                const link = getGroupedNotificationLink(group);
+                const link = getGroupedNotificationLink(group, user?.userId);
                 const avatars = getGroupAvatars(group);
                 
                 const innerContent = (
