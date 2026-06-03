@@ -58,6 +58,7 @@ model User {
   // Reused across all subsequent flows so we don't create duplicate customers.
   hypCustomerId            String?              @unique
   memberSubscriptions      MemberSubscription[]
+  pendingCommunityCreation PendingCommunityCreation?
 
   @@index([lastActiveAt])
 }
@@ -101,6 +102,37 @@ model UserPaymentMethod {
   memberSubscriptions MemberSubscription[]
 
   @@map("user_payment_methods")
+}
+
+// Staging row for the pricing-checkout flow: the user fills out the new-community
+// form, we stash the data here, then open the HYP tokenize iframe. Only on
+// successful tokenize is the real Community row created (atomic with payment-method
+// bind) and this row deleted. Without this staging step, a community would exist
+// in DRAFT before the owner had a card on file — which is meaningless for a
+// SaaS that charges the owner for hosting. Abandoned rows are deleted by the
+// daily cron after 24h (R2 files cleaned in the same pass).
+model PendingCommunityCreation {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  name              String
+  description       String
+  topic             String?
+  image             String?
+  logo              String?
+  price             Float?   @default(0)
+  youtubeUrl        String?
+  whatsappUrl       String?
+  facebookUrl       String?
+  instagramUrl      String?
+  galleryImages     String[]
+  galleryVideos     String[]
+  showOnlineMembers Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@map("pending_community_creations")
 }
 
 model UserFollow {
