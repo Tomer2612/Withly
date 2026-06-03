@@ -20,7 +20,7 @@ import UpdateCardModal from '../../components/UpdateCardModal';
 import HypPaymentIframeModal from '../../components/HypPaymentIframeModal';
 import StickySaveBar from '../../components/StickySaveBar';
 import { getImageUrl } from '@/app/lib/imageUrl';
-import { WITHLY_MONTHLY_PRICE } from '../../lib/pricing';
+import { useDefaultPlan } from '../../lib/usePlan';
 
 interface Membership {
   communityId: string;
@@ -121,7 +121,12 @@ type TabType = 'profile' | 'security' | 'notifications' | 'payment';
 export default function SettingsPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
+  // Platform plan drives the monthly fee shown in the renew popup.
+  // Fallback to 99 matches the seeded default plan during loading.
+  const defaultPlan = useDefaultPlan();
+  const planMonthlyPrice = defaultPlan?.monthlyPriceILS ?? 99;
+
   const { user, refresh: refreshUser, setLoggedOut } = useUser();
   const userId = user?.userId ?? null;
   const userEmail = user?.email ?? null;
@@ -1527,7 +1532,7 @@ export default function SettingsPage() {
                 onClose={() => setCommunityToRenew(null)}
                 communityId={communityToRenew.communityId}
                 wasSuspended
-                amount={WITHLY_MONTHLY_PRICE}
+                amount={planMonthlyPrice}
               />
             )}
 

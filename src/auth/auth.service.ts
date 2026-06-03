@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException, ForbiddenException, InternalServerErrorException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { EmailService } from '../email/email.service';
+import { PlansService } from '../plans/plans.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import * as crypto from 'crypto';
@@ -15,12 +16,18 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private emailService: EmailService,
+    private plansService: PlansService,
   ) {}
 
   async signup(email: string, name: string, password: string) {
     const hashedPassword = await bcrypt.hash(password, 10);
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    // Assign the default platform plan on signup so billing math
+    // (trial length, monthly fee, commission rate) reads off the row
+    // instead of constants. Fetched here so a misconfigured DB fails
+    // signup loudly rather than silently producing a planless user.
+    const defaultPlan = await this.plansService.getDefault();
 
     try {
       const user = await this.prisma.user.create({
@@ -31,6 +38,7 @@ export class AuthService {
           emailVerificationToken: verificationToken,
           emailVerificationExpires: verificationExpires,
           termsAcceptedAt: new Date(), // implicit consent: signup page shows the Terms/Privacy disclaimer
+          planId: defaultPlan.id,
         },
       });
 
@@ -95,6 +103,7 @@ export class AuthService {
 
     if (!user) {
       // Create new user with Google - email is automatically verified
+      const defaultPlan = await this.plansService.getDefault();
       user = await this.prisma.user.create({
         data: {
           email: googleUser.email,
@@ -104,6 +113,7 @@ export class AuthService {
           profileImage: googleUser.picture || null,
           isEmailVerified: true, // Google users are verified
           termsAcceptedAt: new Date(), // implicit consent: signup page shows the Terms/Privacy disclaimer
+          planId: defaultPlan.id,
         },
       });
 

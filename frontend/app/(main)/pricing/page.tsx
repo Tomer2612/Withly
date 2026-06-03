@@ -8,7 +8,7 @@ import { useUser } from '../../lib/UserContext';
 import HypPaymentIframeModal from '../../components/HypPaymentIframeModal';
 import ExistingCardConfirmModal from '../../components/ExistingCardConfirmModal';
 import CardPickerModal from '../../components/CardPickerModal';
-import { WITHLY_MONTHLY_PRICE } from '../../lib/pricing';
+import { useDefaultPlan } from '../../lib/usePlan';
 
 // Checkmark Icon component
 const CheckmarkIcon = ({ className = "w-3 h-2.5" }: { className?: string }) => (
@@ -40,19 +40,17 @@ interface PricingPlan {
   features: string[];
 }
 
-const plan: PricingPlan = {
-  name: 'מנוי קהילה',
-  price: WITHLY_MONTHLY_PRICE,
-  period: 'לחודש',
-  features: [
-    'מרחב קהילתי אחד',
-    'משתמשים ללא הגבלה',
-    'קורסים ותוכן ללא הגבלה',
-    'יומן אירועים חכם',
-    'סליקה ומנויים מובנים',
-    '5% עמלת עסקאות',
-  ],
-};
+// Static UI scaffold for the pricing card. The dynamic fields (name +
+// price) get filled in from the API at render time; features are
+// marketing copy that doesn't live in the Plan table yet.
+const PLAN_FEATURES: string[] = [
+  'מרחב קהילתי אחד',
+  'משתמשים ללא הגבלה',
+  'קורסים ותוכן ללא הגבלה',
+  'יומן אירועים חכם',
+  'סליקה ומנויים מובנים',
+  '5% עמלת עסקאות',
+];
 
 const COMMUNITY_TOPICS = [
   'אנימציה',
@@ -103,6 +101,17 @@ function PricingContent() {
   const { user } = useUser();
   const userEmail = user?.email ?? null;
   const [openFaqs, setOpenFaqs] = useState<Set<number>>(new Set());
+
+  // Pricing comes from the Plan table via /api/plans/default. Fallbacks
+  // match the seeded default plan so the first paint isn't blank — they
+  // get replaced on the next render once the fetch resolves.
+  const defaultPlan = useDefaultPlan();
+  const plan = {
+    name: defaultPlan?.name ?? 'מנוי קהילה',
+    price: defaultPlan?.monthlyPriceILS ?? 99,
+    period: 'לחודש',
+    features: PLAN_FEATURES,
+  };
 
   // Flow states - 'create' is the name+category popup; the iframe modal
   // handles payment (no separate 'payment' step page anymore).

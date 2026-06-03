@@ -15,6 +15,7 @@ import { MessagesModule } from './messages/messages.module';
 import { CoursesModule } from './courses/courses.module';
 import { StorageModule } from './common/storage.module';
 import { PaymentsModule } from './payments/payments.module';
+import { PlansModule } from './plans/plans.module';
 import { ActivityMiddleware } from './common/activity.middleware';
 
 
@@ -50,6 +51,7 @@ import { ActivityMiddleware } from './common/activity.middleware';
     MessagesModule,
     CoursesModule,
     PaymentsModule,
+    PlansModule,
   ],
   controllers: [AppController],
   providers: [

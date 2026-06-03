@@ -30,7 +30,7 @@ import CancelSubscriptionModal from '../../../components/CancelSubscriptionModal
 import UpdateCardModal from '../../../components/UpdateCardModal';
 import { getImageUrl } from '@/app/lib/imageUrl';
 import StickySaveBar from '../../../components/StickySaveBar';
-import { WITHLY_MONTHLY_PRICE } from '../../../lib/pricing';
+import { useDefaultPlan } from '../../../lib/usePlan';
 
 interface Community {
   id: string;
@@ -55,8 +55,6 @@ interface Community {
   subscriptionCancelledAt: string | null;
 }
 
-const TRIAL_LENGTH_MONTHS = 1;
-
 const addMonths = (d: Date, n: number): Date => {
   const r = new Date(d);
   r.setMonth(r.getMonth() + n);
@@ -66,29 +64,30 @@ const formatHebrewDate = (d: Date): string => d.toLocaleDateString('he-IL');
 // Slash-style d/m/yyyy date format used in the revenue card (no leading zeros).
 const formatSlashDate = (d: Date): string =>
   `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
-// In trial: trial start exists AND trial end is still in the future.
-// Cancellation intent is expressed by subscriptionCancelledAt (separate flow).
-const getTrialEnd = (trialStart: Date | null): Date | null =>
-  trialStart ? addMonths(trialStart, TRIAL_LENGTH_MONTHS) : null;
-const isInTrial = (trialStart: Date | null): boolean => {
-  const end = getTrialEnd(trialStart);
+// Trial-billing math now takes trialLengthMonths as a param so the plan
+// driver (Plan.trialLengthMonths from /api/plans/default) is the only
+// source of truth — no more module-level constants.
+const getTrialEnd = (trialStart: Date | null, trialLengthMonths: number): Date | null =>
+  trialStart ? addMonths(trialStart, trialLengthMonths) : null;
+const isInTrial = (trialStart: Date | null, trialLengthMonths: number): boolean => {
+  const end = getTrialEnd(trialStart, trialLengthMonths);
   return !!end && end > new Date();
 };
 // "Next billing" = trial end while in trial; otherwise the next monthly anchor
 // after now, computed from the trial-start cycle. Placeholder until HYP gives
-// us authoritative billing dates.
-const getNextBillingDate = (trialStart: Date | null): Date => {
+// us authoritative billing dates (Phase 4 cron populates community.nextBillingDate).
+const getNextBillingDate = (trialStart: Date | null, trialLengthMonths: number): Date => {
   const now = new Date();
   if (!trialStart) return addMonths(now, 1);
-  let candidate = addMonths(trialStart, TRIAL_LENGTH_MONTHS);
+  let candidate = addMonths(trialStart, trialLengthMonths);
   while (candidate <= now) candidate = addMonths(candidate, 1);
   return candidate;
 };
 // Cancellation effective date: end of current paid period.
 // While in trial → trial end (so the user keeps the rest of their trial).
 // Otherwise → today + 1 month (so members keep a full final month).
-const getCancellationEffectiveDate = (trialStart: Date | null): Date => {
-  const trialEnd = getTrialEnd(trialStart);
+const getCancellationEffectiveDate = (trialStart: Date | null, trialLengthMonths: number): Date => {
+  const trialEnd = getTrialEnd(trialStart, trialLengthMonths);
   if (trialEnd && trialEnd > new Date()) return trialEnd;
   return addMonths(new Date(), 1);
 };
@@ -108,7 +107,14 @@ export default function ManageCommunityPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const communityId = params.id as string;
-  
+
+  // Plan-driven values for trial math + billing labels. Fallbacks match
+  // the seeded default plan so the first paint isn't blank; replaced on
+  // the next render once /api/plans/default resolves.
+  const defaultPlan = useDefaultPlan();
+  const planTrialLength = defaultPlan?.trialLengthMonths ?? 1;
+  const planMonthlyPrice = defaultPlan?.monthlyPriceILS ?? 99;
+
   const [activeTab, setActiveTab] = useState<TabType>('general');
   const [community, setCommunity] = useState<Community | null>(null);
   const [name, setName] = useState('');
@@ -2001,15 +2007,15 @@ export default function ManageCommunityPage() {
                   >
                     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                       <span className="text-[18px] font-semibold text-black">
-                        ₪{WITHLY_MONTHLY_PRICE} / חודש
+                        ₪{planMonthlyPrice} / חודש
                       </span>
                       <span className="text-[16px] font-normal text-black">
-                        החיוב הבא: {formatHebrewDate(getNextBillingDate(trialStartDate))}
+                        החיוב הבא: {formatHebrewDate(getNextBillingDate(trialStartDate, planTrialLength))}
                       </span>
                     </div>
-                    {isInTrial(trialStartDate) && (
+                    {isInTrial(trialStartDate, planTrialLength) && (
                       <p className="text-[16px] font-normal text-black mt-3 leading-relaxed">
-                        {`תקופת הניסיון שלך (חודש) מסתיימת ב-${formatHebrewDate(getTrialEnd(trialStartDate)!)}. החל מאותו תאריך יחויב אמצעי התשלום שלך ב-₪${WITHLY_MONTHLY_PRICE} לחודש.`}
+                        {`תקופת הניסיון שלך (חודש) מסתיימת ב-${formatHebrewDate(getTrialEnd(trialStartDate, planTrialLength)!)}. החל מאותו תאריך יחויב אמצעי התשלום שלך ב-₪${planMonthlyPrice} לחודש.`}
                       </p>
                     )}
                   </div>
@@ -2165,7 +2171,7 @@ export default function ManageCommunityPage() {
             onClose={() => setShowCardModal(false)}
             communityId={communityId}
             wasSuspended={isSuspended}
-            amount={WITHLY_MONTHLY_PRICE}
+            amount={planMonthlyPrice}
           />
 
 
@@ -2278,7 +2284,7 @@ export default function ManageCommunityPage() {
             isOpen={showCancelSubscriptionModal}
             onClose={() => setShowCancelSubscriptionModal(false)}
             communityId={communityId}
-            effectiveDate={getCancellationEffectiveDate(trialStartDate)}
+            effectiveDate={getCancellationEffectiveDate(trialStartDate, planTrialLength)}
             isPaidCommunity={isPaidCommunity}
             paidMembersCount={isPaidCommunity ? Math.max(0, (community?.memberCount ?? 1) - 1) : 0}
             onSuccess={(eff) => {

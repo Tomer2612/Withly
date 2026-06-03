@@ -7,6 +7,7 @@ import { GoogleStrategy } from './google.strategy';
 import { ConfigModule } from '@nestjs/config';
 import { ConfigService } from '@nestjs/config';
 import { EmailModule } from '../email/email.module';
+import { PlansModule } from '../plans/plans.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { EmailModule } from '../email/email.module';
       }),
     }),
     EmailModule,
+    PlansModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, GoogleStrategy, ConfigService],

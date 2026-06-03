@@ -572,26 +572,37 @@ export class UsersService {
     });
   }
 
-  // Mirrors the math in [frontend/app/communities/[id]/manage/page.tsx]
-  // (TRIAL_LENGTH_MONTHS, getNextBillingDate, getCancellationEffectiveDate,
-  // WITHLY_MONTHLY_PRICE). Placeholder until HYP supplies authoritative
-  // billing dates and per-tier pricing — see HYP follow-up #11.
-  private readonly TRIAL_LENGTH_MONTHS = 1;
-  private readonly WITHLY_MONTHLY_PRICE = 99;
+  // Owner billing math. Trial length + monthly fee both come off the
+  // owner's Plan row now (one source of truth for plan-aware pricing).
+  // The Plan table seeded the same values that used to be hardcoded
+  // here, so behavior is identical for users on the default plan.
   private addMonths(d: Date, n: number): Date {
     const r = new Date(d);
     r.setMonth(r.getMonth() + n);
     return r;
   }
-  private getNextBillingDate(trialStart: Date | null): Date {
+  private getNextBillingDate(trialStart: Date | null, trialLengthMonths: number): Date {
     const now = new Date();
     if (!trialStart) return this.addMonths(now, 1);
-    let candidate = this.addMonths(trialStart, this.TRIAL_LENGTH_MONTHS);
+    let candidate = this.addMonths(trialStart, trialLengthMonths);
     while (candidate <= now) candidate = this.addMonths(candidate, 1);
     return candidate;
   }
 
   async getMemberships(userId: string) {
+    // The owner's plan drives the trial length and the monthly fee shown
+    // on owned-community rows. Fetched once per request so the per-row
+    // map below doesn't re-query.
+    const userWithPlan = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { plan: { select: { monthlyPriceILS: true, trialLengthMonths: true } } },
+    });
+    // Plan should always exist post-migration (backfill set every user),
+    // but defend against NULL planId on legacy rows or partial setups.
+    // Cheapest active plan as the fallback — matches getDefault().
+    const planMonthlyPrice = userWithPlan?.plan?.monthlyPriceILS ?? 99;
+    const planTrialLengthMonths = userWithPlan?.plan?.trialLengthMonths ?? 1;
+
     // Communities the user is a member of (not as owner).
     const memberRows = await this.prisma.communityMember.findMany({
       where: { userId },
@@ -642,9 +653,10 @@ export class UsersService {
         logo: c.logo,
         role: 'OWNER' as const,
         isPaid,
-        // Owner pays the flat Withly subscription fee, NOT the community's
-        // member-facing price. (community.price is what members would pay.)
-        price: this.WITHLY_MONTHLY_PRICE,
+        // Owner pays the Withly platform fee from their plan, NOT the
+        // community's member-facing price. (community.price is what
+        // members would pay.)
+        price: planMonthlyPrice,
         joinedAt: null as Date | null,
         subscriptionStatus: c.subscriptionStatus,
         subscriptionCancelledAt: c.subscriptionCancelledAt,
@@ -655,7 +667,7 @@ export class UsersService {
         // a real subscription, the fallback can be deleted.
         nextBillDate:
           c.subscriptionStatus === 'ACTIVE' && !c.subscriptionCancelledAt
-            ? c.nextBillingDate ?? this.getNextBillingDate(c.trialStartDate)
+            ? c.nextBillingDate ?? this.getNextBillingDate(c.trialStartDate, planTrialLengthMonths)
             : null,
         effectiveEndDate: c.subscriptionCancelledAt,
         paidMembersCount,
