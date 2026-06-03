@@ -1286,7 +1286,9 @@ export default function SettingsPage() {
                                 ? 'owner-pending'
                                 : 'owner-active'
                             : m.isPaid
-                              ? 'paid-member'
+                              ? m.subscriptionCancelledAt
+                                ? 'paid-member-cancelled'
+                                : 'paid-member'
                               : 'free-member';
 
                         let statusText = '';
@@ -1294,6 +1296,8 @@ export default function SettingsPage() {
                           statusText = `חבר קהילה מאז ${formatHebrewDate(m.joinedAt)}`;
                         } else if (branch === 'paid-member' && m.nextBillDate) {
                           statusText = `החיוב הבא ב-${formatHebrewDate(m.nextBillDate)}`;
+                        } else if (branch === 'paid-member-cancelled' && m.effectiveEndDate) {
+                          statusText = `המנוי בוטל. הגישה תיפסק ב-${formatHebrewDate(m.effectiveEndDate)}`;
                         } else if (branch === 'owner-active' && m.nextBillDate) {
                           statusText = `החיוב הבא ב-${formatHebrewDate(m.nextBillDate)}`;
                         } else if (branch === 'owner-pending' && m.effectiveEndDate) {
@@ -1355,7 +1359,7 @@ export default function SettingsPage() {
                                   className="font-normal underline hover:opacity-70 transition"
                                   style={{ fontSize: '16px', color: '#000000' }}
                                 >
-                                  בטל מנוי
+                                  ביטול המנוי
                                 </button>
                               )}
                               {branch === 'owner-active' && (

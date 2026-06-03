@@ -700,24 +700,47 @@ export class UsersService {
 
     // Member rows.
     const memberOnly = memberRows.filter((m) => m.community.ownerId !== userId);
-    const memberRowsOut = memberOnly.map((m) => ({
-      communityId: m.community.id,
-      name: m.community.name,
-      slug: m.community.slug,
-      logo: m.community.logo,
-      role: m.role === 'MANAGER' ? ('MANAGER' as const) : ('MEMBER' as const),
-      isPaid: (m.community.price ?? 0) > 0,
-      price: m.community.price ?? 0,
-      joinedAt: m.joinedAt,
-      // Member billing not tracked yet (HYP follow-up #10) — paid-member
-      // rows will get nextBillDate / effectiveEndDate populated then.
-      subscriptionStatus: null,
-      subscriptionCancelledAt: null,
-      suspendedAt: null,
-      nextBillDate: null,
-      effectiveEndDate: null,
-      paidMembersCount: null,
-    }));
+
+    // Phase 4 Mission 4.5 — fetch active/past-due subs for paid memberships so
+    // settings can show "cancelled in grace period" rows without a leave button.
+    // One bulk query rather than N+1.
+    const memberSubs = await this.prisma.memberSubscription.findMany({
+      where: {
+        userId,
+        communityId: { in: memberOnly.map((m) => m.community.id) },
+        status: { in: ['ACTIVE', 'PAST_DUE'] },
+      },
+      select: {
+        communityId: true,
+        status: true,
+        cancelledAt: true,
+        currentPeriodEnd: true,
+      },
+    });
+    const subByCommunity = new Map(memberSubs.map((s) => [s.communityId, s]));
+
+    const memberRowsOut = memberOnly.map((m) => {
+      const sub = subByCommunity.get(m.community.id);
+      return {
+        communityId: m.community.id,
+        name: m.community.name,
+        slug: m.community.slug,
+        logo: m.community.logo,
+        role: m.role === 'MANAGER' ? ('MANAGER' as const) : ('MEMBER' as const),
+        isPaid: (m.community.price ?? 0) > 0,
+        price: m.community.price ?? 0,
+        joinedAt: m.joinedAt,
+        subscriptionStatus: sub?.status ?? null,
+        subscriptionCancelledAt: sub?.cancelledAt ?? null,
+        suspendedAt: null,
+        // For paid+active members, the next charge date. Null when no sub
+        // (free community) or sub is in grace period — settings infers from
+        // subscriptionCancelledAt + effectiveEndDate in that case.
+        nextBillDate: sub && !sub.cancelledAt ? sub.currentPeriodEnd : null,
+        effectiveEndDate: sub?.cancelledAt ? sub.currentPeriodEnd : null,
+        paidMembersCount: null,
+      };
+    });
 
     return [...ownerRows, ...memberRowsOut].sort((a, b) =>
       a.name.localeCompare(b.name, 'he'),
