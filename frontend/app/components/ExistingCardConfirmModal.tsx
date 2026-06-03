@@ -32,6 +32,12 @@ interface Props {
    *  the title. Place 4 (new community via /pricing) passes false: no
    *  community exists yet so there's nothing representative to put there. */
   showAvatar?: boolean;
+  /** New-community checkout only: the owner gets a free first month before the
+   *  first SOFT charge (Plan.trialLengthMonths). When true, the price/card
+   *  subtitles reflect the trial instead of implying an immediate charge.
+   *  The update-card screens (active communities) leave this false — swapping
+   *  a card there starts no new trial. Generic copy, no computed date. */
+  trialFirstMonthFree?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
   /** Opens the picker (Screen 2) — parent handles the transition. */
@@ -50,6 +56,7 @@ export default function ExistingCardConfirmModal({
   actionLabel,
   loading,
   showAvatar = true,
+  trialFirstMonthFree = false,
   onCancel,
   onConfirm,
   onSwitchCard,
@@ -70,8 +77,8 @@ export default function ExistingCardConfirmModal({
         style={{
           borderRadius: '16px',
           width: 'fit-content',
-          maxWidth: 'min(90vw, 480px)',
-          minWidth: 'min(90vw, 420px)',
+          maxWidth: 'min(90vw, 540px)',
+          minWidth: 'min(90vw, 480px)',
           opacity: shown ? 1 : 0,
           transform: shown ? 'translateX(0)' : 'translateX(20px)',
           transition: 'opacity 250ms ease-out, transform 250ms ease-out',
@@ -105,7 +112,9 @@ export default function ExistingCardConfirmModal({
                 מחיר חודשי
               </div>
               <div style={{ fontSize: '14px', color: 'var(--color-gray-6)', marginTop: '2px', lineHeight: 1.2 }}>
-                החיוב יתחדש אוטומטית כל חודש, ניתן לבטל בכל עת
+                {trialFirstMonthFree
+                  ? `חודש ראשון חינם, ולאחר מכן ₪${monthlyPrice} בחודש. תזכורת תישלח 3 ימים לפני החיוב.`
+                  : 'החיוב יתחדש אוטומטית כל חודש'}
               </div>
             </div>
             <div
@@ -130,7 +139,7 @@ export default function ExistingCardConfirmModal({
                 {selectedCard.cardBrand} ···· {selectedCard.cardLastFour}
               </div>
               <div style={{ fontSize: '14px', color: 'var(--color-gray-6)', marginTop: '2px', lineHeight: 1.2 }}>
-                יחויב מכרטיס זה
+                {trialFirstMonthFree ? 'החיוב הראשון לאחר חודש ההתנסות' : 'יחויב מכרטיס זה'}
               </div>
             </div>
             <button
@@ -177,6 +186,15 @@ export default function ExistingCardConfirmModal({
             {loading ? 'טוען...' : actionLabel}
           </button>
         </div>
+
+        {/* Cancel-anytime reassurance — moved out of the price subtitle to sit
+            below the buttons as a quiet footnote. */}
+        <p
+          className="text-center"
+          style={{ fontSize: '13px', fontWeight: 400, color: 'var(--color-gray-6)', marginTop: '12px' }}
+        >
+          ניתן לבטל בכל עת
+        </p>
       </div>
     </div>
   );

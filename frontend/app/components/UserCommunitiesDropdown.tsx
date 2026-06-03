@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import UsersIcon from './icons/UsersIcon';
-import SearchXIcon from './icons/SearchXIcon';
 import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface UserCommunity {
@@ -184,8 +183,7 @@ export default function UserCommunitiesDropdown({ activeCommunity }: UserCommuni
             )}
             {sortedCommunities.length === 0 && !showDiscover && (
               <div className="px-3 py-6 text-center text-black" style={{ fontSize: '16px', fontWeight: 400 }}>
-                <SearchXIcon className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                אין קהילות עדיין
+                עוד לא הצטרפת לקהילות עדיין
               </div>
             )}
             {sortedCommunities.length > 0 && (

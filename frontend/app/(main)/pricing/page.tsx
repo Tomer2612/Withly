@@ -295,9 +295,9 @@ function PricingContent() {
           </button>
 
           <p className="text-center text-sm mt-4" style={{ color: '#71717A' }}>
-            תזכורת תשלח במייל 3 ימים לפני סיום הניסיון. אפשר
+            חודש ראשון חינם, ולאחר מכן ₪{plan.price} בחודש.
             <br />
-            לבטל בקליק דרך הגדרות הקהילה.
+            תזכורת תישלח 3 ימים לפני החיוב, ניתן לבטל בכל עת.
           </p>
         </div>
 
@@ -305,7 +305,7 @@ function PricingContent() {
             create-step page so the user stays in flow. The Community row
             does not exist yet; backend creates it atomically on tokenize
             success using the pendingId in the Order field. HYP redirects
-            parent to /communities/<id>/manage?card=created. */}
+            parent to /communities/<id>/feed (welcome popup shows there). */}
         {pickerView === 'confirm' && user && pendingId && (
           <ExistingCardConfirmModal
             title={communityName}
@@ -320,7 +320,8 @@ function PricingContent() {
                 cardBrand: card.cardBrand,
               };
             })()}
-            actionLabel={`הצטרפות ב₪${plan.price}`}
+            actionLabel="הקמת הקהילה"
+            trialFirstMonthFree
             loading={finalizing}
             onCancel={() => setPickerView('none')}
             onSwitchCard={() => setPickerView('picker')}
@@ -341,7 +342,7 @@ function PricingContent() {
                   return;
                 }
                 const community = await res.json();
-                router.push(`/communities/${community.id}/manage?card=created`);
+                router.push(`/communities/${community.id}/feed`);
               } catch {
                 router.push('/pricing?card=error');
               } finally {
@@ -373,7 +374,7 @@ function PricingContent() {
             create-step page so the user stays in flow. The Community row
             does not exist yet; backend creates it atomically on tokenize
             success using the pendingId in the Order field. HYP redirects
-            parent to /communities/<id>/manage?card=created. */}
+            parent to /communities/<id>/feed (welcome popup shows there). */}
         {pickerView === 'iframe' && user && pendingId && (
           <HypPaymentIframeModal
             amount={Math.max(1, plan.price)}

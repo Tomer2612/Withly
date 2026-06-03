@@ -342,7 +342,11 @@ export class PaymentsController {
         void this.sendCardAddedEmailSafely(userId, cardBrand, cardLastFour);
       }
 
-      return res.redirect(`${frontend}/communities/${community.id}/manage?card=created`);
+      // Land the new owner on the community feed — the welcome popup there
+      // (localStorage-gated, fires on first owner visit) is the creation
+      // confirmation. The manage page has no `created` case, so redirecting
+      // there showed nothing.
+      return res.redirect(`${frontend}/communities/${community.id}/feed`);
     } catch (err) {
       this.logger.error(`New-community tokenize flow error: ${(err as Error).message}`);
       return res.redirect(failureRedirect);
