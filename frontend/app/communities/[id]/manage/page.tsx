@@ -946,14 +946,17 @@ export default function ManageCommunityPage() {
     } catch (err: any) {
       // Suppress the noisy console.error for known business rules — the UI
       // toast is the user-visible signal, no need to red-flag the console.
-      const isBusinessError = err?.message === 'CANNOT_DRAFT_WITH_MEMBERS';
-      if (!isBusinessError) {
+      const knownErrors: Record<string, string> = {
+        CANNOT_DRAFT_WITH_MEMBERS:
+          'לא ניתן להעביר למצב טיוטה כשיש חברים בקהילה. ניתן להעביר לפרטית או לבטל את המנוי.',
+        PAYMENT_METHOD_REQUIRED:
+          'חובה להוסיף אמצעי תשלום לפני פרסום הקהילה.',
+      };
+      const friendly = knownErrors[err?.message];
+      if (!friendly) {
         console.error('Community update error:', err);
       }
-      const msg = err?.message === 'CANNOT_DRAFT_WITH_MEMBERS'
-        ? 'לא ניתן להעביר למצב טיוטה כשיש חברים בקהילה. ניתן להעביר לפרטית או לבטל את המנוי.'
-        : (err.message || 'שגיאה בעדכון הקהילה');
-      setMessage(msg);
+      setMessage(friendly ?? err.message ?? 'שגיאה בעדכון הקהילה');
       setMessageType('error');
     } finally {
       setLoading(false);

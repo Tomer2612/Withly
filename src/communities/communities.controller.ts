@@ -9,6 +9,7 @@ import { StorageService } from '../common/storage.service';
 import { getUserIdFromRequest } from '../common/jwt.helper';
 import { imageFileFilter, imageOrVideoFileFilter } from '../common/upload-filters';
 import {
+  BeginCheckoutDto,
   CreateCommunityDto,
   UpdateCommunityDto,
   UpdateMemberRoleDto,
@@ -59,6 +60,29 @@ export class CommunitiesController {
       instagramUrl,
       galleryPaths,
     );
+  }
+
+  // Phase 3.3 — pricing checkout staging. Replaces the old "create DRAFT
+  // community before tokenize" path. Frontend POSTs the community details
+  // here, gets back a pendingId, then opens the HYP tokenize iframe with
+  // tokenize-newCommunity-<pendingId>-<userId>-<ts> in the Order field.
+  // On tokenize success the payments-controller dispatch handles the
+  // atomic Community creation + payment-method bind + pending row delete.
+  @UseGuards(AuthGuard('jwt'))
+  @Post('begin-checkout')
+  beginCheckout(@Req() req, @Body() body: BeginCheckoutDto) {
+    const userId = req.user.userId;
+    return this.communitiesService.beginCheckout(userId, body);
+  }
+
+  // Frontend resume hook for begin-checkout: if the user closed the iframe
+  // and comes back to /pricing, pre-fill the form from the in-flight pending
+  // row. Returns null when nothing is pending.
+  @UseGuards(AuthGuard('jwt'))
+  @Get('my-pending')
+  getMyPending(@Req() req) {
+    const userId = req.user.userId;
+    return this.communitiesService.getPendingForUser(userId);
   }
 
   @Get()

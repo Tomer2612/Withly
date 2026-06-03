@@ -35,6 +35,13 @@ const TOKENIZE_CARD_ON_FILE_ORDER_RE = /^tokenize-cardOnFile-([a-zA-Z0-9_-]+)-\d
 // are lowercase alphanumeric so the regex parses unambiguously across
 // the two id boundaries.
 const TOKENIZE_COMMUNITY_ORDER_RE = /^tokenize-community-([a-z0-9]+)-([a-z0-9]+)-\d+$/;
+// Phase 3.3 — pricing checkout: new community creation. The community
+// row does NOT exist yet; instead a PendingCommunityCreation row holds
+// the staged form fields. On tokenize success we atomically create the
+// Community + bind the card + delete the pending row.
+// Order shape: tokenize-newCommunity-<pendingId>-<userId>-<ts>.
+// Captures: 1 = pendingId, 2 = userId.
+const TOKENIZE_NEW_COMMUNITY_ORDER_RE = /^tokenize-newCommunity-([a-z0-9]+)-([a-z0-9]+)-\d+$/;
 
 @Controller('payments')
 export class PaymentsController {
@@ -103,6 +110,11 @@ export class PaymentsController {
       if (communityMatch) {
         const [, communityId, userId] = communityMatch;
         return this.handleTokenizeCommunity(query, result.body, userId, communityId, res, frontend);
+      }
+      const newCommunityMatch = order.match(TOKENIZE_NEW_COMMUNITY_ORDER_RE);
+      if (newCommunityMatch) {
+        const [, pendingId, userId] = newCommunityMatch;
+        return this.handleTokenizeNewCommunity(query, result.body, userId, pendingId, res, frontend);
       }
 
       // Default successful-payment redirect (legacy charge flow).
@@ -259,6 +271,80 @@ export class PaymentsController {
       return res.redirect(`${frontend}/communities/${communityId}/manage?card=${cardParam}`);
     } catch (err) {
       this.logger.error(`Community tokenize flow error: ${(err as Error).message}`);
+      return res.redirect(failureRedirect);
+    }
+  }
+
+  // Phase 3.3 — pricing checkout: atomic new-community creation. The
+  // Community row does not yet exist; the staged fields live in a
+  // PendingCommunityCreation row keyed by pendingId. Flow: mint token →
+  // upsert UserPaymentMethod → finalizeCommunityFromPending (one
+  // transaction: create Community + bind card + delete pending). Failure
+  // at any step leaves no half-state — community is created only on full
+  // success.
+  private async handleTokenizeNewCommunity(
+    query: Record<string, string>,
+    verifiedBody: Record<string, string>,
+    userId: string,
+    pendingId: string,
+    res: Response,
+    frontend: string,
+  ) {
+    const failureRedirect = `${frontend}/pricing?card=error`;
+    try {
+      const tokenResult = await this.hypService.getToken(query.Id);
+      if (
+        !tokenResult.ok
+        || !tokenResult.token
+        || tokenResult.expMonth === null
+        || tokenResult.expYear === null
+      ) {
+        this.logger.error(
+          `getToken failed (newCommunity): Id=${query.Id} userId=${userId} ` +
+          `pendingId=${pendingId} CCode=${tokenResult.ccode}`,
+        );
+        return res.redirect(failureRedirect);
+      }
+
+      const cardLastFour = verifiedBody.L4digit || tokenResult.token.slice(-4);
+      const cardBrand = bankIdToBrand(verifiedBody.Bank);
+
+      const { paymentMethod, isNew } = await this.usersService.addTokenizedPaymentMethod(userId, {
+        token: tokenResult.token,
+        expMonth: tokenResult.expMonth,
+        expYear: tokenResult.expYear,
+        cardLastFour,
+        cardBrand,
+      });
+
+      const community = await this.communitiesService.finalizeCommunityFromPending(
+        pendingId,
+        userId,
+        {
+          id: paymentMethod.id,
+          cardLastFour: paymentMethod.cardLastFour,
+          cardBrand: paymentMethod.cardBrand,
+        },
+      );
+
+      this.logger.log(
+        `New community created via pricing checkout: userId=${userId} ` +
+        `communityId=${community.id} pendingId=${pendingId} ` +
+        `last4=${cardLastFour} brand=${cardBrand} isNewCard=${isNew} ` +
+        `tokenSuffix=${tokenResult.token.slice(-4)}`,
+      );
+
+      // Phase 3.6 — security email on truly new cards only (suppress if
+      // the user already had this card on file). The community itself
+      // doesn't get a "card updated" email since it's brand new — the
+      // redirect to /manage IS the confirmation.
+      if (isNew) {
+        void this.sendCardAddedEmailSafely(userId, cardBrand, cardLastFour);
+      }
+
+      return res.redirect(`${frontend}/communities/${community.id}/manage?card=created`);
+    } catch (err) {
+      this.logger.error(`New-community tokenize flow error: ${(err as Error).message}`);
       return res.redirect(failureRedirect);
     }
   }

@@ -295,6 +295,20 @@ export class CommunitiesService {
             throw new ForbiddenException('CANNOT_DRAFT_WITH_MEMBERS');
           }
         }
+        // Defense-in-depth: block DRAFT → PUBLIC/PRIVATE when no card is
+        // bound. Phase 3.3's restructure makes the pricing flow incapable of
+        // producing such a community (Community + paymentMethodId are
+        // created in the same transaction), but this guard catches any
+        // bypass attempt against legacy DRAFT rows or future flows we
+        // haven't thought of. Every Withly community owner pays the
+        // platform fee, so the rule is unconditional.
+        if (
+          (status === 'PUBLIC' || status === 'PRIVATE')
+          && community.status === 'DRAFT'
+          && !community.paymentMethodId
+        ) {
+          throw new ForbiddenException('PAYMENT_METHOD_REQUIRED');
+        }
         updateData.status = status as CommunityStatus;
       }
 
@@ -569,6 +583,107 @@ export class CommunitiesService {
     }
 
     return { community: updated, wasAlreadyBound, wasReactivated: firingReactivated };
+  }
+
+  // Phase 3.3 — pricing checkout staging. The pricing page collects community
+  // details, calls this, opens the HYP tokenize iframe with the returned
+  // pendingId in the Order field. On tokenize success the
+  // payments controller calls finalizeCommunityFromPending to atomically
+  // create the real Community row + bind the card + delete this staging row.
+  //
+  // One pending per user (enforced by @unique on userId): upserting means
+  // re-filling the form / retrying replaces the existing row, never duplicates.
+  async beginCheckout(
+    userId: string,
+    fields: {
+      name: string;
+      description: string;
+      topic?: string | null;
+      youtubeUrl?: string | null;
+      whatsappUrl?: string | null;
+      facebookUrl?: string | null;
+      instagramUrl?: string | null;
+    },
+  ) {
+    const data = {
+      name: fields.name,
+      description: fields.description,
+      topic: fields.topic ?? null,
+      youtubeUrl: fields.youtubeUrl ?? null,
+      whatsappUrl: fields.whatsappUrl ?? null,
+      facebookUrl: fields.facebookUrl ?? null,
+      instagramUrl: fields.instagramUrl ?? null,
+    };
+    const pending = await this.prisma.pendingCommunityCreation.upsert({
+      where: { userId },
+      create: { userId, ...data },
+      update: data,
+      select: { id: true },
+    });
+    return { pendingId: pending.id };
+  }
+
+  // Frontend resume hook: returns the user's pending checkout (if any) so
+  // the pricing page can pre-fill the form on re-entry. Null when nothing
+  // is in flight.
+  async getPendingForUser(userId: string) {
+    return this.prisma.pendingCommunityCreation.findUnique({
+      where: { userId },
+    });
+  }
+
+  // Atomic finalization after tokenize success. Creates the Community row
+  // from the staged fields, binds the freshly-tokenized payment method,
+  // and deletes the pending row — all in one transaction so we can never
+  // end up with a community that has no card (the whole point of the
+  // restructure). Returns the created Community.
+  async finalizeCommunityFromPending(
+    pendingId: string,
+    userId: string,
+    paymentMethod: { id: string; cardLastFour: string; cardBrand: string },
+  ) {
+    const pending = await this.prisma.pendingCommunityCreation.findUnique({
+      where: { id: pendingId },
+    });
+    if (!pending) {
+      throw new NotFoundException('Pending checkout not found');
+    }
+    if (pending.userId !== userId) {
+      throw new ForbiddenException('Pending checkout belongs to a different user');
+    }
+
+    const community = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.community.create({
+        data: {
+          name: pending.name,
+          description: pending.description,
+          ownerId: userId,
+          topic: pending.topic,
+          image: pending.image,
+          logo: pending.logo,
+          price: pending.price ?? 0,
+          youtubeUrl: pending.youtubeUrl,
+          whatsappUrl: pending.whatsappUrl,
+          facebookUrl: pending.facebookUrl,
+          instagramUrl: pending.instagramUrl,
+          galleryImages: pending.galleryImages,
+          galleryVideos: pending.galleryVideos,
+          showOnlineMembers: pending.showOnlineMembers,
+          trialStartDate: new Date(),
+          // Bind card immediately — atomicity is the whole point. Use the
+          // scalar FK column directly so we can keep ownerId as a scalar
+          // too (Prisma forbids mixing nested-connect with scalar FKs in
+          // the same create input).
+          paymentMethodId: paymentMethod.id,
+          cardLastFour: paymentMethod.cardLastFour,
+          cardBrand: paymentMethod.cardBrand,
+        },
+      });
+      await tx.pendingCommunityCreation.delete({ where: { id: pendingId } });
+      return created;
+    });
+
+    return community;
   }
 
   private async notifyCommunityReactivated(communityId: string, ownerId: string) {

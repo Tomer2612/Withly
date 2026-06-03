@@ -107,9 +107,11 @@ function PricingContent() {
   const [communityName, setCommunityName] = useState('');
   const [communityTopic, setCommunityTopic] = useState('');
   const [creatingCommunity, setCreatingCommunity] = useState(false);
-  // Set once the DRAFT community is created. Reused if the user closes the
-  // iframe modal and re-clicks "Continue" so we don't duplicate-create.
-  const [newCommunityId, setNewCommunityId] = useState<string | null>(null);
+  // Set once begin-checkout stages the pending row. Reused if the user
+  // closes the iframe modal so a re-click just reopens against the same
+  // pendingId (upsert means it's overwritten anyway, but reusing avoids
+  // an extra round-trip).
+  const [pendingId, setPendingId] = useState<string | null>(null);
   const [showCardModal, setShowCardModal] = useState(false);
 
   // Check for step parameter on mount (from signup redirect)
@@ -119,6 +121,31 @@ function PricingContent() {
       setCurrentStep('create');
     }
   }, [searchParams]);
+
+  // Resume an in-flight checkout: if the user has a PendingCommunityCreation
+  // row (e.g., they closed the iframe and came back), pre-fill the form so
+  // they can finish where they left off.
+  useEffect(() => {
+    if (!userEmail || currentStep !== 'create') return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/my-pending`, {
+          credentials: 'include',
+        });
+        if (!res.ok) return;
+        const pending = await res.json();
+        if (cancelled || !pending) return;
+        if (!communityName) setCommunityName(pending.name ?? '');
+        if (!communityTopic && pending.topic) setCommunityTopic(pending.topic);
+        setPendingId(pending.id);
+      } catch {
+        // Resume is a nice-to-have; failure means the user just re-fills.
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userEmail, currentStep]);
 
   const toggleFaq = (index: number) => {
     setOpenFaqs(prev => {
@@ -142,42 +169,36 @@ function PricingContent() {
     }
   };
 
-  // After entering community details: create the community (DRAFT) and then
-  // open the iframe modal for card tokenization. Reuses Phase 3.2's
-  // tokenize-community-<communityId> dispatch — backend mints the token,
-  // persists a UserPaymentMethod for the owner, and binds it to this
-  // community. On modal-completion HYP redirects parent to
-  // /communities/<id>/manage?card=updated.
+  // After entering community details: stage the data in a
+  // PendingCommunityCreation row (NOT a real Community), then open the
+  // iframe for card tokenization. The community row is only created on
+  // tokenize success — atomically, with the card bound — so there is no
+  // window where a community exists without payment.
   //
-  // If the user closes the modal mid-flow, the DRAFT community persists.
-  // Re-clicking continue reopens the modal against the existing community
-  // instead of creating a duplicate.
+  // Backed by POST /communities/begin-checkout. The endpoint is upsert-
+  // keyed on userId, so re-submitting overwrites any prior staging row.
+  // On tokenize success backend redirects to /communities/<id>/manage.
   const handleContinueToPayment = async () => {
     if (!communityName.trim()) return;
 
-    if (newCommunityId) {
-      // Community already created in a prior attempt — just reopen modal.
-      setShowCardModal(true);
-      return;
-    }
-
     setCreatingCommunity(true);
     try {
-      const formData = new FormData();
-      formData.append('name', communityName);
-      formData.append('description', `קהילת ${communityName}`);
-      if (communityTopic) formData.append('topic', communityTopic);
-
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/begin-checkout`, {
         method: 'POST',
-        body: formData,
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: communityName,
+          description: `קהילת ${communityName}`,
+          topic: communityTopic || undefined,
+        }),
       });
-      if (!res.ok) throw new Error('Failed to create community');
-      const newCommunity = await res.json();
-      setNewCommunityId(newCommunity.id);
+      if (!res.ok) throw new Error('Failed to stage community checkout');
+      const data = await res.json();
+      setPendingId(data.pendingId);
       setShowCardModal(true);
     } catch (err) {
-      console.error('Failed to create community:', err);
+      console.error('Failed to begin checkout:', err);
     } finally {
       setCreatingCommunity(false);
     }
@@ -230,14 +251,16 @@ function PricingContent() {
         </div>
 
         {/* Phase 3.3 — iframe-based card tokenization. Mounted on the
-            create-step page so the user stays in flow. On successful
-            tokenize HYP redirects parent to /communities/<id>/manage?card=updated. */}
-        {showCardModal && user && newCommunityId && (
+            create-step page so the user stays in flow. The Community row
+            does not exist yet; backend creates it atomically on tokenize
+            success using the pendingId in the Order field. HYP redirects
+            parent to /communities/<id>/manage?card=created. */}
+        {showCardModal && user && pendingId && (
           <HypPaymentIframeModal
             amount={Math.max(1, plan.price)}
             j5="J2"
             bof
-            orderPrefix={`tokenize-community-${newCommunityId}`}
+            orderPrefix={`tokenize-newCommunity-${pendingId}`}
             clientName={user.name || user.email}
             email={user.email}
             userId={user.userId}

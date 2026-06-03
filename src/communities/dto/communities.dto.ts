@@ -20,6 +20,27 @@ export class CreateCommunityDto {
   @IsOptional() @IsString() @MaxLength(URL_MAX) instagramUrl?: string;
 }
 
+// Pricing-checkout staging: same shape as CreateCommunityDto. Persisted as
+// a PendingCommunityCreation row until the tokenize iframe completes, then
+// promoted to a real Community in the same transaction that binds the card.
+export class BeginCheckoutDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(50)
+  name!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(2000)
+  description!: string;
+
+  @IsOptional() @IsString() @MaxLength(50) topic?: string;
+  @IsOptional() @IsString() @MaxLength(URL_MAX) youtubeUrl?: string;
+  @IsOptional() @IsString() @MaxLength(URL_MAX) whatsappUrl?: string;
+  @IsOptional() @IsString() @MaxLength(URL_MAX) facebookUrl?: string;
+  @IsOptional() @IsString() @MaxLength(URL_MAX) instagramUrl?: string;
+}
+
 // Multipart body for community update — every text field arrives as a string,
 // even booleans and numbers. The service does the conversions.
 export class UpdateCommunityDto {
