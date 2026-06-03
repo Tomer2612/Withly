@@ -59,6 +59,11 @@ model User {
   hypCustomerId            String?              @unique
   memberSubscriptions      MemberSubscription[]
   pendingCommunityCreation PendingCommunityCreation?
+  // Withly platform plan (price/trial length/commission rate). Nullable
+  // for legacy rows; new signups land on the default plan. Read via
+  // user.plan.* instead of hardcoded constants.
+  planId                   String?
+  plan                     Plan?                @relation(fields: [planId], references: [id])
 
   @@index([lastActiveAt])
 }
@@ -102,6 +107,39 @@ model UserPaymentMethod {
   memberSubscriptions MemberSubscription[]
 
   @@map("user_payment_methods")
+}
+
+// Withly platform plans (paid by owners to Withly). Each plan stores its
+// own price, trial length, and commission rate so the codebase reads
+// these values off the user's plan row instead of hardcoded constants.
+// Pre-launch there's one plan (slug=community); the schema is shaped so
+// adding Pro/Enterprise later is INSERT, not migration.
+model Plan {
+  id                    String   @id @default(cuid())
+  slug                  String   @unique
+  name                  String
+  // Monthly platform fee in ILS, paid by the owner to Withly.
+  monthlyPriceILS       Int
+  // Commission Withly takes from member subscriptions (community.price * rate).
+  // Basis points — 500 = 5.00%. Avoids floating-point drift in billing math.
+  commissionBasisPoints Int      @default(500)
+  // Owner trial length in months before first SOFT charge fires.
+  trialLengthMonths     Int      @default(1)
+  // Soft-retire pattern: flip false instead of deleting so existing
+  // user.planId references stay valid.
+  isActive              Boolean  @default(true)
+  // The plan new signups land on when they don't pick. Exactly one
+  // active plan should have this true at any time (app-level invariant).
+  isDefault             Boolean  @default(false)
+  // Structured feature list. Json so we can add maxMembers / videoQuotaGB /
+  // etc. later without migrations. Null for plans with no extra features.
+  features              Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  users                 User[]
+
+  @@index([isActive])
+  @@map("plans")
 }
 
 // Staging row for the pricing-checkout flow: the user fills out the new-community
