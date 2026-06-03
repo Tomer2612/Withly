@@ -1187,6 +1187,105 @@ export class CommunitiesService {
     }
   }
 
+  // Phase 4 Mission 4.5 — member's view of their membership in a
+  // community. Resolves whether they're a member at all, whether their
+  // subscription is paid, and the cancellation/billing state. Used by
+  // the about page + settings to decide which leave/cancel modal to
+  // show: paid-active → CancelPaidMembershipModal; free or already-
+  // cancelled → LeaveCommunityModal.
+  async getMyMembership(communityIdOrSlug: string, userId: string) {
+    const communityId = await this.resolveId(communityIdOrSlug);
+    const member = await this.prisma.communityMember.findUnique({
+      where: { userId_communityId: { userId, communityId } },
+      select: { role: true, joinedAt: true },
+    });
+    if (!member) {
+      return { isMember: false, hasPaidSubscription: false, subscription: null };
+    }
+    // Find the most recent paid subscription if any. The cron's period-end
+    // pass deletes CommunityMember rows but KEEPS MemberSubscription rows
+    // (historical record), so an old CANCELLED sub doesn't imply current
+    // membership. We pair the CommunityMember check (current member) with
+    // the most recent sub (for status if any).
+    const sub = await this.prisma.memberSubscription.findFirst({
+      where: { userId, communityId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        status: true,
+        cancelledAt: true,
+        currentPeriodEnd: true,
+        priceAtJoin: true,
+      },
+    });
+    return {
+      isMember: true,
+      role: member.role,
+      hasPaidSubscription: !!sub && (sub.status === 'ACTIVE' || sub.status === 'PAST_DUE'),
+      subscription: sub,
+    };
+  }
+
+  // Phase 4 Mission 4.5 — member-initiated paid-subscription cancel.
+  // Sets MemberSubscription.cancelledAt but does NOT immediately end
+  // access; the cron's applyMemberCancellationsAtPeriodEnd pass
+  // handles the period-end transition (status → CANCELLED + delete
+  // CommunityMember). Idempotent: re-cancelling returns the existing
+  // cancelledAt without changing anything. Industry standard: no
+  // prorated refund — the member keeps the rest of their already-paid
+  // period.
+  async cancelPaidMembership(communityIdOrSlug: string, userId: string) {
+    const communityId = await this.resolveId(communityIdOrSlug);
+    const sub = await this.prisma.memberSubscription.findFirst({
+      where: { userId, communityId, status: { in: ['ACTIVE', 'PAST_DUE'] } },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        cancelledAt: true,
+        currentPeriodEnd: true,
+        priceAtJoin: true,
+        community: { select: { name: true } },
+      },
+    });
+    if (!sub) {
+      throw new NotFoundException('No active paid membership found');
+    }
+
+    if (!sub.cancelledAt) {
+      await this.prisma.memberSubscription.update({
+        where: { id: sub.id },
+        data: { cancelledAt: new Date() },
+      });
+    }
+
+    // Fire-and-forget confirmation email. Lookup user once.
+    void (async () => {
+      try {
+        const user = await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { email: true, name: true },
+        });
+        if (!user?.email) return;
+        await this.emailService.sendMemberCancellationConfirmationEmail(
+          user.email,
+          user.name ?? user.email,
+          sub.community.name,
+          formatHebrewDate(sub.currentPeriodEnd),
+        );
+      } catch (err) {
+        this.logger.warn(
+          `Member-cancellation email failed (user=${userId} sub=${sub.id}): ${(err as Error).message}`,
+        );
+      }
+    })();
+
+    return {
+      ok: true,
+      subscriptionId: sub.id,
+      effectiveEndDate: sub.currentPeriodEnd,
+    };
+  }
+
   // Owner cancellation confirmation email (#8). Looks up the owner's
   // email + name, sends. Effective date is when the community will
   // actually flip to SUSPENDED (community.subscriptionCancelledAt).

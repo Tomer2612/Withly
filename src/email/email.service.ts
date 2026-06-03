@@ -707,6 +707,29 @@ export class EmailService {
     await this.sendEmail(email, subject, htmlBody, textBody);
   }
 
+  // #7 — Member-cancellation confirmation. Sent after a member taps
+  // "cancel paid membership". No CTA: this is informational. Period
+  // continues to endDate then auto-cancels via the cron pass. Industry
+  // standard: no prorated refund, member retains the period they paid
+  // for.
+  async sendMemberCancellationConfirmationEmail(
+    email: string,
+    name: string,
+    communityName: string,
+    endDate: string,
+  ): Promise<void> {
+    const subject = `ביטול המנוי לקהילה "${communityName}" התקבל`;
+    const lines = [
+      `ביטול המנוי לקהילה "${communityName}" התקבל בהצלחה.`,
+      `הגישה לקהילה תישמר עד ${endDate}, ולאחר מכן תיפסק אוטומטית. החיוב הבא לא יתבצע.`,
+      `ניתן להצטרף מחדש בכל עת.`,
+    ];
+    const bodyContent = this.buildLifecycleBody(name, lines);
+    const htmlBody = this.buildEmailHtml(bodyContent);
+    const textBody = `שלום ${name},\n\n${lines.join('\n\n')}\n\nבברכה,\nצוות Withly`;
+    await this.sendEmail(email, subject, htmlBody, textBody);
+  }
+
   // #12 — Account-deletion confirmation. Sent BEFORE the user row is
   // deleted (caller must capture email + name first, then delete).
   // No CTA — there's nothing to come back to.

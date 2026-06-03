@@ -15,6 +15,7 @@ import TrashIcon from '../../components/icons/TrashIcon';
 import LockIcon from '../../components/icons/LockIcon';
 import CalendarIcon from '../../components/icons/CalendarIcon';
 import LeaveCommunityModal from '../../components/LeaveCommunityModal';
+import CancelPaidMembershipModal from '../../components/CancelPaidMembershipModal';
 import CancelSubscriptionModal from '../../components/CancelSubscriptionModal';
 import UpdateCardModal from '../../components/UpdateCardModal';
 import HypPaymentIframeModal from '../../components/HypPaymentIframeModal';
@@ -1466,11 +1467,11 @@ export default function SettingsPage() {
               }}
             />
 
-            {/* Leave paid community — same shared modal in paid variant. UI only;
-                the auto-leave-at-period-end logic is gated on HYP integration
-                (HYP follow-up #10). For now onConfirm just shows a message. */}
-            <LeaveCommunityModal
-              isPaid
+            {/* Cancel paid membership — scheduled cancel. Server marks the sub
+                cancelledAt=now; cron deletes the CommunityMember row at
+                currentPeriodEnd and flips status to CANCELLED. Member retains
+                access through the rest of the paid period. */}
+            <CancelPaidMembershipModal
               isOpen={!!communityToLeavePaid}
               onClose={() => setCommunityToLeavePaid(null)}
               communityName={communityToLeavePaid?.name ?? ''}
@@ -1479,11 +1480,39 @@ export default function SettingsPage() {
                   ? new Date(communityToLeavePaid.nextBillDate)
                   : new Date()
               }
-              isLeaving={false}
-              onConfirm={() => {
-                setCommunityToLeavePaid(null);
-                setMessage('ביטול מנוי בתשלום זמין רק לאחר חיבור מערכת התשלומים');
-                setMessageType('error');
+              isCancelling={leavingCommunityId === communityToLeavePaid?.communityId}
+              onConfirm={async () => {
+                if (!communityToLeavePaid) return;
+                const id = communityToLeavePaid.communityId;
+                setLeavingCommunityId(id);
+                try {
+                  const res = await fetch(
+                    `${process.env.NEXT_PUBLIC_API_URL}/communities/${id}/cancel-paid-membership`,
+                    { method: 'POST' },
+                  );
+                  if (res.ok) {
+                    // Mark sub as cancelled locally; row stays in the list until
+                    // period-end cron deletes it.
+                    setMemberships((prev) =>
+                      prev.map((x) =>
+                        x.communityId === id
+                          ? { ...x, subscriptionCancelledAt: new Date().toISOString() }
+                          : x,
+                      ),
+                    );
+                    setCommunityToLeavePaid(null);
+                    setMessage('המנוי בוטל. הגישה תישמר עד סוף תקופת החיוב.');
+                    setMessageType('success');
+                  } else {
+                    setMessage('שגיאה בביטול המנוי');
+                    setMessageType('error');
+                  }
+                } catch {
+                  setMessage('שגיאה בביטול המנוי');
+                  setMessageType('error');
+                } finally {
+                  setLeavingCommunityId(null);
+                }
               }}
             />
 

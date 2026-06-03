@@ -13,6 +13,7 @@ import ChevronLeftIcon from '../../../components/icons/ChevronLeftIcon';
 import ChevronRightIcon from '../../../components/icons/ChevronRightIcon';
 import LogoutIcon from '../../../components/icons/LogoutIcon';
 import LeaveCommunityModal from '../../../components/LeaveCommunityModal';
+import CancelPaidMembershipModal from '../../../components/CancelPaidMembershipModal';
 import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface Community {
@@ -176,8 +177,16 @@ export default function CommunityAboutPage() {
   const [loading, setLoading] = useState(true);
   const [managerCount, setManagerCount] = useState(0);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [showCancelPaidModal, setShowCancelPaidModal] = useState(false);
   const [leavingCommunity, setLeavingCommunity] = useState(false);
+  const [cancellingPaid, setCancellingPaid] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
+  // Phase 4 Mission 4.5 — paid sub state for dispatch (paid → cancel modal,
+  // free or already-cancelled → leave modal). Fetched once on mount.
+  const [mySub, setMySub] = useState<{
+    hasPaidSubscription: boolean;
+    subscription: { currentPeriodEnd: string; cancelledAt: string | null } | null;
+  } | null>(null);
 
   // Leave community handler
   const handleLeaveCommunity = async () => {
@@ -202,6 +211,45 @@ export default function CommunityAboutPage() {
     } finally {
       setLeavingCommunity(false);
       setShowLeaveModal(false);
+    }
+  };
+
+  // Phase 4 Mission 4.5 — cancel paid membership handler. Scheduled
+  // cancel: server sets cancelledAt; cron deletes membership at period
+  // end. We close the modal + show a confirmation in the UI (toast
+  // would belong here if there were a global one; alert is the
+  // existing fallback pattern in this file).
+  const handleCancelPaidMembership = async () => {
+    if (!communityId) return;
+    setCancellingPaid(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/cancel-paid-membership`, {
+        method: 'POST',
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to cancel membership');
+      }
+      const data = await res.json();
+      // Reflect locally: subscription is now cancelled but still active
+      // until period end. Future renders of this page (after refresh
+      // or revisit) will see the same state from the backend.
+      setMySub((prev) =>
+        prev
+          ? {
+              ...prev,
+              subscription: prev.subscription
+                ? { ...prev.subscription, cancelledAt: new Date().toISOString() }
+                : { currentPeriodEnd: data.effectiveEndDate, cancelledAt: new Date().toISOString() },
+            }
+          : prev,
+      );
+      setShowCancelPaidModal(false);
+    } catch (err) {
+      console.error('Cancel paid membership error:', err);
+      alert('שגיאה בביטול המנוי');
+    } finally {
+      setCancellingPaid(false);
     }
   };
 
@@ -252,6 +300,15 @@ export default function CommunityAboutPage() {
             const members = await membersRes.json();
             const managers = members.filter((m: { role: string }) => m.role === 'OWNER' || m.role === 'MANAGER');
             setManagerCount(managers.length);
+          }
+
+          // Phase 4 Mission 4.5 — fetch the user's own membership state to
+          // decide which leave/cancel UI to show. Non-owners only.
+          if (userId && data.ownerId !== userId) {
+            const myRes = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/my-membership`);
+            if (myRes.ok) {
+              setMySub(await myRes.json());
+            }
           }
         }
       } catch (err) {
@@ -445,19 +502,34 @@ export default function CommunityAboutPage() {
               </div>
             </div>
 
-            {/* Leave Community Button - only for non-owners */}
-            {userId && community.ownerId !== userId && (
-              <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                <button
-                  onClick={() => setShowLeaveModal(true)}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-4 hover:bg-red-50 rounded-xl transition font-medium"
-                  style={{ color: 'var(--color-error)' }}
-                >
-                  <LogoutIcon size={16} />
-                  עזוב את הקהילה
-                </button>
-              </div>
-            )}
+            {/* Leave/Cancel Button - only for non-owners.
+                Paid + active sub (not yet cancelled) → cancel-paid flow (scheduled).
+                Paid but already cancelled (in grace period) → no button — user
+                already cancelled, access auto-ends at period end.
+                Free or no sub → immediate leave flow. */}
+            {userId && community.ownerId !== userId && (() => {
+              const isPaidActive = !!mySub?.hasPaidSubscription && !mySub.subscription?.cancelledAt;
+              const isPaidCancelled = !!mySub?.hasPaidSubscription && !!mySub.subscription?.cancelledAt;
+              if (isPaidCancelled) {
+                return (
+                  <div className="bg-white rounded-2xl border border-gray-200 p-5 text-center text-sm text-gray-600">
+                    המנוי בוטל. הגישה תיפסק בסיום תקופת החיוב הנוכחית.
+                  </div>
+                );
+              }
+              return (
+                <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                  <button
+                    onClick={() => (isPaidActive ? setShowCancelPaidModal(true) : setShowLeaveModal(true))}
+                    className="w-full flex items-center justify-center gap-2 py-3 px-4 hover:bg-red-50 rounded-xl transition font-medium"
+                    style={{ color: 'var(--color-error)' }}
+                  >
+                    <LogoutIcon size={16} />
+                    {isPaidActive ? 'ביטול המנוי' : 'עזוב את הקהילה'}
+                  </button>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Main Content */}
@@ -483,7 +555,7 @@ export default function CommunityAboutPage() {
         </div>
       </div>
 
-      {/* Leave Community Confirmation Modal */}
+      {/* Leave Community Confirmation Modal (free / no paid sub path) */}
       <LeaveCommunityModal
         isOpen={showLeaveModal}
         onClose={() => setShowLeaveModal(false)}
@@ -491,6 +563,18 @@ export default function CommunityAboutPage() {
         isLeaving={leavingCommunity}
         onConfirm={handleLeaveCommunity}
       />
+
+      {/* Cancel Paid Membership Modal (scheduled cancel — access until period end) */}
+      {mySub?.subscription && (
+        <CancelPaidMembershipModal
+          isOpen={showCancelPaidModal}
+          onClose={() => setShowCancelPaidModal(false)}
+          communityName={community?.name ?? ''}
+          isCancelling={cancellingPaid}
+          onConfirm={handleCancelPaidMembership}
+          effectiveDate={new Date(mySub.subscription.currentPeriodEnd)}
+        />
+      )}
 
     </main>
   );

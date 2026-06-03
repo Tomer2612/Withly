@@ -235,6 +235,23 @@ export class CommunitiesController {
     return this.communitiesService.checkMembership(id, userId);
   }
 
+  // Phase 4 Mission 4.5 — frontend uses this to decide between
+  // CancelPaidMembershipModal (paid + active) and LeaveCommunityModal
+  // (free or already-cancelled).
+  @UseGuards(AuthGuard('jwt'))
+  @Get(':id/my-membership')
+  getMyMembership(@Param('id') id: string, @Req() req) {
+    const userId = req.user.userId;
+    return this.communitiesService.getMyMembership(id, userId);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post(':id/cancel-paid-membership')
+  cancelPaidMembership(@Param('id') id: string, @Req() req) {
+    const userId = req.user.userId;
+    return this.communitiesService.cancelPaidMembership(id, userId);
+  }
+
   @UseGuards(AuthGuard('jwt'))
   @Put(':id/members/:memberId/role')
   updateMemberRole(

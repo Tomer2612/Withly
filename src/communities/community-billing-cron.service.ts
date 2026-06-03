@@ -41,7 +41,47 @@ export class CommunityBillingCronService {
     await this.sendSuspensionReminders();
     await this.sendTrialEndingReminders();
     await this.applyMonthlyOwnerCharges();
+    await this.applyMemberCancellationsAtPeriodEnd();
     await this.applyMonthlyMemberCharges();
+  }
+
+  // Phase 4 Mission 4.5 — at currentPeriodEnd, ends paid memberships
+  // that the member requested to cancel earlier. Sets MemberSubscription
+  // status=CANCELLED (kept as a historical row) and deletes the
+  // CommunityMember row (removes access). Runs BEFORE applyMonthly­
+  // MemberCharges so a sub due to cancel today doesn't get charged
+  // today.
+  private async applyMemberCancellationsAtPeriodEnd() {
+    const now = new Date();
+    const due = await this.prisma.memberSubscription.findMany({
+      where: {
+        status: { in: ['ACTIVE', 'PAST_DUE'] },
+        cancelledAt: { not: null },
+        currentPeriodEnd: { lte: now },
+      },
+      select: { id: true, userId: true, communityId: true },
+    });
+
+    if (due.length === 0) return;
+    this.logger.log(`Applying ${due.length} due member cancellation(s) at period end`);
+
+    for (const sub of due) {
+      try {
+        await this.prisma.$transaction([
+          this.prisma.memberSubscription.update({
+            where: { id: sub.id },
+            data: { status: 'CANCELLED' },
+          }),
+          this.prisma.communityMember.deleteMany({
+            where: { userId: sub.userId, communityId: sub.communityId },
+          }),
+        ]);
+      } catch (err) {
+        this.logger.error(
+          `Failed to apply period-end cancellation for sub ${sub.id}: ${(err as Error).message}`,
+        );
+      }
+    }
   }
 
   private async applyDueOwnerCancellations() {
