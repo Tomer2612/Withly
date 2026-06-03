@@ -503,6 +503,30 @@ function CommunityPreviewContent() {
                 </div>
               ) : (
                 <>
+                  {/* Inline join error — surfaces redirect-back failures (card=error)
+                      and existing-card POST rejections. Replaces the previous
+                      fixed-top toast: stays inline above the action so the user
+                      sees both the error and the retry button together, and
+                      doesn't auto-dismiss. */}
+                  {paidJoinError && (
+                    <div
+                      className="w-full px-4 py-3 rounded-xl mb-3 flex items-start gap-3 text-right"
+                      style={{ backgroundColor: '#FCE8E6', color: '#B3261E' }}
+                      role="alert"
+                    >
+                      <span className="flex-1" style={{ fontSize: '14px', lineHeight: '1.5' }}>
+                        {paidJoinError}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setPaidJoinError(null)}
+                        className="flex-shrink-0 opacity-70 hover:opacity-100"
+                        aria-label="סגירה"
+                      >
+                        <CloseIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                   <button
                     onClick={handleJoinClick}
                     disabled={joining}
@@ -715,18 +739,6 @@ function CommunityPreviewContent() {
           </div>
         )}
       </div>
-
-      {/* Paid-join error toast (banner-style) — appears after a failed
-          iframe redirect or a failed existing-card POST. Uses the
-          paid-join error state, dismissable. */}
-      {paidJoinError && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] bg-white border shadow-lg rounded-xl px-4 py-3 flex items-center gap-3" style={{ borderColor: 'var(--color-gray-4)', maxWidth: '90vw' }} dir="rtl">
-          <span style={{ fontSize: '14px', color: 'var(--color-black)' }}>{paidJoinError}</span>
-          <button onClick={() => setPaidJoinError(null)} className="opacity-60 hover:opacity-100">
-            <CloseIcon className="w-4 h-4" />
-          </button>
-        </div>
-      )}
 
       {/* Phase 4 Mission 3 — paid-join confirm modal (≥1 card in wallet) */}
       {pickerView === 'confirm' && community && user && savedCards.length > 0 && (
