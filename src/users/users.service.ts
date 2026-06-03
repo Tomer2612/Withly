@@ -665,10 +665,11 @@ export class UsersService {
     // Owner rows (computed billing).
     const ownerRows = owned.map((c) => {
       const isPaid = (c.price ?? 0) > 0;
-      // "Paid members" excludes the owner; today owner doesn't appear in
+      // "Paid members" excludes the owner; owner doesn't appear in
       // CommunityMember anyway, so memberCount is paying-member count.
-      // (See HYP follow-up #10 — real per-member subscription tracking
-      // will replace this when paid memberships start being charged.)
+      // Post-Mission-4.5: CommunityMember rows are deleted at period-end
+      // when a member cancels, so _count.members reflects active paying
+      // members accurately.
       const paidMembersCount = isPaid ? c._count.members : 0;
       return {
         communityId: c.id,

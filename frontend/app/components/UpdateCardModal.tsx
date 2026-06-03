@@ -83,6 +83,10 @@ export default function UpdateCardModal({
   const [community, setCommunity] = useState<CommunitySummary | null>(null);
   const [selectedId, setSelectedId] = useState<string>('');
   const [binding, setBinding] = useState(false);
+  // Tracks the card id whose recovery SOFT just rejected, so the picker can
+  // call it out and the owner knows which one to avoid re-trying. Reset when
+  // the owner picks any other action.
+  const [failedCardId, setFailedCardId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -177,15 +181,25 @@ export default function UpdateCardModal({
         return;
       }
       const result = await res.json();
-      // Same redirect taxonomy as the iframe path (Mission 5):
+      // Mission 5 follow-up — on charge-failed, KEEP the modal open and
+      // switch to the picker so the owner can see their full set of options
+      // (try a different saved card OR add a new one). The previous flow
+      // redirected to /manage?card=charge-failed which closed the modal,
+      // leaving the same broken card pre-selected on re-open and creating
+      // an endless-retry loop. The picker now flags the failed card so the
+      // owner doesn't re-tap it accidentally.
+      if (result?.chargeFailed) {
+        setFailedCardId(selectedId);
+        setBinding(false);
+        setView('picker');
+        return;
+      }
+      // Remaining redirect taxonomy (no charge or success cases):
       //   reactivated    = was SUSPENDED, recovery SOFT succeeded
-      //   charge-failed  = was SUSPENDED, recovery SOFT rejected
-      //                    (card still bound; owner can try a different one)
       //   existing       = same card re-bound, no charge
       //   updated        = fresh card on ACTIVE community, no charge
       const cardParam =
         result?.wasReactivated ? 'reactivated'
-        : result?.chargeFailed ? 'charge-failed'
         : result?.wasAlreadyBound ? 'existing'
         : 'updated';
       window.location.href = `/communities/${communityId}/manage?card=${cardParam}`;
@@ -200,6 +214,7 @@ export default function UpdateCardModal({
         cards={cards.map(c => ({ id: c.id, cardLastFour: c.cardLastFour, cardBrand: c.cardBrand }))}
         selectedId={selectedId}
         currentlyBoundId={community?.paymentMethodId ?? undefined}
+        failedCardId={failedCardId ?? undefined}
         onCancel={onClose}
         onSelect={(id) => {
           setSelectedId(id);

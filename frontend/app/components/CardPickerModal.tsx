@@ -19,6 +19,10 @@ interface Props {
   /** Id of the card already bound to this community (places 2 + 3 only),
    *  shown with a "(נוכחי)" tag. Pass undefined for the new-community case. */
   currentlyBoundId?: string;
+  /** Id of a card whose recovery SOFT just rejected. The picker renders a
+   *  warning banner naming the failed card and visually de-emphasizes it,
+   *  steering the owner toward picking another card or adding a new one. */
+  failedCardId?: string;
   onCancel: () => void;
   /** Called when user clicks "בחירת כרטיס" with the radio selection.
    *  Parent goes back to Screen 1 with the new selection. */
@@ -34,10 +38,12 @@ export default function CardPickerModal({
   cards,
   selectedId,
   currentlyBoundId,
+  failedCardId,
   onCancel,
   onSelect,
   onAddNew,
 }: Props) {
+  const failedCard = failedCardId ? cards.find(c => c.id === failedCardId) : undefined;
   const [localSelected, setLocalSelected] = useState(selectedId);
   // Slide-in from the left (RTL "forward" direction): translateX(-20px) → 0
   // + opacity 0 → 1. Pairs with the confirm popup's slide-from-right so
@@ -66,14 +72,32 @@ export default function CardPickerModal({
           className="font-semibold text-right mb-6"
           style={{ fontSize: '18px', color: 'var(--color-black)' }}
         >
-          בחר אמצעי תשלום
+          בחירת אמצעי תשלום
         </h2>
+
+        {/* Failure notice — appears when the parent passed a failedCardId,
+            i.e. the previous recovery SOFT rejected. Steers the owner toward
+            picking a different saved card or adding a new one. */}
+        {failedCard && (
+          <div
+            className="mb-4 p-3 text-right"
+            style={{
+              backgroundColor: '#FCE8E6',
+              color: '#B3261E',
+              borderRadius: '12px',
+              fontSize: '14px',
+            }}
+          >
+            החיוב לא עבר עם הכרטיס {failedCard.cardBrand} ···· {failedCard.cardLastFour}. ניתן לבחור כרטיס אחר או להוסיף כרטיס חדש.
+          </div>
+        )}
 
         {/* Card rows — uniform 1.5px border weight; selected = black, others = gray-4 */}
         <div className="flex flex-col gap-3 mb-6">
           {cards.map(card => {
             const isSelected = card.id === localSelected;
             const isCurrent = card.id === currentlyBoundId;
+            const isFailed = card.id === failedCardId;
             return (
               <button
                 key={card.id}
@@ -107,11 +131,23 @@ export default function CardPickerModal({
                     )}
                   </span>
                   <CreditCardIcon className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--color-black)' }} />
-                  <div className="flex-1 text-right" style={{ fontSize: '16px', color: 'var(--color-black)' }}>
+                  <div
+                    className="flex-1 text-right"
+                    style={{
+                      fontSize: '16px',
+                      color: 'var(--color-black)',
+                      opacity: isFailed ? 0.5 : 1,
+                    }}
+                  >
                     {card.cardBrand} ···· {card.cardLastFour}
-                    {isCurrent && (
+                    {isCurrent && !isFailed && (
                       <span className="mr-2" style={{ fontSize: '14px', color: 'var(--color-gray-6)' }}>
                         (נוכחי)
+                      </span>
+                    )}
+                    {isFailed && (
+                      <span className="mr-2" style={{ fontSize: '14px', color: '#B3261E' }}>
+                        (החיוב נכשל)
                       </span>
                     )}
                   </div>
