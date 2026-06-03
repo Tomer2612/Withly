@@ -1349,7 +1349,7 @@ export default function SettingsPage() {
                                   className="font-normal underline hover:opacity-70 transition"
                                   style={{ fontSize: '16px', color: '#000000' }}
                                 >
-                                  עזוב קהילה
+                                  עזיבת קהילה
                                 </button>
                               )}
                               {branch === 'paid-member' && (
@@ -1369,7 +1369,7 @@ export default function SettingsPage() {
                                   className="font-normal underline hover:opacity-70 transition"
                                   style={{ fontSize: '16px', color: '#000000' }}
                                 >
-                                  בטל מנוי
+                                  ביטול המנוי
                                 </button>
                               )}
                               {branch === 'owner-pending' && (
