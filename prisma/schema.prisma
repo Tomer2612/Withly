@@ -240,6 +240,11 @@ model Community {
   // once, sets this timestamp, won't resend if the cancellation is
   // unrevoked-then-rescheduled (caller clears it when needed).
   suspensionReminderSentAt  DateTime?
+  // Phase 4 Mission 4.1a — once-only stamp for the 3-day pre-trial-end
+  // reminder email. The cron picks up communities where the first
+  // SOFT charge is 2-4 days out, sends the reminder, sets this
+  // timestamp. Never cleared (no "restart trial" flow today).
+  trialEndReminderSentAt    DateTime?
   slug                    String?                     @unique
   // HYP-era billing fields (added Phase 1.2). Old cardLastFour/cardBrand
   // strings stay until Phase 6.1 backfill is verified, then dropped.
