@@ -651,6 +651,35 @@ export class EmailService {
     await this.sendEmail(email, subject, htmlBody, textBody);
   }
 
+  // Phase 4 Mission 4.1a — 3-day pre-trial-end reminder. Sent to the
+  // owner BEFORE the first monthly SOFT charge fires, so the charge
+  // doesn't arrive silently. The pricing-page checkout copy already
+  // promises this reminder; this method delivers on that promise.
+  // Hebrew UX guide: noun-form CTA, passive constructions throughout,
+  // no 2nd-person verbs or "אם תרצו" patterns.
+  async sendTrialEndingReminderEmail(
+    email: string,
+    name: string,
+    communityName: string,
+    monthlyPrice: number,
+    chargeDate: string,
+  ): Promise<void> {
+    const subject = `תזכורת — תקופת הניסיון של "${communityName}" מסתיימת בעוד 3 ימים`;
+    const lines = [
+      `תקופת הניסיון של הקהילה "${communityName}" מסתיימת ב-${chargeDate}.`,
+      `החל מאותו תאריך יחויב אמצעי התשלום בסך ₪${monthlyPrice} בחודש.`,
+      `להמשך כרגיל, אין צורך בפעולה.`,
+      `לביטול המנוי לפני המעבר, ניתן לעשות זאת דרך הגדרות החשבון.`,
+    ];
+    const bodyContent = this.buildLifecycleBody(name, lines, {
+      label: 'ניהול מנויים',
+      url: `${this.frontendUrl}/settings#payment`,
+    });
+    const htmlBody = this.buildEmailHtml(bodyContent);
+    const textBody = `שלום ${name},\n\n${lines.join('\n\n')}\n\nניהול מנויים: ${this.frontendUrl}/settings#payment\n\nבברכה,\nצוות Withly`;
+    await this.sendEmail(email, subject, htmlBody, textBody);
+  }
+
   // #6 (member variant) — Phase 4 Mission 4: member-side recurring
   // SOFT charge failed. The member's MemberSubscription is now PAST_DUE
   // but the community itself is still active (unlike the owner-side

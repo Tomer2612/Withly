@@ -39,6 +39,7 @@ export class CommunityBillingCronService {
     await this.cleanupAbandonedPendingCheckouts();
     await this.sendPriceChangeReminders();
     await this.sendSuspensionReminders();
+    await this.sendTrialEndingReminders();
     await this.applyMonthlyOwnerCharges();
     await this.applyMonthlyMemberCharges();
   }
@@ -303,6 +304,71 @@ export class CommunityBillingCronService {
 
     if (due.length > 0) {
       this.logger.log(`Sent suspension reminders for ${due.length} community/communities`);
+    }
+  }
+
+  // Phase 4 Mission 4.1a — 3-day pre-trial-end reminder for owners.
+  // The pricing-page checkout copy already promises this email; this
+  // pass delivers it. Same once-only pattern as the price-change and
+  // suspension reminders (Community.trialEndReminderSentAt). 2-day
+  // window (now+2d to now+4d) so a missed cron day still fires.
+  // Only ACTIVE communities with no cancellation pending — there's no
+  // point reminding about a charge that won't happen.
+  private async sendTrialEndingReminders() {
+    const now = new Date();
+    const windowStart = new Date(now);
+    windowStart.setDate(windowStart.getDate() + 2);
+    const windowEnd = new Date(now);
+    windowEnd.setDate(windowEnd.getDate() + 4);
+
+    const due = await this.prisma.community.findMany({
+      where: {
+        subscriptionStatus: 'ACTIVE',
+        subscriptionCancelledAt: null,
+        nextBillingDate: { gte: windowStart, lte: windowEnd },
+        trialEndReminderSentAt: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        nextBillingDate: true,
+        owner: {
+          select: {
+            email: true,
+            name: true,
+            plan: { select: { monthlyPriceILS: true } },
+          },
+        },
+      },
+    });
+
+    for (const c of due) {
+      if (!c.nextBillingDate || !c.owner?.email || !c.owner.plan?.monthlyPriceILS) continue;
+      try {
+        await this.emailService.sendTrialEndingReminderEmail(
+          c.owner.email,
+          c.owner.name ?? c.owner.email,
+          c.name,
+          c.owner.plan.monthlyPriceILS,
+          formatHebrewDate(c.nextBillingDate),
+        );
+      } catch (err) {
+        this.logger.warn(
+          `Trial-ending reminder email failed (community=${c.id}): ${(err as Error).message}`,
+        );
+      }
+      try {
+        await this.prisma.community.update({
+          where: { id: c.id },
+          data: { trialEndReminderSentAt: now },
+        });
+      } catch (err) {
+        this.logger.error(`Failed to stamp trialEndReminderSentAt for ${c.id}`, err as Error);
+      }
+    }
+
+    if (due.length > 0) {
+      this.logger.log(`Sent trial-ending reminders for ${due.length} community/communities`);
     }
   }
 
