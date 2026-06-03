@@ -507,9 +507,9 @@ export default function CommunityAboutPage() {
                 Paid but already cancelled (in grace period) → no button — user
                 already cancelled, access auto-ends at period end.
                 Free or no sub → immediate leave flow. */}
-            {userId && community.ownerId !== userId && (() => {
-              const isPaidActive = !!mySub?.hasPaidSubscription && !mySub.subscription?.cancelledAt;
-              const isPaidCancelled = !!mySub?.hasPaidSubscription && !!mySub.subscription?.cancelledAt;
+            {userId && community.ownerId !== userId && mySub !== null && (() => {
+              const isPaidActive = !!mySub.hasPaidSubscription && !mySub.subscription?.cancelledAt;
+              const isPaidCancelled = !!mySub.hasPaidSubscription && !!mySub.subscription?.cancelledAt;
               if (isPaidCancelled) {
                 return (
                   <div className="bg-white rounded-2xl border border-gray-200 p-5 text-center text-sm text-gray-600">
