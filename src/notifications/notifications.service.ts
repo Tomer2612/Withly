@@ -120,8 +120,9 @@ export class NotificationsService {
             // slug is included so the bell can link to the canonical URL
             // and avoid a slug-redirect refetch on the destination page.
             // ownerId lets the bell route PAYMENT_FAILED to the owner's
-            // /manage vs a member's /settings#payment.
-            select: { id: true, name: true, slug: true, ownerId: true },
+            // /manage vs a member's /settings#payment. logo is the avatar
+            // fallback for actor-less, community-scoped rows (PAYMENT_FAILED).
+            select: { id: true, name: true, slug: true, ownerId: true, logo: true },
           })
         : [],
     ]);

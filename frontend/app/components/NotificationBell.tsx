@@ -36,6 +36,7 @@ interface Notification {
     name: string;
     slug?: string | null;
     ownerId?: string;
+    logo?: string | null;
   };
 }
 
@@ -96,6 +97,18 @@ const groupNotifications = (notifications: Notification[]): GroupedNotification[
     (a, b) => new Date(b.latestAt).getTime() - new Date(a.latestAt).getTime()
   );
 };
+
+// Types where the notification is about the community itself, not a person —
+// so the avatar should be the community logo (→ initial fallback), even when
+// an actor (owner/creator) is attached. Person-driven and "X did something to
+// you" types (LIKE, BAN, REACTIVATED, …) keep the actor's face.
+const COMMUNITY_AVATAR_TYPES = new Set<GroupedNotification['type']>([
+  'COMMUNITY_SUSPENDED',
+  'COMMUNITY_SCHEDULED_FOR_SUSPENSION',
+  'PRICE_CHANGE_ANNOUNCED',
+  'EVENT_REMINDER',
+  'PAYMENT_FAILED',
+]);
 
 const getGroupedNotificationText = (group: GroupedNotification) => {
   const count = group.notifications.length;
@@ -543,34 +556,58 @@ export default function NotificationBell() {
               groupedNotifications.map((group) => {
                 const link = getGroupedNotificationLink(group, user?.userId);
                 const avatars = getGroupAvatars(group);
+                // Show the community logo for community-scoped events, and as a
+                // fallback for any actor-less row (e.g. PAYMENT_FAILED has no actor).
+                const useCommunityAvatar =
+                  !!group.community &&
+                  (COMMUNITY_AVATAR_TYPES.has(group.type) || avatars.length === 0);
                 
                 const innerContent = (
                   <>
                     {/* Stacked Avatars — fixed width regardless of count so
                         every row's text starts at the same horizontal position. */}
                     <div className="flex-shrink-0 relative" style={{ width: 44, height: 40 }}>
-                      {avatars.map((actor, i) => (
-                        <div
-                          key={actor?.id || i}
-                          className="absolute rounded-full border-2 border-white"
-                          style={{
-                            right: i * 12,
-                            zIndex: avatars.length - i,
-                          }}
-                        >
-                          {actor?.profileImage ? (
+                      {useCommunityAvatar && group.community ? (
+                        // Community-scoped rows (suspension, price change, event
+                        // reminder, payment failed): the event is about the
+                        // community, so show its logo → initial, not a member's face.
+                        <div className="absolute rounded-full border-2 border-white" style={{ right: 0 }}>
+                          {group.community.logo ? (
                             <img
-                              src={getImageUrl(actor.profileImage)}
-                              alt={actor.name}
+                              src={getImageUrl(group.community.logo)}
+                              alt={group.community.name}
                               className="w-9 h-9 rounded-full object-cover"
                             />
                           ) : (
                             <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-medium text-sm">
-                              {actor?.name?.charAt(0) || '?'}
+                              {group.community.name?.charAt(0) || '?'}
                             </div>
                           )}
                         </div>
-                      ))}
+                      ) : (
+                        avatars.map((actor, i) => (
+                          <div
+                            key={actor?.id || i}
+                            className="absolute rounded-full border-2 border-white"
+                            style={{
+                              right: i * 12,
+                              zIndex: avatars.length - i,
+                            }}
+                          >
+                            {actor?.profileImage ? (
+                              <img
+                                src={getImageUrl(actor.profileImage)}
+                                alt={actor.name}
+                                className="w-9 h-9 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-medium text-sm">
+                                {actor?.name?.charAt(0) || '?'}
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      )}
                     </div>
 
                     {/* Content */}
