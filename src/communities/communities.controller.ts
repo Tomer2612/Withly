@@ -10,7 +10,9 @@ import { getUserIdFromRequest } from '../common/jwt.helper';
 import { imageFileFilter, imageOrVideoFileFilter } from '../common/upload-filters';
 import {
   BeginCheckoutDto,
+  BindExistingCardDto,
   CreateCommunityDto,
+  FinalizeWithExistingCardDto,
   UpdateCommunityDto,
   UpdateMemberRoleDto,
   UpdatePaymentInfoDto,
@@ -83,6 +85,24 @@ export class CommunitiesController {
   getMyPending(@Req() req) {
     const userId = req.user.userId;
     return this.communitiesService.getPendingForUser(userId);
+  }
+
+  // Saved-card flow for pricing checkout (Phase 3.3 — place 4). User
+  // picked an existing card from the picker instead of opening the HYP
+  // iframe. Atomically creates the Community from the pending row + binds
+  // the chosen card + deletes the pending row.
+  @UseGuards(AuthGuard('jwt'))
+  @Post('finalize-with-existing-card')
+  finalizeWithExistingCard(
+    @Req() req,
+    @Body() body: FinalizeWithExistingCardDto,
+  ) {
+    const userId = req.user.userId;
+    return this.communitiesService.finalizeCommunityWithExistingCard(
+      body.pendingId,
+      userId,
+      body.paymentMethodId,
+    );
   }
 
   @Get()
@@ -355,6 +375,24 @@ export class CommunitiesController {
   acknowledgeSuspensionScheduled(@Param('id') id: string, @Req() req) {
     const userId = req.user.userId;
     return this.communitiesService.acknowledgeSuspensionScheduled(id, userId);
+  }
+
+  // Saved-card flow for existing communities (Phase 3.3 — places 2 + 3).
+  // User picked a card from their wallet instead of opening the HYP
+  // iframe. Same effect as a fresh tokenize + bind, but no iframe.
+  @UseGuards(AuthGuard('jwt'))
+  @Post(':id/bind-existing-card')
+  bindExistingCard(
+    @Param('id') id: string,
+    @Req() req,
+    @Body() body: BindExistingCardDto,
+  ) {
+    const userId = req.user.userId;
+    return this.communitiesService.bindExistingCardToCommunity(
+      id,
+      userId,
+      body.paymentMethodId,
+    );
   }
 
   // Owner-only payment update — separate from PUT /:id so a SUSPENDED

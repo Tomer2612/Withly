@@ -632,6 +632,81 @@ export class CommunitiesService {
     });
   }
 
+  // Saved-card variant of bindTokenizedPaymentMethod. The user picked an
+  // existing UserPaymentMethod from their wallet via the picker UI rather
+  // than tokenizing a new card through HYP. Verifies ownership and that
+  // the card isn't expired, then delegates to the same bind logic the
+  // tokenize-redirect path uses — same SUSPENDED→ACTIVE flip, same
+  // wasAlreadyBound semantics, same emails.
+  async bindExistingCardToCommunity(
+    communityId: string,
+    userId: string,
+    paymentMethodId: string,
+  ) {
+    const pm = await this.prisma.userPaymentMethod.findUnique({
+      where: { id: paymentMethodId },
+      select: {
+        id: true, userId: true, cardLastFour: true, cardBrand: true,
+        cardExpMonth: true, cardExpYear: true,
+      },
+    });
+    if (!pm || pm.userId !== userId) {
+      throw new NotFoundException('Payment method not found');
+    }
+    if (this.isExpired(pm.cardExpMonth, pm.cardExpYear)) {
+      throw new BadRequestException('CARD_EXPIRED');
+    }
+    return this.bindTokenizedPaymentMethod(communityId, userId, {
+      id: pm.id,
+      cardLastFour: pm.cardLastFour,
+      cardBrand: pm.cardBrand,
+    });
+  }
+
+  // Saved-card variant of the new-community finalize path. The user picked
+  // an existing card from their wallet on the Screen 1 confirm popup
+  // instead of opening the HYP iframe. Creates the Community atomically
+  // with the chosen card bound, deletes the pending row. Same atomicity
+  // guarantee as finalizeCommunityFromPending — community + card binding
+  // happen together or not at all.
+  async finalizeCommunityWithExistingCard(
+    pendingId: string,
+    userId: string,
+    paymentMethodId: string,
+  ) {
+    const pm = await this.prisma.userPaymentMethod.findUnique({
+      where: { id: paymentMethodId },
+      select: {
+        id: true, userId: true, cardLastFour: true, cardBrand: true,
+        cardExpMonth: true, cardExpYear: true,
+      },
+    });
+    if (!pm || pm.userId !== userId) {
+      throw new NotFoundException('Payment method not found');
+    }
+    if (this.isExpired(pm.cardExpMonth, pm.cardExpYear)) {
+      throw new BadRequestException('CARD_EXPIRED');
+    }
+    return this.finalizeCommunityFromPending(pendingId, userId, {
+      id: pm.id,
+      cardLastFour: pm.cardLastFour,
+      cardBrand: pm.cardBrand,
+    });
+  }
+
+  // Defense-in-depth expiry check. HYP would reject a SOFT charge on an
+  // expired card anyway (Phase 4), but failing it here gives a clean
+  // 400 with a typed error instead of a downstream charge failure.
+  // NULL exp fields predate HYP wiring (Phase 6.1 backfill) — treat as
+  // unexpired so legacy rows don't get blocked.
+  private isExpired(expMonth: number | null, expYear: number | null): boolean {
+    if (expMonth == null || expYear == null) return false;
+    const now = new Date();
+    const nowYM = now.getFullYear() * 100 + (now.getMonth() + 1);
+    const cardYM = expYear * 100 + expMonth;
+    return cardYM < nowYM;
+  }
+
   // Atomic finalization after tokenize success. Creates the Community row
   // from the staged fields, binds the freshly-tokenized payment method,
   // and deletes the pending row — all in one transaction so we can never

@@ -6,6 +6,9 @@ import SiteFooter from '../../components/SiteFooter';
 import FormSelect from '../../components/FormSelect';
 import { useUser } from '../../lib/UserContext';
 import HypPaymentIframeModal from '../../components/HypPaymentIframeModal';
+import ExistingCardConfirmModal from '../../components/ExistingCardConfirmModal';
+import CardPickerModal from '../../components/CardPickerModal';
+import { WITHLY_MONTHLY_PRICE } from '../../lib/pricing';
 
 // Checkmark Icon component
 const CheckmarkIcon = ({ className = "w-3 h-2.5" }: { className?: string }) => (
@@ -39,7 +42,7 @@ interface PricingPlan {
 
 const plan: PricingPlan = {
   name: 'מנוי קהילה',
-  price: 99,
+  price: WITHLY_MONTHLY_PRICE,
   period: 'לחודש',
   features: [
     'מרחב קהילתי אחד',
@@ -112,7 +115,19 @@ function PricingContent() {
   // pendingId (upsert means it's overwritten anyway, but reusing avoids
   // an extra round-trip).
   const [pendingId, setPendingId] = useState<string | null>(null);
-  const [showCardModal, setShowCardModal] = useState(false);
+
+  // Card-picker state. On "המשך" we stage the pending row, then fetch the
+  // user's wallet. Zero unexpired cards → straight to the iframe (legacy
+  // path). One or more → show the confirm popup with the primary pre-
+  // selected, with an option to switch via the picker.
+  const [pickerView, setPickerView] = useState<'none' | 'confirm' | 'picker' | 'iframe'>('none');
+  const [savedCards, setSavedCards] = useState<{
+    id: string; cardLastFour: string; cardBrand: string;
+    cardExpMonth: number | null; cardExpYear: number | null;
+    isPrimary: boolean; createdAt: string;
+  }[]>([]);
+  const [selectedCardId, setSelectedCardId] = useState<string>('');
+  const [finalizing, setFinalizing] = useState(false);
 
   // Check for step parameter on mount (from signup redirect)
   useEffect(() => {
@@ -170,33 +185,60 @@ function PricingContent() {
   };
 
   // After entering community details: stage the data in a
-  // PendingCommunityCreation row (NOT a real Community), then open the
-  // iframe for card tokenization. The community row is only created on
-  // tokenize success — atomically, with the card bound — so there is no
-  // window where a community exists without payment.
+  // PendingCommunityCreation row (NOT a real Community), then check the
+  // user's wallet. Zero unexpired cards → open the HYP iframe directly
+  // (legacy path). One or more → show the saved-card confirm popup; if
+  // the user picks an existing card we finalize without ever opening the
+  // iframe. The Community is only created on success — atomically, with
+  // a card bound — so there is no window where a community exists
+  // without payment.
   //
   // Backed by POST /communities/begin-checkout. The endpoint is upsert-
   // keyed on userId, so re-submitting overwrites any prior staging row.
-  // On tokenize success backend redirects to /communities/<id>/manage.
   const handleContinueToPayment = async () => {
     if (!communityName.trim()) return;
 
     setCreatingCommunity(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/begin-checkout`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: communityName,
-          description: `קהילת ${communityName}`,
-          topic: communityTopic || undefined,
+      const [stageRes, walletRes] = await Promise.all([
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/begin-checkout`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: communityName,
+            description: `קהילת ${communityName}`,
+            topic: communityTopic || undefined,
+          }),
         }),
-      });
-      if (!res.ok) throw new Error('Failed to stage community checkout');
-      const data = await res.json();
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/payment-methods`, {
+          credentials: 'include',
+        }),
+      ]);
+      if (!stageRes.ok) throw new Error('Failed to stage community checkout');
+      const data = await stageRes.json();
       setPendingId(data.pendingId);
-      setShowCardModal(true);
+
+      const allCards: typeof savedCards = walletRes.ok ? await walletRes.json() : [];
+      // Filter to unexpired + sort primary-first, newest-first.
+      const now = new Date();
+      const nowYM = now.getFullYear() * 100 + (now.getMonth() + 1);
+      const unexpired = allCards.filter(c => {
+        if (c.cardExpMonth == null || c.cardExpYear == null) return true;
+        return c.cardExpYear * 100 + c.cardExpMonth >= nowYM;
+      });
+      unexpired.sort((a, b) => {
+        if (a.isPrimary !== b.isPrimary) return a.isPrimary ? -1 : 1;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+      setSavedCards(unexpired);
+
+      if (unexpired.length === 0) {
+        setPickerView('iframe');
+      } else {
+        setSelectedCardId(unexpired[0].id);
+        setPickerView('confirm');
+      }
     } catch (err) {
       console.error('Failed to begin checkout:', err);
     } finally {
@@ -255,7 +297,75 @@ function PricingContent() {
             does not exist yet; backend creates it atomically on tokenize
             success using the pendingId in the Order field. HYP redirects
             parent to /communities/<id>/manage?card=created. */}
-        {showCardModal && user && pendingId && (
+        {pickerView === 'confirm' && user && pendingId && (
+          <ExistingCardConfirmModal
+            title={communityName}
+            logoUrl={null}
+            showAvatar={false}
+            monthlyPrice={plan.price}
+            selectedCard={(() => {
+              const card = savedCards.find(c => c.id === selectedCardId) ?? savedCards[0];
+              return {
+                id: card.id,
+                cardLastFour: card.cardLastFour,
+                cardBrand: card.cardBrand,
+              };
+            })()}
+            actionLabel={`הצטרפות ב₪${plan.price}`}
+            loading={finalizing}
+            onCancel={() => setPickerView('none')}
+            onSwitchCard={() => setPickerView('picker')}
+            onConfirm={async () => {
+              setFinalizing(true);
+              try {
+                const res = await fetch(
+                  `${process.env.NEXT_PUBLIC_API_URL}/communities/finalize-with-existing-card`,
+                  {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pendingId, paymentMethodId: selectedCardId }),
+                  },
+                );
+                if (!res.ok) {
+                  router.push('/pricing?card=error');
+                  return;
+                }
+                const community = await res.json();
+                router.push(`/communities/${community.id}/manage?card=created`);
+              } catch {
+                router.push('/pricing?card=error');
+              } finally {
+                setFinalizing(false);
+              }
+            }}
+          />
+        )}
+
+        {pickerView === 'picker' && (
+          <CardPickerModal
+            cards={savedCards.map(c => ({
+              id: c.id,
+              cardLastFour: c.cardLastFour,
+              cardBrand: c.cardBrand,
+            }))}
+            selectedId={selectedCardId}
+            // No community exists yet on the new-community flow, so no "currently bound" tag.
+            onCancel={() => setPickerView('none')}
+            onSelect={(id) => {
+              setSelectedCardId(id);
+              setPickerView('confirm');
+            }}
+            onAddNew={() => setPickerView('iframe')}
+          />
+        )}
+
+        {/* Phase 3.3 — iframe-based card tokenization. Mounted on the
+            create-step page so the user stays in flow. The Community row
+            does not exist yet; backend creates it atomically on tokenize
+            success using the pendingId in the Order field. HYP redirects
+            parent to /communities/<id>/manage?card=created. */}
+        {pickerView === 'iframe' && user && pendingId && (
           <HypPaymentIframeModal
             amount={Math.max(1, plan.price)}
             j5="J2"
@@ -265,7 +375,7 @@ function PricingContent() {
             email={user.email}
             userId={user.userId}
             title="הוספת אמצעי תשלום לקהילה"
-            onClose={() => setShowCardModal(false)}
+            onClose={() => setPickerView('none')}
           />
         )}
       </main>

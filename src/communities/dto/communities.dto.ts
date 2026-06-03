@@ -20,6 +20,28 @@ export class CreateCommunityDto {
   @IsOptional() @IsString() @MaxLength(URL_MAX) instagramUrl?: string;
 }
 
+// Existing-card flows (Phase 3.3+): the user picked a card from their
+// wallet instead of tokenizing a new one through HYP. The id is the
+// UserPaymentMethod row id (a cuid), not the HYP token.
+export class BindExistingCardDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(50)
+  paymentMethodId!: string;
+}
+
+export class FinalizeWithExistingCardDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(50)
+  pendingId!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(50)
+  paymentMethodId!: string;
+}
+
 // Pricing-checkout staging: same shape as CreateCommunityDto. Persisted as
 // a PendingCommunityCreation row until the tokenize iframe completes, then
 // promoted to a real Community in the same transaction that binds the card.

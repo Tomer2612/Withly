@@ -20,6 +20,7 @@ import UpdateCardModal from '../../components/UpdateCardModal';
 import HypPaymentIframeModal from '../../components/HypPaymentIframeModal';
 import StickySaveBar from '../../components/StickySaveBar';
 import { getImageUrl } from '@/app/lib/imageUrl';
+import { WITHLY_MONTHLY_PRICE } from '../../lib/pricing';
 
 interface Membership {
   communityId: string;
@@ -1526,7 +1527,7 @@ export default function SettingsPage() {
                 onClose={() => setCommunityToRenew(null)}
                 communityId={communityToRenew.communityId}
                 wasSuspended
-                amount={communityToRenew.price ?? 1}
+                amount={WITHLY_MONTHLY_PRICE}
               />
             )}
 

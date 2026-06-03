@@ -30,6 +30,7 @@ import CancelSubscriptionModal from '../../../components/CancelSubscriptionModal
 import UpdateCardModal from '../../../components/UpdateCardModal';
 import { getImageUrl } from '@/app/lib/imageUrl';
 import StickySaveBar from '../../../components/StickySaveBar';
+import { WITHLY_MONTHLY_PRICE } from '../../../lib/pricing';
 
 interface Community {
   id: string;
@@ -54,9 +55,6 @@ interface Community {
   subscriptionCancelledAt: string | null;
 }
 
-// Withly platform fee per community per month. Hardcoded for the single-plan
-// rollout — when we introduce tiers this becomes a per-plan lookup.
-const WITHLY_MONTHLY_PRICE = 99;
 const TRIAL_LENGTH_MONTHS = 1;
 
 const addMonths = (d: Date, n: number): Date => {
@@ -2167,7 +2165,7 @@ export default function ManageCommunityPage() {
             onClose={() => setShowCardModal(false)}
             communityId={communityId}
             wasSuspended={isSuspended}
-            amount={price}
+            amount={WITHLY_MONTHLY_PRICE}
           />
 
 
