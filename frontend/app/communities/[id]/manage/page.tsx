@@ -954,7 +954,7 @@ export default function ManageCommunityPage() {
         CANNOT_DRAFT_WITH_MEMBERS:
           'לא ניתן להעביר למצב טיוטה כשיש חברים בקהילה. ניתן להעביר לפרטית או לבטל את המנוי.',
         PAYMENT_METHOD_REQUIRED:
-          'חובה להוסיף אמצעי תשלום לפני פרסום הקהילה.',
+          'יש להוסיף אמצעי תשלום לפני פרסום הקהילה.',
       };
       const friendly = knownErrors[err?.message];
       if (!friendly) {

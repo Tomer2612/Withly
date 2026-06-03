@@ -133,7 +133,7 @@ export default function CardPickerModal({
           >
             <div className="flex items-center gap-3">
               <PlusIcon className="flex-shrink-0" size={18} color="var(--color-black)" />
-              <span style={{ fontSize: '16px', color: 'var(--color-black)' }}>הוסף כרטיס חדש</span>
+              <span style={{ fontSize: '16px', color: 'var(--color-black)' }}>הוספת כרטיס חדש</span>
             </div>
           </button>
         </div>

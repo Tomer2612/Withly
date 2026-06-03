@@ -489,9 +489,9 @@ export class EmailService {
   ): Promise<void> {
     const subject = `שינוי מחיר בקהילה "${communityName}"`;
     const lines = [
-      `ברצוננו להודיע כי החל מ-${effectiveDate}, המחיר החודשי של הקהילה "${communityName}" ישתנה מ-${oldPrice}₪ ל-${newPrice}₪ בחודש.`,
+      `החל מ-${effectiveDate}, המחיר החודשי של הקהילה "${communityName}" ישתנה מ-${oldPrice}₪ ל-${newPrice}₪ בחודש.`,
       `המנוי הנוכחי ימשיך לפעול במחיר הנוכחי (${oldPrice}₪) עד למועד המעבר. אין צורך בפעולה כדי להמשיך כרגיל.`,
-      `במידה ותרצו לבטל את המנוי לפני המעבר, ניתן לעשות זאת דרך הגדרות החשבון.`,
+      `לביטול המנוי לפני המעבר, ניתן לעשות זאת דרך הגדרות החשבון.`,
     ];
     const bodyContent = this.buildLifecycleBody(name, lines, {
       label: 'ניהול מנויים',
@@ -514,8 +514,8 @@ export class EmailService {
     const subject = `תזכורת — מחיר הקהילה "${communityName}" משתנה בעוד 7 ימים`;
     const lines = [
       `זוהי תזכורת — בעוד 7 ימים, ב-${effectiveDate}, המחיר החודשי של הקהילה "${communityName}" ישתנה ל-${newPrice}₪ בחודש.`,
-      `החיוב הבא יתבצע במחיר החדש. אם תרצו להמשיך, אין צורך בפעולה.`,
-      `במידה ותרצו לבטל את המנוי לפני המעבר, ניתן לעשות זאת דרך הגדרות החשבון.`,
+      `החיוב הבא יתבצע במחיר החדש. להמשך כרגיל, אין צורך בפעולה.`,
+      `לביטול המנוי לפני המעבר, ניתן לעשות זאת דרך הגדרות החשבון.`,
     ];
     const bodyContent = this.buildLifecycleBody(name, lines, {
       label: 'ניהול מנויים',
@@ -543,11 +543,11 @@ export class EmailService {
       `מומלץ להשלים את הגדרות הקהילה לפני שמזמינים את החברים.`,
     ];
     const bodyContent = this.buildLifecycleBody(name, lines, {
-      label: 'עבור לקהילה שלי',
+      label: 'מעבר לקהילה שלי',
       url: `${this.frontendUrl}/communities/${communityId}/manage`,
     });
     const htmlBody = this.buildEmailHtml(bodyContent);
-    const textBody = `שלום ${name},\n\n${lines.join('\n\n')}\n\nעבור לקהילה: ${this.frontendUrl}/communities/${communityId}/manage\n\nבברכה,\nצוות Withly`;
+    const textBody = `שלום ${name},\n\n${lines.join('\n\n')}\n\nמעבר לקהילה: ${this.frontendUrl}/communities/${communityId}/manage\n\nבברכה,\nצוות Withly`;
     await this.sendEmail(email, subject, htmlBody, textBody);
   }
 
@@ -585,7 +585,7 @@ export class EmailService {
     const subject = `תזכורת — הקהילה "${communityName}" תושעה בעוד 7 ימים`;
     const lines = [
       `זוהי תזכורת — בעוד 7 ימים, ב-${suspensionDate}, הקהילה שלך "${communityName}" תושעה בעקבות ביטול המנוי.`,
-      `אם שינית את דעתך, ניתן לחדש את המנוי בכל עת והקהילה תמשיך לפעול ללא הפסקה.`,
+      `לשינוי ההחלטה, ניתן לחדש את המנוי בכל עת והקהילה תמשיך לפעול ללא הפסקה.`,
     ];
     const bodyContent = this.buildLifecycleBody(name, lines, {
       label: 'חידוש מנוי',
