@@ -4,6 +4,7 @@ import { PrismaService } from '../common/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../common/storage.service';
 import { EmailService } from '../email/email.service';
+import { HypService } from '../payments/hyp.service';
 
 // Hebrew dd.M.yyyy format — matches the format used in lifecycle email
 // triggers in CommunitiesService. Kept local here to avoid a cross-module
@@ -21,11 +22,14 @@ export class CommunityBillingCronService {
     private notificationsService: NotificationsService,
     private storageService: StorageService,
     private emailService: EmailService,
+    private hypService: HypService,
   ) {}
 
-  // Midnight Israel time. Owns the two time-based transitions that used to
-  // be lazy-flipped on read in CommunitiesService.findById. HYP webhook still
-  // owns the SUSPENDED → ACTIVE direction; this is only the forward edges.
+  // Midnight Israel time. Owns the time-based transitions that used to
+  // be lazy-flipped on read in CommunitiesService.findById, plus the
+  // Phase 4 recurring SOFT charges. Order matters slightly — we apply
+  // cancellations and price changes BEFORE running monthly charges so
+  // a community cancelled today doesn't get charged today.
   @Cron('0 0 * * *', { timeZone: 'Asia/Jerusalem' })
   async handleDailyBillingTransitions() {
     this.logger.log('Running daily community billing transitions');
@@ -35,6 +39,7 @@ export class CommunityBillingCronService {
     await this.cleanupAbandonedPendingCheckouts();
     await this.sendPriceChangeReminders();
     await this.sendSuspensionReminders();
+    await this.applyMonthlyOwnerCharges();
   }
 
   private async applyDueOwnerCancellations() {
@@ -298,6 +303,201 @@ export class CommunityBillingCronService {
     if (due.length > 0) {
       this.logger.log(`Sent suspension reminders for ${due.length} community/communities`);
     }
+  }
+
+  // Phase 4 — recurring SOFT charges for owner-billed communities. Picks
+  // up communities whose nextBillingDate has rolled over and runs
+  // hypService.softCharge() with the owner's plan price. Success advances
+  // the billing cycle by 1 month; failure suspends the community
+  // immediately (per the simple "suspend-on-first-failure" design we
+  // landed on — no auto-retry, owner re-binds card to reactivate via the
+  // existing manage-card flow). Communities without paymentMethodId,
+  // expiry, or token are skipped (logged) — they should never appear
+  // here post-Phase-3.3 restructure, but defensive.
+  private async applyMonthlyOwnerCharges() {
+    const now = new Date();
+    const due = await this.prisma.community.findMany({
+      where: {
+        subscriptionStatus: 'ACTIVE',
+        subscriptionCancelledAt: null,
+        nextBillingDate: { lte: now, not: null },
+        paymentMethodId: { not: null },
+      },
+      select: {
+        id: true,
+        name: true,
+        ownerId: true,
+        nextBillingDate: true,
+        paymentMethod: {
+          select: {
+            hypPaymentMethodId: true,
+            cardExpMonth: true,
+            cardExpYear: true,
+            cardLastFour: true,
+          },
+        },
+        owner: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            plan: { select: { monthlyPriceILS: true } },
+          },
+        },
+      },
+    });
+
+    for (const c of due) {
+      await this.processOwnerCharge(c, now);
+    }
+
+    if (due.length > 0) {
+      this.logger.log(`Processed ${due.length} owner monthly charge(s)`);
+    }
+  }
+
+  // One iteration of the SOFT charge loop. Extracted so per-row failures
+  // (validation, network, HYP rejection) don't break the whole batch.
+  private async processOwnerCharge(
+    c: {
+      id: string;
+      name: string;
+      ownerId: string;
+      nextBillingDate: Date | null;
+      paymentMethod: {
+        hypPaymentMethodId: string | null;
+        cardExpMonth: number | null;
+        cardExpYear: number | null;
+        cardLastFour: string;
+      } | null;
+      owner: {
+        id: string;
+        email: string;
+        name: string | null;
+        plan: { monthlyPriceILS: number } | null;
+      } | null;
+    },
+    now: Date,
+  ) {
+    // Defensive validations — these should never trip post-Phase 3.3.
+    if (
+      !c.paymentMethod?.hypPaymentMethodId
+      || c.paymentMethod.cardExpMonth == null
+      || c.paymentMethod.cardExpYear == null
+    ) {
+      this.logger.error(`Community ${c.id}: missing token/expiry; skipping`);
+      return;
+    }
+    if (!c.owner?.plan?.monthlyPriceILS) {
+      this.logger.error(`Community ${c.id}: owner missing plan; skipping`);
+      return;
+    }
+    if (!c.nextBillingDate) {
+      this.logger.error(`Community ${c.id}: missing nextBillingDate; skipping`);
+      return;
+    }
+
+    // Card expiry pre-check. HYP will reject anyway, but failing here gives
+    // a clean log message and skips the network round-trip.
+    const expYM = c.paymentMethod.cardExpYear * 100 + c.paymentMethod.cardExpMonth;
+    const nowYM = now.getFullYear() * 100 + (now.getMonth() + 1);
+    if (expYM < nowYM) {
+      this.logger.warn(
+        `Community ${c.id}: card expired ${c.paymentMethod.cardExpMonth}/${c.paymentMethod.cardExpYear}, suspending`,
+      );
+      await this.handleChargeFailure(c, 'CARD_EXPIRED', now);
+      return;
+    }
+
+    // Attempt the charge. Network errors bubble out as a thrown
+    // InternalServerErrorException from HypService — we catch and log;
+    // the community stays ACTIVE so next cron pass retries.
+    let result: Awaited<ReturnType<HypService['softCharge']>>;
+    try {
+      result = await this.hypService.softCharge({
+        token: c.paymentMethod.hypPaymentMethodId,
+        amount: c.owner.plan.monthlyPriceILS,
+        cardExpMonth: c.paymentMethod.cardExpMonth,
+        cardExpYear: c.paymentMethod.cardExpYear,
+        clientName: c.owner.name ?? c.owner.email,
+        email: c.owner.email,
+        order: `owner-monthly-${c.id}-${Date.now()}`,
+        info: `Monthly charge for community "${c.name}"`,
+      });
+    } catch (err) {
+      this.logger.error(
+        `Community ${c.id}: SOFT charge threw (network/gateway?), leaving ACTIVE for next pass: ${(err as Error).message}`,
+      );
+      return;
+    }
+
+    if (result.ok) {
+      // Success — advance the billing cycle by 1 month.
+      const prevBillingDate = c.nextBillingDate;
+      const nextBillingDate = new Date(prevBillingDate);
+      nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
+      await this.prisma.community.update({
+        where: { id: c.id },
+        data: {
+          nextBillingDate,
+          currentPeriodStart: prevBillingDate,
+          currentPeriodEnd: nextBillingDate,
+        },
+      });
+      this.logger.log(
+        `Charged owner ${c.owner.email} ₪${c.owner.plan.monthlyPriceILS} for community ${c.id} ` +
+        `(${c.name}): hypId=${result.body.Id}, next=${nextBillingDate.toISOString()}`,
+      );
+    } else {
+      await this.handleChargeFailure(c, `CCode=${result.ccode}`, now);
+    }
+  }
+
+  // Common failure path: flip to SUSPENDED + bell-icon for owner + email
+  // for owner + suspended notification for all members.
+  private async handleChargeFailure(
+    c: {
+      id: string;
+      name: string;
+      ownerId: string;
+      owner: {
+        email: string;
+        name: string | null;
+        plan: { monthlyPriceILS: number } | null;
+      } | null;
+    },
+    reason: string,
+    now: Date,
+  ) {
+    await this.prisma.community.update({
+      where: { id: c.id },
+      data: { subscriptionStatus: 'SUSPENDED', suspendedAt: now },
+    });
+
+    // Owner notification (bell + email). Fire-and-forget — DB state is
+    // already correct; comm failures shouldn't roll back the suspension.
+    await this.notificationsService.notifyPaymentFailed(c.ownerId, c.id).catch(() => {});
+    if (c.owner?.email && c.owner.plan?.monthlyPriceILS) {
+      try {
+        await this.emailService.sendPaymentFailedEmail(
+          c.owner.email,
+          c.owner.name ?? c.owner.email,
+          c.name,
+          c.id,
+          c.owner.plan.monthlyPriceILS,
+        );
+      } catch (err) {
+        this.logger.warn(
+          `Payment-failed email error for ${c.id}: ${(err as Error).message}`,
+        );
+      }
+    }
+
+    // Members get the existing COMMUNITY_SUSPENDED fan-out so their
+    // access disappears with context (matches the manual-cancel path).
+    await this.notifyMembersSuspended(c.id, c.ownerId).catch(() => {});
+
+    this.logger.warn(`Suspended community ${c.id} due to charge failure (${reason})`);
   }
 
   private async notifyMembersSuspended(communityId: string, ownerId: string) {

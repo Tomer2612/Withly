@@ -4,11 +4,12 @@ import { CommunitiesController } from './communities.controller';
 import { CommunityBillingCronService } from './community-billing-cron.service';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { EmailModule } from '../email/email.module';
+import { HypModule } from '../payments/hyp.module';
 
 @Module({
   providers: [CommunitiesService, CommunityBillingCronService],
   controllers: [CommunitiesController],
-  imports: [NotificationsModule, EmailModule],
+  imports: [NotificationsModule, EmailModule, HypModule],
   exports: [CommunitiesService],
 })
 export class CommunitiesModule {}

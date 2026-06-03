@@ -814,6 +814,19 @@ export class CommunitiesService {
       throw new ForbiddenException('Pending checkout belongs to a different user');
     }
 
+    // Seed nextBillingDate = trialStart + plan.trialLengthMonths so the
+    // Phase 4 cron has a clean trigger when the trial ends. Falls back to
+    // 1 month if the user has no plan (shouldn't happen post-restructure
+    // but defensive).
+    const owner = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { plan: { select: { trialLengthMonths: true } } },
+    });
+    const trialLengthMonths = owner?.plan?.trialLengthMonths ?? 1;
+    const trialStartDate = new Date();
+    const nextBillingDate = new Date(trialStartDate);
+    nextBillingDate.setMonth(nextBillingDate.getMonth() + trialLengthMonths);
+
     const community = await this.prisma.$transaction(async (tx) => {
       const created = await tx.community.create({
         data: {
@@ -831,7 +844,10 @@ export class CommunitiesService {
           galleryImages: pending.galleryImages,
           galleryVideos: pending.galleryVideos,
           showOnlineMembers: pending.showOnlineMembers,
-          trialStartDate: new Date(),
+          trialStartDate,
+          // First SOFT charge fires when nextBillingDate <= now. Cron
+          // picks it up; success advances by 1 month; failure suspends.
+          nextBillingDate,
           // Bind card immediately — atomicity is the whole point. Use the
           // scalar FK column directly so we can keep ownerId as a scalar
           // too (Prisma forbids mixing nested-connect with scalar FKs in

@@ -596,6 +596,33 @@ export class EmailService {
     await this.sendEmail(email, subject, htmlBody, textBody);
   }
 
+  // #6 — Phase 4 monthly SOFT charge failed. Community has already been
+  // suspended by the cron at the moment this email fires; owner needs
+  // to update the payment method to reactivate. No auto-retry in the
+  // current design (suspend-on-first-failure), so the copy avoids
+  // promising a next attempt date.
+  async sendPaymentFailedEmail(
+    email: string,
+    name: string,
+    communityName: string,
+    communityId: string,
+    monthlyPriceILS: number,
+  ): Promise<void> {
+    const subject = `התשלום החודשי לא עבר — הקהילה "${communityName}" הושעתה`;
+    const lines = [
+      `ניסינו לחייב את אמצעי התשלום עבור הקהילה "${communityName}" בסכום של ₪${monthlyPriceILS}, אך החיוב לא עבר.`,
+      `הקהילה הושעתה, והחברים לא יוכלו להיכנס עד שהמנוי יחודש.`,
+      `לחידוש הגישה, יש לעדכן את אמצעי התשלום.`,
+    ];
+    const bodyContent = this.buildLifecycleBody(name, lines, {
+      label: 'עדכון אמצעי תשלום',
+      url: `${this.frontendUrl}/communities/${communityId}/manage`,
+    });
+    const htmlBody = this.buildEmailHtml(bodyContent);
+    const textBody = `שלום ${name},\n\n${lines.join('\n\n')}\n\nעדכון אמצעי תשלום: ${this.frontendUrl}/communities/${communityId}/manage\n\nבברכה,\nצוות Withly`;
+    await this.sendEmail(email, subject, htmlBody, textBody);
+  }
+
   // #12 — Account-deletion confirmation. Sent BEFORE the user row is
   // deleted (caller must capture email + name first, then delete).
   // No CTA — there's nothing to come back to.

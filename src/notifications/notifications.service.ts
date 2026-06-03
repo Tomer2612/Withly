@@ -347,6 +347,19 @@ export class NotificationsService {
     });
   }
 
+  // Phase 4 — fired by the daily billing cron when a recurring SOFT
+  // charge fails and the community gets suspended as a result. Owner-
+  // facing only (members get the existing COMMUNITY_SUSPENDED fan-out).
+  // No actor: this is a system event triggered by the cron, not by
+  // another user. Unconditional — owner cannot opt out of billing alerts.
+  async notifyPaymentFailed(recipientUserId: string, communityId: string) {
+    return this.createUnconditional({
+      type: 'PAYMENT_FAILED',
+      recipientId: recipientUserId,
+      communityId,
+    });
+  }
+
   // Internal: create + emit without checking the user's preference flags.
   // Used for moderation events the recipient cannot opt out of.
   private async createUnconditional(data: {
