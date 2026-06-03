@@ -576,7 +576,7 @@ export class UsersService {
   // (TRIAL_LENGTH_MONTHS, getNextBillingDate, getCancellationEffectiveDate,
   // WITHLY_MONTHLY_PRICE). Placeholder until HYP supplies authoritative
   // billing dates and per-tier pricing — see HYP follow-up #11.
-  private readonly TRIAL_LENGTH_MONTHS = 3;
+  private readonly TRIAL_LENGTH_MONTHS = 1;
   private readonly WITHLY_MONTHLY_PRICE = 99;
   private addMonths(d: Date, n: number): Date {
     const r = new Date(d);

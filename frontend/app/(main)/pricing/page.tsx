@@ -74,7 +74,7 @@ const COMMUNITY_TOPICS = [
 const faqs: FAQ[] = [
   {
     question: 'האם אפשר לנסות את המערכת לפני שמתחייבים?',
-answer: 'בטח. יש לכם 3 חודשי התנסות בחינם שבהם תוכלו להקים את הקהילה, לשחק עם הפיצ\'\'רים ולראות איך הכל עובד, ללא שום התחייבות.',
+answer: 'בטח. יש לכם חודש התנסות בחינם שבו תוכלו להקים את הקהילה, לשחק עם הפיצ\'\'רים ולראות איך הכל עובד, ללא שום התחייבות.',
   },
   {
     question: 'יש הגבלה על קורסים, וידאו או תכנים?',
@@ -321,7 +321,7 @@ function PricingContent() {
             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1A1A1A'}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'black'}
           >
-            נסו חינם ל-3 חודשים
+            נסו חינם לחודש
           </button>
         </div>
       </section>

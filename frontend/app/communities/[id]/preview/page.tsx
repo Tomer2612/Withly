@@ -436,7 +436,7 @@ function CommunityPreviewContent() {
                     )}
                   </button>
                   {joinPrice(community) > 0 ? (
-                    <p className="text-xs text-gray-500 text-center mt-2">₪{joinPrice(community)} לחודש • 3 חודשי ניסיון חינם</p>
+                    <p className="text-xs text-gray-500 text-center mt-2">₪{joinPrice(community)} לחודש • חודש ניסיון חינם</p>
                   ) : null}
                 </>
               )}
@@ -643,7 +643,7 @@ function CommunityPreviewContent() {
               <CloseIcon className="w-5 h-5" />
             </button>
 
-            <h2 className="text-2xl font-bold text-center mb-8">מתחילים 3 חודשי ניסיון חינם</h2>
+            <h2 className="text-2xl font-bold text-center mb-8">מתחילים חודש ניסיון חינם</h2>
 
             <CreditCardForm
               cardNumber={cardNumber}

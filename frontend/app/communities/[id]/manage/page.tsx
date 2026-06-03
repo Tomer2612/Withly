@@ -57,7 +57,7 @@ interface Community {
 // Withly platform fee per community per month. Hardcoded for the single-plan
 // rollout — when we introduce tiers this becomes a per-plan lookup.
 const WITHLY_MONTHLY_PRICE = 99;
-const TRIAL_LENGTH_MONTHS = 3;
+const TRIAL_LENGTH_MONTHS = 1;
 
 const addMonths = (d: Date, n: number): Date => {
   const r = new Date(d);
@@ -2011,7 +2011,7 @@ export default function ManageCommunityPage() {
                     </div>
                     {isInTrial(trialStartDate) && (
                       <p className="text-[16px] font-normal text-black mt-3 leading-relaxed">
-                        {`תקופת הניסיון שלך (${TRIAL_LENGTH_MONTHS} חודשים) מסתיימת ב-${formatHebrewDate(getTrialEnd(trialStartDate)!)}. החל מאותו תאריך יחויב אמצעי התשלום שלך ב-₪${WITHLY_MONTHLY_PRICE} לחודש.`}
+                        {`תקופת הניסיון שלך (חודש) מסתיימת ב-${formatHebrewDate(getTrialEnd(trialStartDate)!)}. החל מאותו תאריך יחויב אמצעי התשלום שלך ב-₪${WITHLY_MONTHLY_PRICE} לחודש.`}
                       </p>
                     )}
                   </div>
