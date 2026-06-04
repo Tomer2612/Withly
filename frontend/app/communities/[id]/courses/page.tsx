@@ -26,11 +26,13 @@ interface Course {
   totalLessons: number;
   totalDuration: number;
   isPublished: boolean;
+  // Nullable: when the original instructor deletes their account, the course
+  // survives via SetNull anonymization (Phase 5 Mission 2).
   author: {
     id: string;
     name: string;
     profileImage: string | null;
-  };
+  } | null;
   enrollment: {
     progress: number;
     completedAt: string | null;
@@ -166,12 +168,12 @@ export default function CoursesPage() {
   const canEditCourse = (course: Course) => {
     if (!userId) return false;
     // Only the course author can edit/delete
-    return course.author.id === userId;
+    return course.author?.id === userId;
   };
-  const inProgressCourses = courses.filter(c => c.enrollment && !c.enrollment.completedAt && c.author.id !== userId);
-  const completedCourses = courses.filter(c => c.enrollment?.completedAt && c.author.id !== userId);
-  const allCourses = courses.filter(c => c.isPublished || c.author.id === userId);
-  const myCourses = courses.filter(c => c.author.id === userId);
+  const inProgressCourses = courses.filter(c => c.enrollment && !c.enrollment.completedAt && c.author?.id !== userId);
+  const completedCourses = courses.filter(c => c.enrollment?.completedAt && c.author?.id !== userId);
+  const allCourses = courses.filter(c => c.isPublished || c.author?.id === userId);
+  const myCourses = courses.filter(c => c.author?.id === userId);
 
   // Filter by search query
   const filterBySearch = (courseList: Course[]) => {
@@ -180,7 +182,7 @@ export default function CoursesPage() {
     return courseList.filter(c => 
       c.title.toLowerCase().includes(query) || 
       c.description?.toLowerCase().includes(query) ||
-      c.author.name?.toLowerCase().includes(query)
+      c.author?.name?.toLowerCase().includes(query)
     );
   };
 
@@ -397,7 +399,7 @@ export default function CoursesPage() {
                   </p>
 
                   {/* Progress Bar - Hidden for author's own courses */}
-                  {course.author.id !== userId && (
+                  {course.author?.id !== userId && (
                     <div className="mt-3">
                       <div className="flex items-center justify-between text-sm mb-2">
                         <span className="text-gray-500">התקדמות</span>

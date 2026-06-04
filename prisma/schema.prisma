@@ -195,7 +195,7 @@ model Notification {
   communityId String?
   isRead      Boolean          @default(false)
   createdAt   DateTime         @default(now())
-  actor       User?            @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+  actor       User?            @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
   recipient   User             @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
 
   @@index([recipientId, isRead])
@@ -307,7 +307,10 @@ model Post {
   id          String      @id @default(cuid())
   content     String
   createdAt   DateTime    @default(now())
-  authorId    String
+  // Nullable to support author-account-deletion anonymization (Phase 5
+  // Mission 2). NULL means the original author deleted their account;
+  // the post survives in the community feed as "משתמש שנמחק".
+  authorId    String?
   communityId String
   title       String?
   isPinned    Boolean     @default(false)
@@ -317,7 +320,7 @@ model Post {
   videos      String[]
   links       String[]
   category    String?
-  author      User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author      User?       @relation(fields: [authorId], references: [id], onDelete: SetNull)
   community   Community   @relation(fields: [communityId], references: [id], onDelete: Cascade)
   comments    Comment[]
   likes       Like[]
@@ -353,10 +356,12 @@ model PollOption {
 model PollVote {
   id        String     @id @default(cuid())
   optionId  String
-  userId    String
+  // Nullable for voter-deletion anonymization (Phase 5 Mission 2).
+  // Preserves vote counts after the voter deletes their account.
+  userId    String?
   createdAt DateTime   @default(now())
   option    PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@unique([optionId, userId])
   @@map("poll_votes")
@@ -365,10 +370,12 @@ model PollVote {
 model Like {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
-  userId    String
+  // Nullable for liker-deletion anonymization (Phase 5 Mission 2).
+  // Preserves like counts after the liker deletes their account.
+  userId    String?
   postId    String
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@unique([userId, postId])
   @@index([postId])
@@ -379,10 +386,11 @@ model Comment {
   id        String   @id @default(cuid())
   content   String
   createdAt DateTime @default(now())
-  userId    String
+  // Nullable for author-deletion anonymization (Phase 5 Mission 2).
+  userId    String?
   postId    String
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([postId])
   @@map("comments")
@@ -489,10 +497,11 @@ model Course {
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
   communityId String
-  authorId    String
+  // Nullable for author-deletion anonymization (Phase 5 Mission 2).
+  authorId    String?
   chapters    Chapter[]
   enrollments CourseEnrollment[]
-  author      User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author      User?              @relation(fields: [authorId], references: [id], onDelete: SetNull)
   community   Community          @relation(fields: [communityId], references: [id], onDelete: Cascade)
 
   @@index([communityId])

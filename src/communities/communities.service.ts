@@ -1812,18 +1812,21 @@ export class CommunitiesService {
     for (const id of memberIds) pointsMap.set(id, 0);
 
     // Posts use authorId, the rest use userId.
+    // Skip rows with NULL author/user — these are from deleted accounts
+    // (Phase 5 Mission 2 anonymization). Their engagement doesn't count
+    // toward any live member's points.
     for (const row of postCounts) {
-      if (memberIds.has(row.authorId)) {
+      if (row.authorId && memberIds.has(row.authorId)) {
         pointsMap.set(row.authorId, (pointsMap.get(row.authorId) ?? 0) + row._count._all * 5);
       }
     }
 
     const addUserPoints = (
-      rows: Array<{ userId: string; _count: { _all: number } }>,
+      rows: Array<{ userId: string | null; _count: { _all: number } }>,
       multiplier: number,
     ) => {
       for (const row of rows) {
-        if (memberIds.has(row.userId)) {
+        if (row.userId && memberIds.has(row.userId)) {
           pointsMap.set(row.userId, (pointsMap.get(row.userId) ?? 0) + row._count._all * multiplier);
         }
       }

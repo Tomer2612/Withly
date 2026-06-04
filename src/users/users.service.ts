@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, ConflictException, NotFoundException, 
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { EmailService } from '../email/email.service';
+import { StorageService } from '../common/storage.service';
 import * as bcrypt from 'bcrypt';
 import { ERROR_MESSAGES } from '../common/messages';
 
@@ -12,6 +13,7 @@ export class UsersService {
   constructor(
     private prisma: PrismaService,
     private emailService: EmailService,
+    private storageService: StorageService,
   ) {}
 
   // Search users by name for @mentions
@@ -61,6 +63,7 @@ export class UsersService {
         name: true,
         password: true,
         profileImage: true,
+        coverImage: true,
         googleId: true,
         showOnline: true,
       },
@@ -198,17 +201,43 @@ export class UsersService {
       throw new BadRequestException('User not found');
     }
 
-    // Capture identity BEFORE the cascade — once the row is deleted
-    // we can't look up the email to send the confirmation. Email is
-    // sent after delete succeeds so failed deletions don't send a
-    // "your account is gone" message about an account that still exists.
+    // Capture identity + personal R2 file URLs BEFORE the cascade — once
+    // the row is deleted we can't look them up. Personal files only
+    // (profile/cover images). Content the user authored (post images,
+    // course videos, etc.) lives on with the post/course rows under the
+    // SetNull anonymization (Phase 5 Mission 2) and keeps its files.
     const email = user.email;
     const displayName = user.name ?? user.email;
+    const personalFiles = [user.profileImage, user.coverImage].filter(
+      (f): f is string => typeof f === 'string' && f.length > 0,
+    );
 
-    // Delete user - cascade will handle related records
+    // Delete user — cascade handles Cascade-marked relations (RefreshToken,
+    // UserPaymentMethod, CommunityMember, CourseEnrollment, etc.); SetNull
+    // relations (Post.authorId, Comment.userId, Like.userId, PollVote.userId,
+    // Course.authorId, Notification.actorId) drop the FK so content survives
+    // anonymized.
     await this.prisma.user.delete({
       where: { id: user.id },
     });
+
+    // R2 cleanup — fire-and-forget. Best-effort: a single failed delete
+    // shouldn't roll back the account deletion or surface to the caller.
+    if (personalFiles.length > 0) {
+      void Promise.allSettled(
+        personalFiles.map((f) => this.storageService.deleteFile(f)),
+      ).then((results) => {
+        for (let i = 0; i < results.length; i++) {
+          if (results[i].status === 'rejected') {
+            this.logger.warn(
+              `R2 deleteFile failed for ${personalFiles[i]} (userId=${userId}): ${
+                (results[i] as PromiseRejectedResult).reason
+              }`,
+            );
+          }
+        }
+      });
+    }
 
     // #12 — fire-and-forget confirmation email. Delete already succeeded;
     // a Resend hiccup shouldn't make us bring the user "back" or alarm

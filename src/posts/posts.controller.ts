@@ -250,8 +250,10 @@ export class PostsController {
     const userId = req.user.userId;
     const result = await this.postsService.toggleLike(postId, userId);
     
-    // Send notification if liked (not unliked)
-    if (result.liked && result.post) {
+    // Send notification if liked (not unliked). Skip when the post author
+    // has been anonymized (Phase 5 Mission 2 — deleted account) — there's
+    // nobody to notify.
+    if (result.liked && result.post && result.post.authorId) {
       await this.notificationsService.notifyLike(
         result.post.authorId,
         userId,
@@ -296,8 +298,9 @@ export class PostsController {
     const userId = req.user.userId;
     const comment = await this.postsService.createComment(postId, userId, body.content);
     
-    // Send notification to post author
-    if (comment.post) {
+    // Send notification to post author. Skip when anonymized (Phase 5
+    // Mission 2 — deleted account).
+    if (comment.post && comment.post.authorId) {
       await this.notificationsService.notifyComment(
         comment.post.authorId,
         userId,

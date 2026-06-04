@@ -112,7 +112,7 @@ const COMMUNITY_AVATAR_TYPES = new Set<GroupedNotification['type']>([
 
 const getGroupedNotificationText = (group: GroupedNotification) => {
   const count = group.notifications.length;
-  const firstActor = group.notifications[0]?.actor?.name || 'משתמש';
+  const firstActor = group.notifications[0]?.actor?.name || 'משתמש שנמחק';
 
   switch (group.type) {
     case 'LIKE':

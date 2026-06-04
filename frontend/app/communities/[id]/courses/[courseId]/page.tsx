@@ -70,8 +70,9 @@ interface Course {
   totalLessons: number;
   totalDuration: number;
   isPublished: boolean;
-  authorId: string;
-  author: { id: string; name: string; profileImage: string | null };
+  // Nullable: SetNull anonymization after instructor account deletion (Phase 5 Mission 2).
+  authorId: string | null;
+  author: { id: string; name: string; profileImage: string | null } | null;
   community: { id: string; name: string; ownerId: string; logo?: string | null };
   chapters: Chapter[];
   enrollment: { progress: number; completedAt: string | null } | null;
