@@ -99,6 +99,14 @@ export class HypService {
       PassP: this.passp,
       Amount: input.amount.toString(),
       Coin: '1', // 1 = ILS
+      // Force a single payment and remove the "לחלק לתשלומים" chooser. Per HYP
+      // docs, installments are driven by Tash (max payments) + FixTash (lock to
+      // an exact count). The chooser was surfacing from a terminal-level default
+      // even though we never send Tash; passing Tash=1 + FixTash=True overrides
+      // it so every Withly page is a clean one-time charge. Withly never offers
+      // installments on any flow, so this is applied unconditionally.
+      Tash: '1',
+      FixTash: 'True',
       PageLang: 'HEB', // HYP expects HEB / ENG (not ISO he/en)
       SendHesh: 'True', // Trigger automatic receipt + customer email after charge
       ClientName: input.clientName,
@@ -107,13 +115,14 @@ export class HypService {
       ...(input.info ? { Info: input.info } : {}),
       ...(input.bof ? { BOF: 'True' } : {}),
       ...(input.j5 ? { J5: input.j5 } : {}),
-      // tmp=17 is HYP's hidden-amount template designed specifically for
-      // J5=J2 card-validation flows (HYP-confirmed 2026-06-02). Pairing
-      // them suppresses the amount line on the page entirely — which is
-      // what we want for "save card, no charge" UX. Don't apply outside
-      // J5=J2 since this template is purpose-built and may not render
-      // correctly for actual charge flows.
-      ...(input.j5 === 'J2' ? { tmp: '17' } : {}),
+      // TEMP TEST (logo restore): tmp=5 is the card-only single-column
+      // payment template that KEEPS the top header block where the merchant
+      // logo renders. Swapped in from tmp=17 to check whether our uploaded
+      // Withly logo reappears. Tradeoff: tmp=5 un-hides the Amount line — on
+      // J5=J2 tokenization pages that Amount is a placeholder (₪1 for settings
+      // add-card; plan/community price elsewhere), so it can mislead. If the
+      // logo comes back we'll decide per-flow; if not, revert to tmp=17.
+      ...(input.j5 === 'J2' ? { tmp: '5' } : {}),
       // MoreData=True unlocks the extra redirect fields (L4digit, Bank,
       // Brand, etc.) we need to store human-readable card info alongside
       // the token. Baseline-on — useful for logging on every flow.
