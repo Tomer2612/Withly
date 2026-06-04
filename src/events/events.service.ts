@@ -42,8 +42,6 @@ export class EventsService {
       throw new ForbiddenException('Only community managers can create events');
     }
 
-    await this.communitiesService.assertActive(communityId);
-
     // If recurring, create multiple event instances (unlimited until user edits).
     // Wrapped in a transaction so a failure mid-loop rolls everything back
     // instead of leaving N orphans for the user to clean up.
@@ -244,8 +242,6 @@ export class EventsService {
       throw new ForbiddenException('Only community managers can update events');
     }
 
-    await this.communitiesService.assertActive(event.communityId);
-
     return this.prisma.event.update({
       where: { id: eventId },
       data,
@@ -266,8 +262,6 @@ export class EventsService {
       throw new ForbiddenException('Only community managers can delete events');
     }
 
-    await this.communitiesService.assertActive(event.communityId);
-
     return this.prisma.event.delete({
       where: { id: eventId },
     });
@@ -281,8 +275,6 @@ export class EventsService {
     if (!event) {
       throw new NotFoundException('Event not found');
     }
-
-    await this.communitiesService.assertActive(event.communityId);
 
     // Check capacity if going
     if (status === 'GOING' && event.capacity) {
@@ -321,8 +313,6 @@ export class EventsService {
     if (!rsvp) {
       throw new NotFoundException('RSVP not found');
     }
-
-    await this.communitiesService.assertActive(rsvp.event.communityId);
 
     await this.prisma.eventRsvp.delete({
       where: { eventId_userId: { eventId, userId } },

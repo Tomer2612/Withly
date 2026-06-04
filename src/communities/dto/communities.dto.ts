@@ -102,8 +102,8 @@ export class UpdateCommunityDto {
   @IsOptional() @IsIn(['DRAFT', 'PRIVATE', 'PUBLIC']) status?: string;
 }
 
-// Owner-only payment fields. Lives on its own endpoint so the suspended
-// community renewal flow can hit it without tripping assertActive.
+// Owner-only payment fields. Lives on its own endpoint to keep the
+// payment-renewal flow distinct from the regular update endpoint.
 export class UpdatePaymentInfoDto {
   @IsOptional() @IsString() price?: string;
   @IsOptional() @IsString() @MaxLength(20) cardLastFour?: string;
