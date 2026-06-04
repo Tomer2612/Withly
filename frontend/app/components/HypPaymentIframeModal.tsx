@@ -9,6 +9,10 @@ interface Props {
   // 'J2' = card credibility check, no charge (Settings Add-Card pattern).
   // 'True' = 3-day credit-line preservation. Omit for normal charge.
   j5?: 'J2' | 'True';
+  // true → logo template (tmp=5) that also shows the amount; pass only when a
+  // real charge follows immediately (paid member-join). Omit for card-save /
+  // deferred flows, which use the hidden-amount template (tmp=17).
+  showAmount?: boolean;
   // BOF=True makes HYP redirect the parent window (not the iframe) when the
   // payment completes. Required for iframe flows; default true.
   bof?: boolean;
@@ -30,6 +34,7 @@ interface Props {
 export default function HypPaymentIframeModal({
   amount,
   j5,
+  showAmount,
   bof = true,
   orderPrefix,
   clientName,
@@ -56,6 +61,7 @@ export default function HypPaymentIframeModal({
             email,
             order,
             j5,
+            showAmount,
             bof,
           }),
         });

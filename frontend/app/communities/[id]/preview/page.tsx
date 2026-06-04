@@ -785,6 +785,7 @@ function CommunityPreviewContent() {
         <HypPaymentIframeModal
           amount={Math.max(1, joinPrice(community))}
           j5="J2"
+          showAmount
           bof
           orderPrefix={`tokenize-memberJoin-${communityId}`}
           clientName={user.name || user.email}

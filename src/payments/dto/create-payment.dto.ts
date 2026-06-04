@@ -43,4 +43,12 @@ export class CreatePaymentDto {
   @IsOptional()
   @IsIn(['J2', 'True'])
   j5?: 'J2' | 'True';
+
+  // Per-flow template choice for J5=J2 pages. true → tmp=5 (logo + visible
+  // amount), used only where a real charge follows immediately (paid
+  // member-join). Omitted/false → tmp=17 (hidden amount) for card-save /
+  // deferred flows where showing an amount would mislead.
+  @IsOptional()
+  @IsBoolean()
+  showAmount?: boolean;
 }

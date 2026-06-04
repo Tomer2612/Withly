@@ -77,6 +77,7 @@ export class PaymentsController {
       info: body.info ?? `userId:${req.user.userId}`,
       bof: body.bof,
       j5: body.j5,
+      showAmount: body.showAmount,
     });
     return { url };
   }

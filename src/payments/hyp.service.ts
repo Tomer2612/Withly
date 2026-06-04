@@ -37,6 +37,18 @@ interface SignPaymentInput {
    * credit-line preservation. Omit for normal charge.
    */
   j5?: 'J2' | 'True';
+  /**
+   * Template selection for J5=J2 tokenization pages (per-flow, see signPayment):
+   *  - true  → tmp=5: card-only layout that KEEPS the header (Withly logo) AND
+   *            shows the amount. Use only where a real charge follows the
+   *            tokenization immediately (paid member-join), so the visible
+   *            amount is truthful.
+   *  - false/omitted → tmp=17: hidden-amount template for card-save / deferred
+   *            flows (settings add-card ₪1 placeholder, owner free-trial
+   *            checkout, card update) where showing an amount would mislead.
+   * No effect outside J5=J2.
+   */
+  showAmount?: boolean;
 }
 
 export interface GetTokenResult {
@@ -115,14 +127,14 @@ export class HypService {
       ...(input.info ? { Info: input.info } : {}),
       ...(input.bof ? { BOF: 'True' } : {}),
       ...(input.j5 ? { J5: input.j5 } : {}),
-      // TEMP TEST (logo restore): tmp=5 is the card-only single-column
-      // payment template that KEEPS the top header block where the merchant
-      // logo renders. Swapped in from tmp=17 to check whether our uploaded
-      // Withly logo reappears. Tradeoff: tmp=5 un-hides the Amount line — on
-      // J5=J2 tokenization pages that Amount is a placeholder (₪1 for settings
-      // add-card; plan/community price elsewhere), so it can mislead. If the
-      // logo comes back we'll decide per-flow; if not, revert to tmp=17.
-      ...(input.j5 === 'J2' ? { tmp: '5' } : {}),
+      // Per-flow template on J5=J2 tokenization pages (logo restore, verified
+      // 2026-06-04). tmp=5 keeps the header where the Withly logo renders but
+      // also shows the Amount, so it's used ONLY where a real charge follows
+      // immediately (paid member-join, showAmount=true). Everywhere else the
+      // Amount is a placeholder/deferred value (settings add-card ₪1, owner
+      // free-trial checkout, card update) so we fall back to tmp=17, which
+      // hides the amount — at the cost of the logo on those screens.
+      ...(input.j5 === 'J2' ? { tmp: input.showAmount ? '5' : '17' } : {}),
       // MoreData=True unlocks the extra redirect fields (L4digit, Bank,
       // Brand, etc.) we need to store human-readable card info alongside
       // the token. Baseline-on — useful for logging on every flow.
