@@ -27,6 +27,8 @@ export class PostsService {
       // Resolve slug to actual community ID
       const communityId = await this.communitiesService.resolveId(communityIdOrSlug);
 
+      await this.communitiesService.assertActive(communityId);
+
       return await this.prisma.post.create({
         data: { 
           title, 
@@ -168,6 +170,8 @@ export class PostsService {
     if (post.authorId !== userId) {
       throw new ForbiddenException('You can only edit your own posts');
     }
+
+    await this.communitiesService.assertActive(post.communityId);
 
     const updateData: Prisma.PostUpdateInput = { content, title };
     
@@ -318,6 +322,8 @@ export class PostsService {
       throw new ForbiddenException('You can only delete your own posts');
     }
 
+    await this.communitiesService.assertActive(post.communityId);
+
     await this.prisma.post.delete({
       where: { id: postId },
     });
@@ -335,6 +341,8 @@ export class PostsService {
       if (!post) {
         throw new NotFoundException('Post not found');
       }
+      await this.communitiesService.assertActive(post.communityId);
+
       const existingLike = await this.prisma.like.findFirst({
         where: {
           userId,
@@ -397,6 +405,8 @@ export class PostsService {
     if (!post) {
       throw new NotFoundException('Post not found');
     }
+    await this.communitiesService.assertActive(post.communityId);
+
     const comment = await this.prisma.comment.create({
       data: { postId, userId, content },
       include: {
@@ -426,6 +436,8 @@ export class PostsService {
       throw new ForbiddenException('You can only delete your own comments');
     }
 
+    await this.communitiesService.assertActive(comment.post.communityId);
+
     await this.prisma.comment.delete({
       where: { id: commentId },
     });
@@ -448,6 +460,8 @@ export class PostsService {
       throw new ForbiddenException('You can only edit your own comments');
     }
 
+    await this.communitiesService.assertActive(comment.post.communityId);
+
     return this.prisma.comment.update({
       where: { id: commentId },
       data: { content },
@@ -469,6 +483,8 @@ export class PostsService {
       if (!post) {
         throw new NotFoundException('Post not found');
       }
+      await this.communitiesService.assertActive(post.communityId);
+
       const existingSave = await this.prisma.savedPost.findFirst({
         where: {
           userId,
@@ -516,6 +532,8 @@ export class PostsService {
     if (!canManageCommunity(await getEffectiveRole(this.prisma, post.communityId, userId))) {
       throw new ForbiddenException('Only owners and managers can pin posts');
     }
+
+    await this.communitiesService.assertActive(post.communityId);
 
     // Toggle pin status
     const newPinStatus = !post.isPinned;
@@ -635,6 +653,8 @@ export class PostsService {
       throw new ForbiddenException('Poll must have at least 2 options');
     }
 
+    await this.communitiesService.assertActive(post.communityId);
+
     // Create poll with options
     const poll = await this.prisma.poll.create({
       data: {
@@ -682,6 +702,8 @@ export class PostsService {
     if (!poll) {
       throw new NotFoundException('Poll not found');
     }
+
+    await this.communitiesService.assertActive(poll.post.communityId);
 
     // Check if poll has expired
     if (poll.expiresAt && new Date() > poll.expiresAt) {
@@ -767,6 +789,8 @@ export class PostsService {
       throw new NotFoundException('Poll not found');
     }
 
+    await this.communitiesService.assertActive(poll.post.communityId);
+
     // Find and delete user's vote
     const existingVote = await this.prisma.pollVote.findFirst({
       where: {
@@ -833,6 +857,8 @@ export class PostsService {
     if (poll.post.authorId !== userId) {
       throw new ForbiddenException('Only the post author can delete the poll');
     }
+
+    await this.communitiesService.assertActive(poll.post.communityId);
 
     // Delete all votes first, then options, then the poll
     await this.prisma.pollVote.deleteMany({

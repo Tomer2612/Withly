@@ -26,12 +26,11 @@ export class CommunitiesService {
     private hypService: HypService,
   ) {}
 
-  // Phase 5 Mission 1 — Throws ForbiddenException('COMMUNITY_SUSPENDED') if the
-  // community is suspended. Used ONLY to gate NEW JOINS during the suspension
-  // grace period; existing members can keep posting/commenting/attending events
-  // /completing lessons while SUSPENDED (post-Mission-1 looser semantics).
-  // Previously gated all writes — see git history for the old behavior.
-  async assertJoinable(idOrSlug: string): Promise<void> {
+  // Throws ForbiddenException('COMMUNITY_SUSPENDED') if the community's
+  // subscription is suspended. Used to gate writes against community-scoped
+  // content (posts, comments, events, courses, joins). Reads stay open so the
+  // frontend popup can render and the owner can navigate manage tabs.
+  async assertActive(idOrSlug: string): Promise<void> {
     const id = await this.resolveId(idOrSlug);
     const community = await this.prisma.community.findUnique({
       where: { id },
@@ -223,6 +222,27 @@ export class CommunitiesService {
       // Check if user has permission to edit (owner or manager)
       if (!canManageCommunity(await getEffectiveRole(this.prisma, id, userId))) {
         throw new ForbiddenException('Only owners and managers can update the community');
+      }
+
+      // Block edits when SUSPENDED, except payment-only updates (renewal flow).
+      // The dedicated PATCH /:id/payment endpoint is preferred; this branch
+      // keeps legacy callers working until the frontend migrates.
+      const hasNonPaymentChange =
+        name !== undefined ||
+        description !== undefined ||
+        image !== undefined ||
+        logo !== undefined ||
+        topic !== undefined ||
+        youtubeUrl !== undefined ||
+        whatsappUrl !== undefined ||
+        facebookUrl !== undefined ||
+        instagramUrl !== undefined ||
+        galleryImages !== undefined ||
+        galleryVideos !== undefined ||
+        showOnlineMembers !== undefined ||
+        status !== undefined;
+      if (hasNonPaymentChange) {
+        await this.assertActive(id);
       }
 
       const updateData: Prisma.CommunityUpdateInput = {};
@@ -1334,7 +1354,7 @@ export class CommunitiesService {
 
       // Block joins on SUSPENDED communities — popup + redirect at the
       // frontend handles members; this is the API-side guard.
-      await this.assertJoinable(communityId);
+      await this.assertActive(communityId);
 
       // Block joins during pending-cancellation too. Existing members are
       // grandfathered until the suspension date; new joiners shouldn't sign
@@ -1505,6 +1525,8 @@ export class CommunitiesService {
       throw new ForbiddenException('Cannot change owner role');
     }
 
+    await this.assertActive(communityId);
+
     // Check target membership exists
     const targetMembership = await this.prisma.communityMember.findUnique({
       where: { userId_communityId: { userId: targetUserId, communityId } },
@@ -1558,6 +1580,8 @@ export class CommunitiesService {
     if (!requesterIsOwner && !requesterIsManager) {
       throw new ForbiddenException('Only owners and managers can remove members');
     }
+
+    await this.assertActive(communityId);
 
     // Check target membership exists
     const targetMembership = await this.prisma.communityMember.findUnique({
@@ -1883,6 +1907,8 @@ export class CommunitiesService {
       throw new ForbiddenException('Only owners and managers can lift bans');
     }
 
+    await this.assertActive(communityId);
+
     // Find the ban
     const ban = await this.prisma.communityBan.findFirst({
       where: { id: banId, communityId },
@@ -1978,6 +2004,8 @@ export class CommunitiesService {
       if (!canManageCommunity(await getEffectiveRole(this.prisma, communityId, userId))) {
         throw new ForbiddenException('Only owners and managers can update community rules');
       }
+
+      await this.assertActive(communityId);
 
       return await this.prisma.community.update({
         where: { id: communityId },
