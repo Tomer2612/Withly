@@ -7,7 +7,6 @@ import { CommunitiesService } from '../communities/communities.service';
 import { EmailService } from '../email/email.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { DunningService } from './dunning.service';
-import { PrismaService } from '../common/prisma.service';
 
 // HYP returns `Bank` as a small integer indicating the card brand. Map to
 // human-readable strings for the stored cardBrand column. Defaults to
@@ -67,7 +66,6 @@ export class PaymentsController {
     private readonly communitiesService: CommunitiesService,
     private readonly emailService: EmailService,
     private readonly dunningService: DunningService,
-    private readonly prisma: PrismaService,
   ) {}
 
   // Returns a signed HYP payment URL the frontend redirects to. The user's
@@ -616,72 +614,6 @@ export class PaymentsController {
       this.logger.warn(`Dunning-recovered email failed (userId=${userId}): ${(err as Error).message}`);
     }
   }
-
-  // === TEMPORARY (Phase 6.4 smoke-test) ===
-  // Generates a real dunning link for the caller against the given
-  // community + kind. Bypasses the cron-failure path so we can exercise
-  // the link generation + callback dispatcher + recovery code on prod
-  // without waiting for midnight Israel time or swapping cards to
-  // force-fail a real SOFT.
-  //
-  // Auth: JWT (caller must be logged in).
-  // Authorization: for OWNER_MONTHLY, caller must be the community's
-  // owner. For MEMBER_MONTHLY, caller must have an existing
-  // MemberSubscription (any status) on the community.
-  // Remove after smoke-test.
-  @UseGuards(AuthGuard('jwt'))
-  @Post('test-dunning-link')
-  async testDunningLink(
-    @Req() req,
-    @Body() body: { communityId: string; kind: 'OWNER_MONTHLY' | 'MEMBER_MONTHLY' },
-  ) {
-    const userId = req.user.userId as string;
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { email: true, name: true, plan: { select: { monthlyPriceILS: true } } },
-    });
-    if (!user?.email) {
-      return { error: 'User missing email' };
-    }
-    const community = await this.prisma.community.findUnique({
-      where: { id: body.communityId },
-      select: { name: true, ownerId: true },
-    });
-    if (!community) {
-      return { error: 'Community not found' };
-    }
-
-    let amount: number;
-    if (body.kind === 'OWNER_MONTHLY') {
-      if (community.ownerId !== userId) {
-        return { error: 'Caller is not the community owner' };
-      }
-      if (!user.plan?.monthlyPriceILS) {
-        return { error: 'Owner has no plan price' };
-      }
-      amount = user.plan.monthlyPriceILS;
-    } else {
-      const sub = await this.prisma.memberSubscription.findFirst({
-        where: { userId, communityId: body.communityId },
-        orderBy: { createdAt: 'desc' },
-      });
-      if (!sub) {
-        return { error: 'Caller has no MemberSubscription on this community' };
-      }
-      amount = sub.priceAtJoin;
-    }
-
-    const url = await this.dunningService.createOrReuseDunningLink({
-      userId,
-      user: { email: user.email, name: user.name },
-      communityId: body.communityId,
-      communityName: community.name,
-      kind: body.kind,
-      amount,
-    });
-    return { url, amount, kind: body.kind, communityId: body.communityId };
-  }
-  // === END TEMPORARY ===
 
   // Phase 3.6 — fire-and-forget email helpers. Look up user once, swallow
   // any send error (Resend hiccup, user without email, etc.) — these emails
