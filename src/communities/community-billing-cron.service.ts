@@ -43,6 +43,7 @@ export class CommunityBillingCronService {
     await this.applyMonthlyOwnerCharges();
     await this.applyMemberCancellationsAtPeriodEnd();
     await this.applyMonthlyMemberCharges();
+    await this.retryOwedRefunds();
     await this.hardDeleteWoundDownCommunities();
   }
 
@@ -672,6 +673,58 @@ export class CommunityBillingCronService {
 
     if (due.length > 0) {
       this.logger.log(`Processed ${due.length} member monthly charge(s)`);
+    }
+  }
+
+  // Phase 5 Mission 5 — retry refunds that failed at kick-time. When
+  // removeMember can't reach HYP (network blip, declined, whatever)
+  // we still complete the kick and stamp refundAmountOwed on the sub;
+  // this pass picks them up nightly and retries. CancelTrans is only
+  // valid same-day so retries always use zikoyAPI. Best-effort: HYP
+  // could keep rejecting indefinitely (e.g. original transaction void),
+  // we don't escalate — just log and try again tomorrow.
+  private async retryOwedRefunds() {
+    const owed = await this.prisma.memberSubscription.findMany({
+      where: { refundAmountOwed: { not: null } },
+      select: {
+        id: true,
+        hypSubscriptionId: true,
+        refundAmountOwed: true,
+        refundOwedAt: true,
+      },
+    });
+    if (owed.length === 0) return;
+    this.logger.log(`Retrying ${owed.length} owed refund(s)`);
+
+    for (const sub of owed) {
+      const amount = sub.refundAmountOwed!; // narrowed by where clause
+      try {
+        const result = await this.hypService.refundTransaction({
+          transId: sub.hypSubscriptionId,
+          amount,
+        });
+        if (result.ok) {
+          await this.prisma.memberSubscription.update({
+            where: { id: sub.id },
+            data: {
+              refundAmountOwed: null,
+              refundOwedAt: null,
+              refundFailureReason: null,
+            },
+          });
+          this.logger.log(`Owed refund settled: sub=${sub.id} amount=₪${amount}`);
+        } else {
+          await this.prisma.memberSubscription.update({
+            where: { id: sub.id },
+            data: { refundFailureReason: `Retry zikoyAPI CCode=${result.ccode}` },
+          });
+          this.logger.warn(`Owed refund retry FAILED: sub=${sub.id} CCode=${result.ccode}`);
+        }
+      } catch (err) {
+        this.logger.error(
+          `Owed refund retry exception: sub=${sub.id} ${(err as Error).message}`,
+        );
+      }
     }
   }
 

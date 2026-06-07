@@ -422,4 +422,137 @@ export class HypService {
 
     return { ok, ccode, body };
   }
+
+  /**
+   * Phase 5 Mission 5 — same-day void of a transaction via CancelTrans.
+   * Free (no commission) until 22:00 IL on the same business day the
+   * transaction was made. Returns CCode=0 + ReversalStatus=777 on success.
+   * Use this FIRST when refunding a member kick — falls back to
+   * refundTransaction (zikoyAPI) for older transactions.
+   *
+   * Runs against the same terminal the SOFT charge landed on (TOKEN
+   * terminal), since that's where HYP's record of the transaction lives.
+   */
+  async cancelTransaction(transId: string): Promise<{
+    ok: boolean;
+    ccode: string | null;
+    reversalStatus: string | null;
+    body: Record<string, string>;
+  }> {
+    if (!this.masofToken || !this.passpToken) {
+      throw new Error(
+        'CancelTrans requires HYP_MASOF_TOKEN + HYP_PASSP_TOKEN env vars.',
+      );
+    }
+    const params = new URLSearchParams({
+      action: 'CancelTrans',
+      Masof: this.masofToken,
+      KEY: this.key,
+      PassP: this.passpToken,
+      TransId: transId,
+      UTF8: 'True',
+      UTF8out: 'True',
+    });
+
+    let res: Response;
+    try {
+      res = await fetch(HYP_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString(),
+      });
+    } catch (err) {
+      this.logger.error(`HYP CancelTrans network error: ${(err as Error).message}`);
+      throw new InternalServerErrorException('Payment provider unreachable');
+    }
+    if (!res.ok) {
+      this.logger.error(`HYP CancelTrans HTTP ${res.status}`);
+      throw new InternalServerErrorException('Payment provider error');
+    }
+
+    const text = await res.text();
+    const body: Record<string, string> = {};
+    for (const [k, v] of new URLSearchParams(text).entries()) body[k] = v.trim();
+    const ccode = body.CCode ?? null;
+    const reversalStatus = body.ReversalStatus ?? null;
+    const ok = ccode === '0';
+
+    if (!ok) {
+      this.logger.warn(`HYP CancelTrans rejected: CCode=${ccode} TransId=${transId} body=${text}`);
+    } else {
+      this.logger.log(`HYP CancelTrans OK: TransId=${transId} ReversalStatus=${reversalStatus}`);
+    }
+    return { ok, ccode, reversalStatus, body };
+  }
+
+  /**
+   * Phase 5 Mission 5 — refund (partial or full) of a past transaction
+   * via zikoyAPI. Used when the transaction is too old for CancelTrans
+   * (different business day, or past 22:00 IL). The refund Amount can
+   * differ from the original (prorated kicks). Hyp Invoice auto-issues
+   * a credit-note receipt to the original customer email.
+   *
+   * No `zPass` required (HYP doc sweep 2026-06-04 — zPass is for
+   * payouts via action=soft, not refunds).
+   *
+   * Runs against the TOKEN terminal where SOFT charges land.
+   */
+  async refundTransaction(input: {
+    transId: string;
+    /** ILS amount to refund (positive integer, <= original amount). */
+    amount: number;
+  }): Promise<{ ok: boolean; ccode: string | null; body: Record<string, string> }> {
+    if (!this.masofToken || !this.passpToken) {
+      throw new Error(
+        'zikoyAPI refund requires HYP_MASOF_TOKEN + HYP_PASSP_TOKEN env vars.',
+      );
+    }
+    if (!Number.isInteger(input.amount) || input.amount <= 0) {
+      throw new Error(`Refund amount must be a positive integer (got ${input.amount}).`);
+    }
+
+    const params = new URLSearchParams({
+      action: 'zikoyAPI',
+      Masof: this.masofToken,
+      KEY: this.key,
+      PassP: this.passpToken,
+      TransId: input.transId,
+      Amount: input.amount.toString(),
+      UTF8: 'True',
+      UTF8out: 'True',
+    });
+
+    let res: Response;
+    try {
+      res = await fetch(HYP_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString(),
+      });
+    } catch (err) {
+      this.logger.error(`HYP zikoyAPI network error: ${(err as Error).message}`);
+      throw new InternalServerErrorException('Payment provider unreachable');
+    }
+    if (!res.ok) {
+      this.logger.error(`HYP zikoyAPI HTTP ${res.status}`);
+      throw new InternalServerErrorException('Payment provider error');
+    }
+
+    const text = await res.text();
+    const body: Record<string, string> = {};
+    for (const [k, v] of new URLSearchParams(text).entries()) body[k] = v.trim();
+    const ccode = body.CCode ?? null;
+    const ok = ccode === '0';
+
+    if (!ok) {
+      this.logger.warn(
+        `HYP zikoyAPI rejected: CCode=${ccode} TransId=${input.transId} Amount=${input.amount} body=${text}`,
+      );
+    } else {
+      this.logger.log(
+        `HYP zikoyAPI OK: TransId=${input.transId} Amount=${input.amount} Id=${body.Id ?? '-'}`,
+      );
+    }
+    return { ok, ccode, body };
+  }
 }

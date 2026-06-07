@@ -688,6 +688,14 @@ model MemberSubscription {
   // Set when the member requested to leave; HYP keeps charging until
   // `currentPeriodEnd`, then sub auto-cancels.
   cancelledAt        DateTime?
+  // Phase 5 Mission 5 — refund-on-kick tracking. When an owner/manager
+  // kicks a paying member with a future currentPeriodEnd, we attempt a
+  // prorated HYP refund. If HYP rejects (network/declined/whatever),
+  // we still complete the kick but stamp these columns so the
+  // retryOwedRefunds cron pass keeps trying. Cleared on success.
+  refundAmountOwed     Float?
+  refundOwedAt         DateTime?
+  refundFailureReason  String?
   createdAt          DateTime                 @default(now())
   updatedAt          DateTime                 @updatedAt
 

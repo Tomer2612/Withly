@@ -1742,6 +1742,14 @@ export class CommunitiesService {
       throw new ForbiddenException('Managers cannot remove other managers');
     }
 
+    // Phase 5 Mission 5 — if the kicked member has an active paid
+    // subscription with unused period, attempt a prorated refund BEFORE
+    // we delete their CommunityMember row. The kick proceeds regardless
+    // (refund failure stamps refundAmountOwed on the sub for the
+    // retryOwedRefunds cron). Skipped for free / cancelled / past-due /
+    // already-expired-period subs.
+    await this.refundKickedMemberIfOwed(communityId, targetUserId);
+
     // Remove the member
     await this.prisma.communityMember.delete({
       where: { userId_communityId: { userId: targetUserId, communityId } },
@@ -1764,6 +1772,125 @@ export class CommunitiesService {
     });
 
     return { message: 'Member removed and banned' };
+  }
+
+  // Phase 5 Mission 5 — called from removeMember (and conceptually from
+  // any future "ban with refund" entry points). Computes the unused-
+  // period prorated refund, attempts CancelTrans first (free, same-day
+  // void), falls back to zikoyAPI. On HYP rejection, stamps
+  // refundAmountOwed on the sub so retryOwedRefunds picks it up. Always
+  // sets sub.status = CANCELLED so the recurring-charge cron stops
+  // charging the kicked member, regardless of refund outcome.
+  //
+  // Skip conditions (no refund, just terminate the sub):
+  //   - No active sub (free community member)
+  //   - Sub already cancelled (cancelledAt set — member-initiated cancel)
+  //   - Sub status CANCELLED (already ended)
+  //   - Sub status PAST_DUE (last charge failed — nothing to refund)
+  //   - currentPeriodEnd in the past (period already used up)
+  //   - Prorated amount rounds to 0 (negligible time left)
+  private async refundKickedMemberIfOwed(
+    communityId: string,
+    kickedUserId: string,
+  ): Promise<void> {
+    const sub = await this.prisma.memberSubscription.findFirst({
+      where: {
+        userId: kickedUserId,
+        communityId,
+        status: 'ACTIVE',
+        cancelledAt: null,
+      },
+      select: {
+        id: true,
+        hypSubscriptionId: true,
+        priceAtJoin: true,
+        currentPeriodStart: true,
+        currentPeriodEnd: true,
+        createdAt: true,
+      },
+    });
+    if (!sub) return;
+
+    const now = new Date();
+    if (sub.currentPeriodEnd <= now) {
+      // Period already fully used. Just terminate the sub so cron stops.
+      await this.prisma.memberSubscription.update({
+        where: { id: sub.id },
+        data: { status: 'CANCELLED', cancelledAt: now },
+      });
+      return;
+    }
+
+    // Prorated refund = priceAtJoin * (remaining / total). Round to whole
+    // shekels — HYP rejects non-integer amounts. If the rounding zeroes
+    // out (e.g., last day of the period on a ₪5 sub), skip the refund.
+    const totalMs = sub.currentPeriodEnd.getTime() - sub.currentPeriodStart.getTime();
+    const remainingMs = sub.currentPeriodEnd.getTime() - now.getTime();
+    const refundAmount = Math.round(sub.priceAtJoin * (remainingMs / totalMs));
+    if (refundAmount <= 0) {
+      await this.prisma.memberSubscription.update({
+        where: { id: sub.id },
+        data: { status: 'CANCELLED', cancelledAt: now },
+      });
+      return;
+    }
+
+    // Same business day in IL? CancelTrans is free (no commission) and
+    // returns the full amount regardless of refundAmount — for a same-
+    // day kick of a member who joined hours ago, this is the right call.
+    // Otherwise (different day), zikoyAPI with the prorated amount.
+    const isSameDay =
+      sub.createdAt.toDateString() === now.toDateString();
+
+    let refundOk = false;
+    let failureReason: string | null = null;
+    try {
+      if (isSameDay) {
+        const result = await this.hypService.cancelTransaction(sub.hypSubscriptionId);
+        refundOk = result.ok;
+        if (!refundOk) failureReason = `CancelTrans CCode=${result.ccode}`;
+      } else {
+        const result = await this.hypService.refundTransaction({
+          transId: sub.hypSubscriptionId,
+          amount: refundAmount,
+        });
+        refundOk = result.ok;
+        if (!refundOk) failureReason = `zikoyAPI CCode=${result.ccode}`;
+      }
+    } catch (err) {
+      failureReason = `Exception: ${(err as Error).message}`;
+    }
+
+    if (refundOk) {
+      await this.prisma.memberSubscription.update({
+        where: { id: sub.id },
+        data: {
+          status: 'CANCELLED',
+          cancelledAt: now,
+          refundAmountOwed: null,
+          refundOwedAt: null,
+          refundFailureReason: null,
+        },
+      });
+      this.logger.log(
+        `Kick refund OK: sub=${sub.id} amount=₪${refundAmount} method=${isSameDay ? 'CancelTrans' : 'zikoyAPI'}`,
+      );
+    } else {
+      // Stamp owed-refund fields; cron retries. Kick still proceeds.
+      await this.prisma.memberSubscription.update({
+        where: { id: sub.id },
+        data: {
+          status: 'CANCELLED',
+          cancelledAt: now,
+          refundAmountOwed: refundAmount,
+          refundOwedAt: now,
+          refundFailureReason: failureReason,
+        },
+      });
+      this.logger.warn(
+        `Kick refund FAILED, owed: sub=${sub.id} amount=₪${refundAmount} reason=${failureReason}`,
+      );
+    }
   }
 
   async getUserMemberships(userId: string) {
