@@ -260,7 +260,6 @@ model Community {
   // strings stay until Phase 6.1 backfill is verified, then dropped.
   paymentMethodId         String?
   paymentMethod           UserPaymentMethod?          @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
-  hypSubscriptionId       String?                     @unique
   nextBillingDate         DateTime?
   currentPeriodStart      DateTime?
   currentPeriodEnd        DateTime?

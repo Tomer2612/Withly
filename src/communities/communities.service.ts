@@ -516,7 +516,6 @@ export class CommunitiesService {
       // suspension" bell notifications on uncancel so members never see a
       // warning for a cancellation that no longer exists.
       let firingScheduledForSuspension = false;
-      let firingReactivated = false;
       let clearingScheduledNotifications = false;
       if (data.subscriptionCancelledAt !== undefined) {
         if (data.subscriptionCancelledAt !== null) {
@@ -544,17 +543,10 @@ export class CommunitiesService {
         updateData.suspensionReminderSentAt = null;
       }
 
-      // Pre-HYP placeholder: if the owner is saving a card while the community
-      // is SUSPENDED, treat that as the renewal action and reactivate.
-      // When HYP lands this branch is removed — only the successful charge
-      // webhook flips SUSPENDED → ACTIVE.
-      const savingCard = data.cardLastFour !== undefined || data.cardBrand !== undefined;
-      if (savingCard && community.subscriptionStatus === 'SUSPENDED') {
-        updateData.subscriptionStatus = 'ACTIVE';
-        updateData.suspendedAt = null;
-        updateData.subscriptionCancelledAt = null;
-        firingReactivated = true;
-      }
+      // SUSPENDED→ACTIVE reactivation now lives in bindTokenizedPaymentMethod
+      // (Phase 4 Mission 5) — a real SOFT charge against the new card is
+      // what flips the status, NOT a card save here. The pre-HYP placeholder
+      // that lived here is dropped in Phase 6.3.
 
       const updated = await this.prisma.community.update({
         where: { id },
@@ -586,9 +578,6 @@ export class CommunitiesService {
       }
       if (clearingScheduledNotifications) {
         void this.clearScheduledSuspensionNotifications(id).catch(() => {});
-      }
-      if (firingReactivated) {
-        void this.notifyCommunityReactivated(id, userId).catch(() => {});
       }
 
       return updated;
