@@ -7,8 +7,19 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
+        source: '/info',
+        destination: '/info/index.html',
+      },
+    ];
+  },
+  async redirects() {
+    return [
+      {
+        // Old landing-page URL — keep old links/bookmarks working.
+        // Temporary (307) so it isn't cached hard while /info settles.
         source: '/beta',
-        destination: '/beta/index.html',
+        destination: '/info',
+        permanent: false,
       },
     ];
   },
