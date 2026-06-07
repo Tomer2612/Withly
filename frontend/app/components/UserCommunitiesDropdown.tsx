@@ -182,8 +182,8 @@ export default function UserCommunitiesDropdown({ activeCommunity }: UserCommuni
               </Link>
             )}
             {sortedCommunities.length === 0 && !showDiscover && (
-              <div className="px-3 py-6 text-center text-black" style={{ fontSize: '16px', fontWeight: 400 }}>
-                עוד לא הצטרפת לקהילות עדיין
+              <div className="px-3 py-6 text-center text-black whitespace-nowrap" style={{ fontSize: '16px', fontWeight: 400 }}>
+                טרם הצטרפת לקהילות
               </div>
             )}
             {sortedCommunities.length > 0 && (
