@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException, ForbiddenException, HttpException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { CommunitiesService } from '../communities/communities.service';
@@ -30,16 +30,16 @@ export class PostsService {
       await this.communitiesService.assertActive(communityId);
 
       return await this.prisma.post.create({
-        data: { 
-          title, 
-          content, 
+        data: {
+          title,
+          content,
           images: images || [],
           videos: videos || [],
           files: (files || []) as unknown as Prisma.InputJsonValue[],
           links: links || [],
           category,
-          authorId, 
-          communityId 
+          authorId,
+          communityId
         },
         include: {
           author: {
@@ -50,7 +50,14 @@ export class PostsService {
           },
         },
       });
-    } catch {
+    } catch (err) {
+      // Re-throw HttpExceptions (ForbiddenException from assertActive's
+      // COMMUNITY_SUSPENDED check, NotFoundException from slug resolve,
+      // etc.) so the global filter returns the correct status code +
+      // message. Without this, a 403 became a generic 500 and the
+      // frontend 403 interceptor never saw the COMMUNITY_SUSPENDED
+      // signal (Phase 6.2).
+      if (err instanceof HttpException) throw err;
       throw new InternalServerErrorException('Could not create post');
     }
   }

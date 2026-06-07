@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException, NotFoundException, ForbiddenException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException, ForbiddenException, BadRequestException, ConflictException, HttpException, Logger } from '@nestjs/common';
 import { Prisma, CommunityStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../common/prisma.service';
@@ -81,7 +81,11 @@ export class CommunitiesService {
       });
 
       return community;
-    } catch {
+    } catch (err) {
+      // Re-throw HttpExceptions so the global filter returns the
+      // intended status (e.g. a 409 conflict on duplicate slug becomes
+      // a 409, not a generic 500). See Phase 6.2 for rationale.
+      if (err instanceof HttpException) throw err;
       throw new InternalServerErrorException('Could not create community');
     }
   }
@@ -113,7 +117,9 @@ export class CommunitiesService {
         ...community,
         memberCount: community._count.members + 1,
       }));
-    } catch {
+    } catch (err) {
+      // Re-throw HttpExceptions (see Phase 6.2 rationale on posts.service).
+      if (err instanceof HttpException) throw err;
       throw new InternalServerErrorException('Could not fetch communities');
     }
   }
