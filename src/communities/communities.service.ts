@@ -218,8 +218,6 @@ export class CommunitiesService {
     galleryImages?: string[],
     galleryVideos?: string[],
     price?: number | null,
-    cardLastFour?: string | null,
-    cardBrand?: string | null,
     showOnlineMembers?: boolean,
     status?: string,
   ) {
@@ -297,10 +295,6 @@ export class CommunitiesService {
       if (price !== undefined) {
         updateData.price = price;
       }
-      // Phase 6.3: cardLastFour/cardBrand columns dropped from Community.
-      // Args still accepted for backward compat; they're no-ops.
-      void cardLastFour;
-      void cardBrand;
       if (showOnlineMembers !== undefined) {
         updateData.showOnlineMembers = showOnlineMembers;
       }
@@ -490,8 +484,6 @@ export class CommunitiesService {
     userId: string,
     data: {
       price?: number | null;
-      cardLastFour?: string | null;
-      cardBrand?: string | null;
       subscriptionCancelledAt?: Date | null;
     },
   ) {
@@ -513,9 +505,6 @@ export class CommunitiesService {
 
       const updateData: Prisma.CommunityUpdateInput = {};
       if (data.price !== undefined) updateData.price = data.price;
-      // Phase 6.3: cardLastFour/cardBrand columns dropped from Community.
-      // Card display comes from the bound paymentMethod relation. The DTO
-      // still accepts these fields for backward compat but they're no-ops.
 
       // Owner-initiated cancel/uncancel. No rate limit — the popup ack is
       // already deduped per-recipient, and we sweep stale "scheduled for
@@ -766,13 +755,10 @@ export class CommunitiesService {
   //     not from the original due date that may have been weeks ago).
   //     On failure: stay SUSPENDED, return chargeFailed=true so the
   //     caller surfaces a toast.
-  //
-  // Also writes the legacy cardLastFour/cardBrand mirror so the existing UI
-  // and back-compat consumers keep working until Phase 6.1 drops them.
   async bindTokenizedPaymentMethod(
     communityId: string,
     userId: string,
-    paymentMethod: { id: string; cardLastFour: string; cardBrand: string },
+    paymentMethod: { id: string },
   ) {
     const community = await this.prisma.community.findUnique({
       where: { id: communityId },
@@ -967,11 +953,7 @@ export class CommunitiesService {
     if (this.isExpired(pm.cardExpMonth, pm.cardExpYear)) {
       throw new BadRequestException('CARD_EXPIRED');
     }
-    return this.bindTokenizedPaymentMethod(communityId, userId, {
-      id: pm.id,
-      cardLastFour: pm.cardLastFour,
-      cardBrand: pm.cardBrand,
-    });
+    return this.bindTokenizedPaymentMethod(communityId, userId, { id: pm.id });
   }
 
   // Saved-card variant of the new-community finalize path. The user picked
@@ -998,11 +980,7 @@ export class CommunitiesService {
     if (this.isExpired(pm.cardExpMonth, pm.cardExpYear)) {
       throw new BadRequestException('CARD_EXPIRED');
     }
-    return this.finalizeCommunityFromPending(pendingId, userId, {
-      id: pm.id,
-      cardLastFour: pm.cardLastFour,
-      cardBrand: pm.cardBrand,
-    });
+    return this.finalizeCommunityFromPending(pendingId, userId, { id: pm.id });
   }
 
   // Defense-in-depth expiry check. HYP would reject a SOFT charge on an
@@ -1026,7 +1004,7 @@ export class CommunitiesService {
   async finalizeCommunityFromPending(
     pendingId: string,
     userId: string,
-    paymentMethod: { id: string; cardLastFour: string; cardBrand: string },
+    paymentMethod: { id: string },
   ) {
     const pending = await this.prisma.pendingCommunityCreation.findUnique({
       where: { id: pendingId },

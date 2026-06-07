@@ -192,8 +192,6 @@ export class CommunitiesController {
       galleryImages,
       galleryVideos,
       price,
-      body.cardLastFour,
-      body.cardBrand,
       body.showOnlineMembers !== undefined ? body.showOnlineMembers === 'true' : undefined,
       body.status,
     );
@@ -464,8 +462,6 @@ export class CommunitiesController {
           : new Date(body.subscriptionCancelledAt);
     return this.communitiesService.updatePaymentInfo(id, userId, {
       price,
-      cardLastFour: body.cardLastFour,
-      cardBrand: body.cardBrand,
       subscriptionCancelledAt,
     });
   }

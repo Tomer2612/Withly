@@ -249,11 +249,7 @@ export class PaymentsController {
       const bindResult = await this.communitiesService.bindTokenizedPaymentMethod(
         communityId,
         userId,
-        {
-          id: paymentMethod.id,
-          cardLastFour: paymentMethod.cardLastFour,
-          cardBrand: paymentMethod.cardBrand,
-        },
+        { id: paymentMethod.id },
       );
       const { community, wasAlreadyBound, wasReactivated, chargeAttempted, chargeFailed, chargeCCode } = bindResult;
 
@@ -341,11 +337,7 @@ export class PaymentsController {
       const community = await this.communitiesService.finalizeCommunityFromPending(
         pendingId,
         userId,
-        {
-          id: paymentMethod.id,
-          cardLastFour: paymentMethod.cardLastFour,
-          cardBrand: paymentMethod.cardBrand,
-        },
+        { id: paymentMethod.id },
       );
 
       this.logger.log(
