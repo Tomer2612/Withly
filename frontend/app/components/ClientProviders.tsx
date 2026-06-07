@@ -69,6 +69,32 @@ function installFetchInterceptor() {
 
     const response = await originalFetch(input, finalInit);
 
+    // Phase 6.2 — stale-tab race: the cron flips a community to
+    // SUSPENDED while the user has a tab open. Their layout's cached
+    // state still says ACTIVE so no popup; their next write returns
+    // 403 with message=COMMUNITY_SUSPENDED. Detect that here and
+    // hard-reload the page — the layout refetches, sees SUSPENDED,
+    // renders the SuspendedCommunityModal naturally. Dedupe via
+    // sessionStorage so we don't loop if a suspended page somehow
+    // triggers another 403 immediately on reload.
+    if (response.status === 403 && targetsApi) {
+      try {
+        const peek = await response.clone().json();
+        if (peek?.message === 'COMMUNITY_SUSPENDED') {
+          const last = sessionStorage.getItem('suspended_reload_at');
+          const now = Date.now();
+          if (!last || now - parseInt(last, 10) > 5000) {
+            sessionStorage.setItem('suspended_reload_at', String(now));
+            window.location.reload();
+          }
+        }
+      } catch {
+        // Body wasn't JSON or didn't have the expected shape — fall
+        // through and return the response to the caller as normal.
+      }
+      return response;
+    }
+
     if (response.status !== 401 || !targetsApi) return response;
 
     // 401 on an API call. Decide whether to attempt refresh-and-retry.
