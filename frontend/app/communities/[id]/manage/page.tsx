@@ -54,8 +54,10 @@ interface Community {
   // trialStartDate + planTrialLength via a local util pre-Phase-6.3; now
   // read directly from the backend.
   nextBillingDate: string | null;
-  cardLastFour: string | null;
-  cardBrand: string | null;
+  // Phase 6.3: card display fields read from the bound payment method
+  // (was: denormalized cardLastFour/cardBrand columns on Community,
+  // dropped in commit that ships this interface change).
+  paymentMethod: { cardLastFour: string; cardBrand: string } | null;
   subscriptionCancelledAt: string | null;
 }
 
@@ -431,8 +433,8 @@ export default function ManageCommunityPage() {
         setPendingPriceEffectiveAt(data.pendingPriceEffectiveAt ? new Date(data.pendingPriceEffectiveAt) : null);
         setPriceChangeAnnouncedAt(data.priceChangeAnnouncedAt ? new Date(data.priceChangeAnnouncedAt) : null);
         setCurrentCommunityPrice(typeof data.price === 'number' ? data.price : 0);
-        setCardLastFour(data.cardLastFour || null);
-        setCardBrand(data.cardBrand || null);
+        setCardLastFour(data.paymentMethod?.cardLastFour || null);
+        setCardBrand(data.paymentMethod?.cardBrand || null);
         setNextBillingDate(data.nextBillingDate ? new Date(data.nextBillingDate) : null);
         setShowOnlineMembers(data.showOnlineMembers !== false);
         setCommunityStatus(data.status || 'DRAFT');
@@ -726,8 +728,8 @@ export default function ManageCommunityPage() {
       setPendingPriceEffectiveAt(data.pendingPriceEffectiveAt ? new Date(data.pendingPriceEffectiveAt) : null);
       setPriceChangeAnnouncedAt(data.priceChangeAnnouncedAt ? new Date(data.priceChangeAnnouncedAt) : null);
       setCurrentCommunityPrice(typeof data.price === 'number' ? data.price : 0);
-      setCardLastFour(data.cardLastFour || null);
-      setCardBrand(data.cardBrand || null);
+      setCardLastFour(data.paymentMethod?.cardLastFour || null);
+      setCardBrand(data.paymentMethod?.cardBrand || null);
       setNextBillingDate(data.nextBillingDate ? new Date(data.nextBillingDate) : null);
       setLogo(
         data.logo

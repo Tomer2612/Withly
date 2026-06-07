@@ -135,6 +135,13 @@ export class CommunitiesService {
             profileImage: true,
           },
         },
+        // Phase 6.3: expose the bound payment method's card display fields
+        // here instead of denormalized cardLastFour/cardBrand columns on
+        // Community (which are being dropped). Frontend reads
+        // community.paymentMethod?.cardLastFour for the manage-page display.
+        paymentMethod: {
+          select: { cardLastFour: true, cardBrand: true },
+        },
         _count: { select: { members: true } },
       } as const;
 
@@ -290,12 +297,10 @@ export class CommunitiesService {
       if (price !== undefined) {
         updateData.price = price;
       }
-      if (cardLastFour !== undefined) {
-        updateData.cardLastFour = cardLastFour;
-      }
-      if (cardBrand !== undefined) {
-        updateData.cardBrand = cardBrand;
-      }
+      // Phase 6.3: cardLastFour/cardBrand columns dropped from Community.
+      // Args still accepted for backward compat; they're no-ops.
+      void cardLastFour;
+      void cardBrand;
       if (showOnlineMembers !== undefined) {
         updateData.showOnlineMembers = showOnlineMembers;
       }
@@ -508,8 +513,9 @@ export class CommunitiesService {
 
       const updateData: Prisma.CommunityUpdateInput = {};
       if (data.price !== undefined) updateData.price = data.price;
-      if (data.cardLastFour !== undefined) updateData.cardLastFour = data.cardLastFour;
-      if (data.cardBrand !== undefined) updateData.cardBrand = data.cardBrand;
+      // Phase 6.3: cardLastFour/cardBrand columns dropped from Community.
+      // Card display comes from the bound paymentMethod relation. The DTO
+      // still accepts these fields for backward compat but they're no-ops.
 
       // Owner-initiated cancel/uncancel. No rate limit — the popup ack is
       // already deduped per-recipient, and we sweep stale "scheduled for
@@ -797,8 +803,8 @@ export class CommunitiesService {
 
     const updateData: Prisma.CommunityUpdateInput = {
       paymentMethod: { connect: { id: paymentMethod.id } },
-      cardLastFour: paymentMethod.cardLastFour,
-      cardBrand: paymentMethod.cardBrand,
+      // Phase 6.3: no more cardLastFour/cardBrand mirror. Card display
+      // is sourced from the bound paymentMethod relation directly.
     };
 
     // Suspension-recovery SOFT retry (Mission 5). Only when the
@@ -1070,9 +1076,8 @@ export class CommunitiesService {
           // scalar FK column directly so we can keep ownerId as a scalar
           // too (Prisma forbids mixing nested-connect with scalar FKs in
           // the same create input).
+          // Phase 6.3: no more cardLastFour/cardBrand mirror.
           paymentMethodId: paymentMethod.id,
-          cardLastFour: paymentMethod.cardLastFour,
-          cardBrand: paymentMethod.cardBrand,
         },
       });
       await tx.pendingCommunityCreation.delete({ where: { id: pendingId } });

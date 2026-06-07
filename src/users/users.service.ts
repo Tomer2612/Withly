@@ -452,14 +452,14 @@ export class UsersService {
     userId: string,
     card: { id: string; cardLastFour: string; cardBrand: string },
   ): Promise<string[]> {
+    // Phase 6.3: card-in-use check no longer needs to OR against legacy
+    // cardLastFour/cardBrand mirror columns — they were dropped. All
+    // bindings go through paymentMethodId now (post-Path-B reality).
     const ownedActive = await this.prisma.community.findMany({
       where: {
         ownerId: userId,
         subscriptionStatus: 'ACTIVE',
-        OR: [
-          { paymentMethodId: card.id },
-          { cardLastFour: card.cardLastFour, cardBrand: card.cardBrand },
-        ],
+        paymentMethodId: card.id,
       },
       select: { name: true },
     });

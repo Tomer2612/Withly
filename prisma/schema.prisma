@@ -225,8 +225,6 @@ model Community {
   rules                   String[]
   price                   Float?                      @default(0)
   logo                    String?
-  cardBrand               String?
-  cardLastFour            String?
   trialStartDate          DateTime?
   showOnlineMembers       Boolean                     @default(true)
   status                  CommunityStatus             @default(DRAFT)
