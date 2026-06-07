@@ -648,12 +648,12 @@ export class CommunitiesService {
   // prisma.user.delete; Community.ownerId then becomes NULL via SetNull
   // (the schema FK behavior added in Mission 4) and the community
   // survives in a wind-down state until the cron hard-deletes it.
-  async windDownOwnedCommunitiesForUserDelete(userId: string): Promise<void> {
+  async windDownOwnedCommunitiesForUserDelete(userId: string): Promise<number> {
     const owned = await this.prisma.community.findMany({
       where: { ownerId: userId },
       select: { id: true, name: true, nextBillingDate: true, subscriptionCancelledAt: true },
     });
-    if (owned.length === 0) return;
+    if (owned.length === 0) return 0;
     const now = new Date();
     for (const c of owned) {
       try {
@@ -689,6 +689,7 @@ export class CommunitiesService {
         );
       }
     }
+    return owned.length;
   }
 
   // Phase 5 Mission 3 follow-on — public preview for the cancel modal.

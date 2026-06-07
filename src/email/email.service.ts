@@ -733,13 +733,26 @@ export class EmailService {
   // #12 — Account-deletion confirmation. Sent BEFORE the user row is
   // deleted (caller must capture email + name first, then delete).
   // No CTA — there's nothing to come back to.
-  async sendAccountDeletedEmail(email: string, name: string): Promise<void> {
+  // hadOwnedCommunities: when true (Phase 5 Mission 4 wind-down) inserts
+  // an extra line so the owner knows their communities don't disappear
+  // instantly — they stay live for up to ~1 month so paying members get
+  // what they paid for, then are hard-deleted by the cron.
+  async sendAccountDeletedEmail(
+    email: string,
+    name: string,
+    hadOwnedCommunities = false,
+  ): Promise<void> {
     const subject = `החשבון שלך ב-Withly נמחק`;
     const lines = [
       `החשבון שלך ב-Withly נמחק לצמיתות בהתאם לבקשתך.`,
       `כל המנויים הפעילים בוטלו והחיובים החודשיים נעצרו.`,
-      `לכל שאלה או תקלה, אנחנו כאן.`,
     ];
+    if (hadOwnedCommunities) {
+      lines.push(
+        `כל הקהילות שבבעלותך יימחקו תוך חודש לכל היותר.`,
+      );
+    }
+    lines.push(`לכל שאלה או תקלה, אנחנו כאן.`);
     // Passing null for name so the greeting reads "שלום," (no name) —
     // matches the user's spec mockup which has just "שלום," for this
     // email (the deletion is final and impersonal at this point).

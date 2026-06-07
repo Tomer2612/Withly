@@ -220,8 +220,11 @@ export class UsersService {
     // ownerDeletedAt = NOW on each, plus notifies members. When the
     // user.delete fires next, Community.ownerId becomes NULL via SetNull
     // and the community survives in a winding-down state until the new
-    // hard-delete cron pass removes it at grace-end.
-    await this.communitiesService.windDownOwnedCommunitiesForUserDelete(user.id);
+    // hard-delete cron pass removes it at grace-end. Return value tells
+    // the deletion email whether to include the owned-community winddown
+    // disclosure.
+    const ownedCommunityCount =
+      await this.communitiesService.windDownOwnedCommunitiesForUserDelete(user.id);
 
     // Delete user — cascade handles Cascade-marked relations (RefreshToken,
     // UserPaymentMethod, CommunityMember, CourseEnrollment, etc.); SetNull
@@ -254,7 +257,7 @@ export class UsersService {
     // a Resend hiccup shouldn't make us bring the user "back" or alarm
     // the caller. Log and continue.
     void this.emailService
-      .sendAccountDeletedEmail(email, displayName)
+      .sendAccountDeletedEmail(email, displayName, ownedCommunityCount > 0)
       .catch((err) => {
         this.logger.warn(
           `Account-deleted email failed (userId=${userId}): ${(err as Error).message}`,
