@@ -86,6 +86,12 @@ function installFetchInterceptor() {
           if (!last || now - parseInt(last, 10) > 5000) {
             sessionStorage.setItem('suspended_reload_at', String(now));
             window.location.reload();
+            // Stall the caller — window.location.reload() doesn't block,
+            // so without this the caller's catch fires (alert/toast)
+            // before the navigation completes. Hanging promise means
+            // the await never resumes; the browser navigates away
+            // before the JS engine can run any catch handler.
+            return new Promise<Response>(() => {});
           }
         }
       } catch {
