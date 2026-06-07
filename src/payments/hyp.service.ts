@@ -426,12 +426,19 @@ export class HypService {
   /**
    * Phase 5 Mission 5 — same-day void of a transaction via CancelTrans.
    * Free (no commission) until 22:00 IL on the same business day the
-   * transaction was made. Returns CCode=0 + ReversalStatus=777 on success.
-   * Use this FIRST when refunding a member kick — falls back to
-   * refundTransaction (zikoyAPI) for older transactions.
+   * transaction was made. Use this FIRST when refunding a member kick —
+   * falls back to refundTransaction (zikoyAPI) for older transactions.
    *
    * Runs against the same terminal the SOFT charge landed on (TOKEN
    * terminal), since that's where HYP's record of the transaction lives.
+   *
+   * Success criterion: CCode=0. HYP docs claim ReversalStatus=777
+   * indicates success, but empirical testing (2026-06-07) showed that
+   * a fully-voided transaction (HYP merchant console confirms "עסקה
+   * בוטלה (998)") returned ReversalStatus=447 instead. So we don't gate
+   * on ReversalStatus — CCode is the API-level signal, the merchant
+   * console is the state-of-truth, and ReversalStatus is logged for
+   * post-hoc diagnostics if a refund ever comes into question.
    */
   async cancelTransaction(transId: string): Promise<{
     ok: boolean;
@@ -478,9 +485,16 @@ export class HypService {
     const ok = ccode === '0';
 
     if (!ok) {
-      this.logger.warn(`HYP CancelTrans rejected: CCode=${ccode} TransId=${transId} body=${text}`);
+      this.logger.warn(
+        `HYP CancelTrans rejected: CCode=${ccode} ReversalStatus=${reversalStatus ?? '-'} TransId=${transId} body=${text}`,
+      );
     } else {
-      this.logger.log(`HYP CancelTrans OK: TransId=${transId} ReversalStatus=${reversalStatus}`);
+      // ReversalStatus logged unconditionally so future anomalies (e.g.
+      // a new HYP value we haven't seen) are visible in pm2 logs without
+      // hitting the merchant console.
+      this.logger.log(
+        `HYP CancelTrans OK: TransId=${transId} ReversalStatus=${reversalStatus ?? '-'}`,
+      );
     }
     return { ok, ccode, reversalStatus, body };
   }
