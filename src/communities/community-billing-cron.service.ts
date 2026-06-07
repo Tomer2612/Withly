@@ -6,6 +6,7 @@ import { StorageService } from '../common/storage.service';
 import { EmailService } from '../email/email.service';
 import { HypService } from '../payments/hyp.service';
 import { DunningService } from '../payments/dunning.service';
+import { TransactionsService } from '../transactions/transactions.service';
 
 // Hebrew dd.M.yyyy format — matches the format used in lifecycle email
 // triggers in CommunitiesService. Kept local here to avoid a cross-module
@@ -25,6 +26,7 @@ export class CommunityBillingCronService {
     private emailService: EmailService,
     private hypService: HypService,
     private dunningService: DunningService,
+    private transactionsService: TransactionsService,
   ) {}
 
   // Midnight Israel time. Owns the time-based transitions that used to
@@ -568,6 +570,16 @@ export class CommunityBillingCronService {
           currentPeriodEnd: nextBillingDate,
         },
       });
+      // Ledger: owner platform fee → 100% Withly revenue (no split).
+      await this.transactionsService.recordCharge({
+        kind: 'OWNER_MONTHLY',
+        grossAmount: c.owner.plan.monthlyPriceILS,
+        communityId: c.id,
+        ownerId: c.ownerId,
+        payerId: c.ownerId,
+        hypTxnId: result.body.Id ?? null,
+        hypOrderId: result.body.Order ?? null,
+      });
       this.logger.log(
         `Charged owner ${c.owner.email} ₪${c.owner.plan.monthlyPriceILS} for community ${c.id} ` +
         `(${c.name}): hypId=${result.body.Id}, next=${nextBillingDate.toISOString()}`,
@@ -686,7 +698,13 @@ export class CommunityBillingCronService {
             cardLastFour: true,
           },
         },
-        community: { select: { name: true } },
+        community: {
+          select: {
+            name: true,
+            ownerId: true,
+            owner: { select: { plan: { select: { commissionBasisPoints: true } } } },
+          },
+        },
         user: { select: { email: true, name: true } },
       },
     });
@@ -856,7 +874,11 @@ export class CommunityBillingCronService {
         cardExpYear: number | null;
         cardLastFour: string;
       } | null;
-      community: { name: string };
+      community: {
+        name: string;
+        ownerId: string | null;
+        owner: { plan: { commissionBasisPoints: number } | null } | null;
+      };
       user: { email: string; name: string | null };
     },
     now: Date,
@@ -911,6 +933,19 @@ export class CommunityBillingCronService {
           currentPeriodStart: prevBillingDate,
           currentPeriodEnd: nextBillingDate,
         },
+      });
+      // Ledger: member pays full price; Withly keeps commission, owner
+      // earns the remainder (split derived in recordCharge).
+      await this.transactionsService.recordCharge({
+        kind: 'MEMBER_MONTHLY',
+        grossAmount: amount,
+        commissionBasisPoints: sub.community.owner?.plan?.commissionBasisPoints,
+        communityId: sub.communityId,
+        ownerId: sub.community.ownerId,
+        payerId: sub.userId,
+        memberSubscriptionId: sub.id,
+        hypTxnId: result.body.Id ?? null,
+        hypOrderId: result.body.Order ?? null,
       });
       this.logger.log(
         `Charged member ${sub.user.email} ₪${amount} for membership ${sub.id} ` +

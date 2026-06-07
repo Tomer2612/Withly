@@ -7,6 +7,7 @@ import { EmailModule } from '../email/email.module';
 import { HypModule } from '../payments/hyp.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { StorageModule } from '../common/storage.module';
+import { TransactionsModule } from '../transactions/transactions.module';
 
 // forwardRef on PaymentsModule — PaymentsModule already forwardRefs back
 // to CommunitiesModule (DunningService needs CommunitiesService for member
@@ -20,6 +21,7 @@ import { StorageModule } from '../common/storage.module';
     EmailModule,
     HypModule,
     StorageModule,
+    TransactionsModule,
     forwardRef(() => PaymentsModule),
   ],
   exports: [CommunitiesService],

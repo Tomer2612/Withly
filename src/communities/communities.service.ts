@@ -6,6 +6,7 @@ import { canManageCommunity, getEffectiveRole } from '../common/community-roles.
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailService } from '../email/email.service';
 import { HypService } from '../payments/hyp.service';
+import { TransactionsService } from '../transactions/transactions.service';
 
 // Hebrew dd.M.yyyy format used in lifecycle emails (matches the user's
 // spec mockups — e.g., "1.7.2026"). Locale-formatted via he-IL would
@@ -24,6 +25,7 @@ export class CommunitiesService {
     private notificationsService: NotificationsService,
     private emailService: EmailService,
     private hypService: HypService,
+    private transactionsService: TransactionsService,
   ) {}
 
   // Throws ForbiddenException('COMMUNITY_SUSPENDED') if the community's
@@ -867,6 +869,17 @@ export class CommunitiesService {
         updateData.nextBillingDate = nextBillingDate;
         updateData.currentPeriodStart = now;
         updateData.currentPeriodEnd = nextBillingDate;
+        // Ledger: recovery charge is the owner's platform fee, same as a
+        // normal owner-monthly (100% Withly). planPrice is non-null here —
+        // chargeOk can only be true when it was truthy above.
+        await this.transactionsService.recordCharge({
+          kind: 'OWNER_MONTHLY',
+          grossAmount: planPrice!,
+          communityId,
+          ownerId: community.ownerId,
+          payerId: userId,
+          hypTxnId: chargeHypTxnId,
+        });
       }
       // On charge failure: leave status=SUSPENDED. Card is still bound.
     }
@@ -942,7 +955,11 @@ export class CommunitiesService {
 
     const community = await this.prisma.community.findUnique({
       where: { id: communityId },
-      select: { name: true },
+      select: {
+        name: true,
+        ownerId: true,
+        owner: { select: { plan: { select: { commissionBasisPoints: true } } } },
+      },
     });
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -993,6 +1010,18 @@ export class CommunitiesService {
         currentPeriodStart: now,
         currentPeriodEnd: nextBillingDate,
       },
+    });
+
+    // Ledger: member recovery charge — same split as a normal member-monthly.
+    await this.transactionsService.recordCharge({
+      kind: 'MEMBER_MONTHLY',
+      grossAmount: amount,
+      commissionBasisPoints: community.owner?.plan?.commissionBasisPoints,
+      communityId,
+      ownerId: community.ownerId,
+      payerId: userId,
+      memberSubscriptionId: sub.id,
+      hypTxnId: chargeResult.body.Id ?? null,
     });
 
     return {
@@ -1300,6 +1329,7 @@ export class CommunitiesService {
         id: true, name: true, ownerId: true, status: true,
         price: true, pendingPrice: true,
         subscriptionStatus: true, subscriptionCancelledAt: true,
+        owner: { select: { plan: { select: { commissionBasisPoints: true } } } },
       },
     });
     if (!community) {
@@ -1402,6 +1432,20 @@ export class CommunitiesService {
         });
 
         return { subscription, hypId: hypTxnId };
+      });
+
+      // Ledger: first member charge → same split as recurring member-monthly.
+      // Outside the tx (fail-soft) so a recording hiccup can't roll back a
+      // paid join that already moved money.
+      await this.transactionsService.recordCharge({
+        kind: 'MEMBER_MONTHLY',
+        grossAmount: amount,
+        commissionBasisPoints: community.owner?.plan?.commissionBasisPoints,
+        communityId: community.id,
+        ownerId: community.ownerId,
+        payerId: userId,
+        memberSubscriptionId: result.subscription.id,
+        hypTxnId: result.hypId,
       });
 
       // Post-success side effects (outside tx, fire-and-forget).

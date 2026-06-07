@@ -59,6 +59,8 @@ model User {
   // Reused across all subsequent flows so we don't create duplicate customers.
   hypCustomerId            String?              @unique
   memberSubscriptions      MemberSubscription[]
+  transactionsAsOwner      Transaction[]        @relation("TransactionOwner")
+  transactionsAsPayer      Transaction[]        @relation("TransactionPayer")
   pendingCommunityCreation PendingCommunityCreation?
   // Withly platform plan (price/trial length/commission rate). Nullable
   // for legacy rows; new signups land on the default plan. Read via
@@ -270,6 +272,7 @@ model Community {
   events                  Event[]
   memberSubscriptions     MemberSubscription[]
   paymentDunningRequests  PaymentDunningRequest[]
+  transactions            Transaction[]
 
   @@map("communities")
 }
@@ -734,6 +737,7 @@ model MemberSubscription {
   refundFailureReason  String?
   createdAt          DateTime                 @default(now())
   updatedAt          DateTime                 @updatedAt
+  transactions       Transaction[]
 
   @@index([userId])
   @@index([communityId])
@@ -746,4 +750,59 @@ enum MemberSubscriptionStatus {
   PAST_DUE
   CANCELLED
   ENDED
+}
+
+// Immutable accounting ledger. One row per SUCCESSFUL charge that hits
+// Withly's HYP terminal (owner platform fee + member subscription). This
+// is the first place money movement is recorded — pre-ledger, charges only
+// bumped nextBillingDate. Every relation is nullable + SetNull so a row
+// survives deletion of the community/owner/member/subscription: a ledger
+// must outlive the things it references (payout reconciliation, tax).
+// Mission 1 records charges only; refund rows land in Mission 2 alongside
+// the payout/balance math that actually depends on them.
+model Transaction {
+  id                    String              @id @default(cuid())
+  kind                  TransactionKind
+  // Total charged to the payer (₪). member-monthly = priceAtJoin;
+  // owner-monthly = the owner's plan fee.
+  grossAmount           Float
+  // Snapshot of the owner's plan commission rate at charge time (bps;
+  // 500 = 5%). 0 for owner-monthly. Snapshotted like priceAtJoin so the
+  // split stays correct if the plan rate later changes.
+  commissionBasisPoints Int                 @default(0)
+  // Withly's take: commission on member-monthly, the full fee on
+  // owner-monthly. Invariant: grossAmount = platformAmount + ownerAmount.
+  platformAmount        Float
+  // The community owner's earnings. 0 for owner-monthly.
+  ownerAmount           Float
+  // All relations nullable + SetNull to keep the ledger immutable.
+  communityId           String?
+  community             Community?          @relation(fields: [communityId], references: [id], onDelete: SetNull)
+  // Owner who earns (member-monthly) or pays (owner-monthly).
+  ownerId               String?
+  owner                 User?               @relation("TransactionOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  // Payer: the member (member-monthly) or the owner (owner-monthly).
+  payerId               String?
+  payer                 User?               @relation("TransactionPayer", fields: [payerId], references: [id], onDelete: SetNull)
+  // The subscription billed (member-monthly only).
+  memberSubscriptionId  String?
+  memberSubscription    MemberSubscription? @relation(fields: [memberSubscriptionId], references: [id], onDelete: SetNull)
+  // HYP transaction id (result.body.Id). Unique → a charge can't be
+  // double-recorded; used for refunds/reconciliation. Optional: we still
+  // record the split if HYP ever returns success without an Id, rather
+  // than throwing inside the billing cron after money already moved.
+  hypTxnId              String?             @unique
+  // The Order string we sent HYP, for tracing.
+  hypOrderId            String?
+  createdAt             DateTime            @default(now())
+
+  @@index([communityId])
+  @@index([ownerId])
+  @@index([createdAt])
+  @@map("transactions")
+}
+
+enum TransactionKind {
+  OWNER_MONTHLY
+  MEMBER_MONTHLY
 }
