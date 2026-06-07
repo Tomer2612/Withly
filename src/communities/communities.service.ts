@@ -487,7 +487,7 @@ export class CommunitiesService {
 
       const community = await this.prisma.community.findUnique({
         where: { id },
-        select: { ownerId: true, subscriptionStatus: true },
+        select: { ownerId: true, subscriptionStatus: true, nextBillingDate: true },
       });
 
       if (!community) {
@@ -513,10 +513,23 @@ export class CommunitiesService {
       if (data.subscriptionCancelledAt !== undefined) {
         if (data.subscriptionCancelledAt !== null) {
           firingScheduledForSuspension = true;
+          // Phase 5 Mission 3 — extend grace to honor paying members' periods.
+          // The frontend sends owner.nextBillingDate as the cancellation date,
+          // but if any paying member has a later currentPeriodEnd (e.g. they
+          // joined just after the owner's last billing cycle), we owe them
+          // that time. Take the max so members get what they paid for and
+          // the community only fully closes after the last member's period
+          // ends. CANCELLED member subs are excluded (Mission 4.5 handles
+          // their per-member age-out independently).
+          updateData.subscriptionCancelledAt = await this.computeCancellationEffectiveDate(
+            id,
+            data.subscriptionCancelledAt,
+            community.nextBillingDate,
+          );
         } else {
           clearingScheduledNotifications = true;
+          updateData.subscriptionCancelledAt = null;
         }
-        updateData.subscriptionCancelledAt = data.subscriptionCancelledAt;
         // Fresh cancel cycle (or full revoke) — let the 7-day reminder
         // cron re-evaluate from scratch instead of remembering an old
         // send for a now-superseded cancellation date.
@@ -547,12 +560,15 @@ export class CommunitiesService {
         // Owner confirmation email (#8). Members get the popup +
         // notification separately. The owner gets the audit-trail email
         // here as their primary confirmation.
-        if (data.subscriptionCancelledAt) {
+        // Use the persisted date (which may have been extended past
+         // data.subscriptionCancelledAt by computeCancellationEffectiveDate
+         // above) so the email shows the same date the cron will act on.
+        if (updated.subscriptionCancelledAt) {
           void this.sendOwnerCancellationEmailSafely(
             id,
             userId,
             updated.name,
-            data.subscriptionCancelledAt,
+            updated.subscriptionCancelledAt,
           ).catch((err) => {
             this.logger.warn(
               `Owner cancellation email failed (community=${id}): ${(err as Error).message}`,
@@ -615,6 +631,39 @@ export class CommunitiesService {
         isRead: false,
       },
     });
+  }
+
+  // Phase 5 Mission 3 — compute the effective cancellation date for a
+  // community. The community fully closes only after every paying member's
+  // currentPeriodEnd has elapsed (so members get exactly the access they
+  // paid for). The owner's own nextBillingDate is also considered — the
+  // owner shouldn't be shortchanged on what they already paid us for.
+  //
+  // Inputs:
+  //   - requestedDate: what the frontend sent (typically owner.nextBillingDate)
+  //   - ownerNextBillingDate: from the Community row (may be null during trial
+  //     setup; in that case we fall back to requestedDate as the floor)
+  //
+  // Returns the max of: requestedDate, ownerNextBillingDate (if set), and
+  // every ACTIVE / PAST_DUE MemberSubscription's currentPeriodEnd. CANCELLED
+  // member subs are excluded — Mission 4.5's cron handles their per-member
+  // age-out separately and they're already counting down to their own end.
+  private async computeCancellationEffectiveDate(
+    communityId: string,
+    requestedDate: Date,
+    ownerNextBillingDate: Date | null,
+  ): Promise<Date> {
+    const memberMax = await this.prisma.memberSubscription.aggregate({
+      where: {
+        communityId,
+        status: { in: ['ACTIVE', 'PAST_DUE'] },
+      },
+      _max: { currentPeriodEnd: true },
+    });
+    const candidates: Date[] = [requestedDate];
+    if (ownerNextBillingDate) candidates.push(ownerNextBillingDate);
+    if (memberMax._max.currentPeriodEnd) candidates.push(memberMax._max.currentPeriodEnd);
+    return candidates.reduce((latest, d) => (d > latest ? d : latest));
   }
 
   // Phase 3.2 + Phase 4 Mission 5 — bind a UserPaymentMethod to a
