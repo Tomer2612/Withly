@@ -173,12 +173,14 @@ export class CommunitiesService {
 
   private async canViewDraft(
     communityId: string,
-    ownerId: string,
+    ownerId: string | null,
     viewerUserId: string,
   ): Promise<boolean> {
     // Owner via Community.ownerId — reliable even for older communities that
-    // predate the OWNER row in community_members.
-    if (ownerId === viewerUserId) return true;
+    // predate the OWNER row in community_members. NULL ownerId means the
+    // owner deleted their account (Phase 5 Mission 4 wind-down); no viewer
+    // can match a deleted owner, so the manager check below is authoritative.
+    if (ownerId && ownerId === viewerUserId) return true;
 
     // Manager role lives only in community_members.
     const membership = await this.prisma.communityMember.findUnique({
@@ -631,6 +633,62 @@ export class CommunitiesService {
         isRead: false,
       },
     });
+  }
+
+  // Phase 5 Mission 4 — called from UsersService.deleteAccount BEFORE
+  // the prisma.user.delete fires. For every community the user owns,
+  // schedule a graceful wind-down: extend subscriptionCancelledAt to the
+  // grace-end (max owner.nextBillingDate, max paying-member periodEnd) so
+  // members get exactly the access they paid for; stamp ownerDeletedAt as
+  // a terminal flag so the new hard-delete cron pass picks the community
+  // up at grace-end (instead of leaving it SUSPENDED indefinitely as an
+  // ownerless ghost). Member notifications fire alongside.
+  //
+  // After this method returns, the caller is expected to proceed with
+  // prisma.user.delete; Community.ownerId then becomes NULL via SetNull
+  // (the schema FK behavior added in Mission 4) and the community
+  // survives in a wind-down state until the cron hard-deletes it.
+  async windDownOwnedCommunitiesForUserDelete(userId: string): Promise<void> {
+    const owned = await this.prisma.community.findMany({
+      where: { ownerId: userId },
+      select: { id: true, name: true, nextBillingDate: true, subscriptionCancelledAt: true },
+    });
+    if (owned.length === 0) return;
+    const now = new Date();
+    for (const c of owned) {
+      try {
+        // If the community was already in some prior cancellation state
+        // (owner-cancelled before deciding to also delete their account),
+        // honor the later of: existing scheduled date, the recomputed
+        // grace-end. Never shorten what was already promised to members.
+        const requested = c.subscriptionCancelledAt ?? now;
+        const graceEnd = await this.computeCancellationEffectiveDate(
+          c.id,
+          requested,
+          c.nextBillingDate,
+        );
+        await this.prisma.community.update({
+          where: { id: c.id },
+          data: {
+            subscriptionCancelledAt: graceEnd,
+            ownerDeletedAt: now,
+            suspensionReminderSentAt: null,
+          },
+        });
+        // Fan out the scheduled-suspension notification (same one
+        // owner-cancel uses). Members don't need to know whether the
+        // owner cancelled or deleted — both mean the community is
+        // closing on the date in the popup.
+        await this.notifyCommunityScheduledForSuspension(c.id, userId);
+      } catch (err) {
+        // Log and continue — one bad community shouldn't block account
+        // deletion. The community stays in its previous state and the
+        // user is still deleted; an orphan row is recoverable later.
+        this.logger.error(
+          `Failed to wind down community ${c.id} for owner-delete of ${userId}: ${(err as Error).message}`,
+        );
+      }
+    }
   }
 
   // Phase 5 Mission 3 follow-on — public preview for the cancel modal.
@@ -1242,10 +1300,13 @@ export class CommunitiesService {
         });
       // Owner gets the bell-icon notification — existing
       // notifyCommunityJoin handles the per-type prefs (owner can
-      // opt-in/out via the join notification toggle).
-      void this.notificationsService
-        .notifyCommunityJoin(community.ownerId, userId, community.id)
-        .catch(() => {});
+      // opt-in/out via the join notification toggle). Skipped if the
+      // owner deleted their account (Phase 5 Mission 4 wind-down).
+      if (community.ownerId) {
+        void this.notificationsService
+          .notifyCommunityJoin(community.ownerId, userId, community.id)
+          .catch(() => {});
+      }
 
       this.logger.log(
         `Paid join: user=${userId} community=${communityId} amount=${amount} hypId=${result.hypId}`,
@@ -1796,14 +1857,19 @@ export class CommunitiesService {
     const isOnline = (lastActiveAt: Date | null, showOnline: boolean) =>
       showOnline && !!lastActiveAt && new Date(lastActiveAt) > fiveMinutesAgo;
 
-    const ownerEntry = {
-      ...community.owner,
-      joinedAt: community.createdAt,
-      role: 'OWNER' as const,
-      isOwner: true,
-      isManager: false,
-      isOnline: isOnline(community.owner.lastActiveAt, community.owner.showOnline),
-    };
+    // Owner entry is omitted when the owner deleted their account (Phase 5
+    // Mission 4 wind-down) — community.owner becomes null via SetNull and
+    // the OWNER role no longer has a person attached. Members still appear.
+    const ownerEntry = community.owner
+      ? {
+          ...community.owner,
+          joinedAt: community.createdAt,
+          role: 'OWNER' as const,
+          isOwner: true,
+          isManager: false,
+          isOnline: isOnline(community.owner.lastActiveAt, community.owner.showOnline),
+        }
+      : null;
 
     const memberEntries = memberships.map(m => ({
       ...m.user,
@@ -1814,7 +1880,7 @@ export class CommunitiesService {
       isOnline: isOnline(m.user.lastActiveAt, m.user.showOnline),
     }));
 
-    return [ownerEntry, ...memberEntries];
+    return ownerEntry ? [ownerEntry, ...memberEntries] : memberEntries;
   }
 
   // Leaderboard. Point formula:
@@ -1840,7 +1906,14 @@ export class CommunitiesService {
       where: { communityId },
       select: { userId: true },
     });
-    const memberIds = new Set<string>([community.ownerId, ...memberships.map(m => m.userId)]);
+    // ownerId is NULL when the owner deleted their account (Phase 5 Mission 4
+    // wind-down); they're no longer a member and can't appear on the
+    // leaderboard. Drop them from the candidate set.
+    const memberIds = new Set<string>(
+      community.ownerId
+        ? [community.ownerId, ...memberships.map(m => m.userId)]
+        : memberships.map(m => m.userId),
+    );
 
     // Six independent aggregations — fan out concurrently.
     const [
@@ -2030,12 +2103,17 @@ export class CommunitiesService {
       },
     });
 
+    // Owner row omitted when the owner deleted their account (Phase 5
+    // Mission 4 wind-down) — no person to attribute the OWNER role to.
+    const ownerRow = community.owner
+      ? [{
+          id: community.owner.id,
+          name: community.owner.name,
+          role: 'OWNER' as const,
+        }]
+      : [];
     return [
-      {
-        id: community.owner.id,
-        name: community.owner.name,
-        role: 'OWNER' as const,
-      },
+      ...ownerRow,
       ...managers.map(m => ({
         id: m.user.id,
         name: m.user.name,

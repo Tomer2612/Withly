@@ -305,11 +305,14 @@ export class NotificationsService {
   }
 
   // Cancellation date passed (or HYP charge failed) — community is now suspended.
-  async notifyCommunitySuspended(recipientUserId: string, actorId: string, communityId: string) {
+  // actorId is null when the suspension is triggered by an owner-deletion
+  // wind-down (Phase 5 Mission 4) — there's no actor at the moment of the
+  // suspension cron run since the owner row is already gone.
+  async notifyCommunitySuspended(recipientUserId: string, actorId: string | null, communityId: string) {
     return this.createUnconditional({
       type: 'COMMUNITY_SUSPENDED',
       recipientId: recipientUserId,
-      actorId,
+      actorId: actorId ?? undefined,
       communityId,
     });
   }

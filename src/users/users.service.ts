@@ -1,8 +1,9 @@
-import { Injectable, BadRequestException, ConflictException, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, NotFoundException, Logger, Inject, forwardRef } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { EmailService } from '../email/email.service';
 import { StorageService } from '../common/storage.service';
+import { CommunitiesService } from '../communities/communities.service';
 import * as bcrypt from 'bcrypt';
 import { ERROR_MESSAGES } from '../common/messages';
 
@@ -14,6 +15,8 @@ export class UsersService {
     private prisma: PrismaService,
     private emailService: EmailService,
     private storageService: StorageService,
+    @Inject(forwardRef(() => CommunitiesService))
+    private communitiesService: CommunitiesService,
   ) {}
 
   // Search users by name for @mentions
@@ -212,11 +215,19 @@ export class UsersService {
       (f): f is string => typeof f === 'string' && f.length > 0,
     );
 
+    // Phase 5 Mission 4 — schedule wind-down on every owned community
+    // BEFORE the cascade. Sets subscriptionCancelledAt = grace_end and
+    // ownerDeletedAt = NOW on each, plus notifies members. When the
+    // user.delete fires next, Community.ownerId becomes NULL via SetNull
+    // and the community survives in a winding-down state until the new
+    // hard-delete cron pass removes it at grace-end.
+    await this.communitiesService.windDownOwnedCommunitiesForUserDelete(user.id);
+
     // Delete user — cascade handles Cascade-marked relations (RefreshToken,
     // UserPaymentMethod, CommunityMember, CourseEnrollment, etc.); SetNull
     // relations (Post.authorId, Comment.userId, Like.userId, PollVote.userId,
-    // Course.authorId, Notification.actorId) drop the FK so content survives
-    // anonymized.
+    // Course.authorId, Community.ownerId, Notification.actorId) drop the FK
+    // so content survives anonymized.
     await this.prisma.user.delete({
       where: { id: user.id },
     });

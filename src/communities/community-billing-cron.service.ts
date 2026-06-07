@@ -43,6 +43,7 @@ export class CommunityBillingCronService {
     await this.applyMonthlyOwnerCharges();
     await this.applyMemberCancellationsAtPeriodEnd();
     await this.applyMonthlyMemberCharges();
+    await this.hardDeleteWoundDownCommunities();
   }
 
   // Phase 4 Mission 4.5 — at currentPeriodEnd, ends paid memberships
@@ -429,6 +430,12 @@ export class CommunityBillingCronService {
         subscriptionCancelledAt: null,
         nextBillingDate: { lte: now, not: null },
         paymentMethodId: { not: null },
+        // Wind-down communities (owner deleted account, Phase 5 Mission 4)
+        // have ownerId=NULL after the cascade — exclude defensively. The
+        // subscriptionCancelledAt filter above already catches them
+        // (wind-down sets it), but the not-null assertion keeps TS happy
+        // and documents intent.
+        ownerId: { not: null },
       },
       select: {
         id: true,
@@ -469,7 +476,7 @@ export class CommunityBillingCronService {
     c: {
       id: string;
       name: string;
-      ownerId: string;
+      ownerId: string | null;
       nextBillingDate: Date | null;
       paymentMethod: {
         hypPaymentMethodId: string | null;
@@ -487,6 +494,13 @@ export class CommunityBillingCronService {
     now: Date,
   ) {
     // Defensive validations — these should never trip post-Phase 3.3.
+    // ownerId NULL would mean the owner deleted their account (Phase 5
+    // Mission 4 wind-down) and we shouldn't charge; the cron's findMany
+    // filter already excludes these but assert here too for type safety.
+    if (!c.ownerId) {
+      this.logger.warn(`Community ${c.id}: ownerId NULL (wind-down) — skipping charge`);
+      return;
+    }
     if (
       !c.paymentMethod?.hypPaymentMethodId
       || c.paymentMethod.cardExpMonth == null
@@ -566,7 +580,10 @@ export class CommunityBillingCronService {
     c: {
       id: string;
       name: string;
-      ownerId: string;
+      // Caller (processOwnerCharge) already asserts non-null before calling,
+      // but the type stays nullable to match the parent's narrower-than-
+      // Prisma-knows shape. Treated as the actor on member notifications.
+      ownerId: string | null;
       owner: {
         email: string;
         name: string | null;
@@ -583,7 +600,11 @@ export class CommunityBillingCronService {
 
     // Owner notification (bell + email). Fire-and-forget — DB state is
     // already correct; comm failures shouldn't roll back the suspension.
-    await this.notificationsService.notifyPaymentFailed(c.ownerId, c.id).catch(() => {});
+    // Skipped when ownerId is null (wind-down case — owner already gone,
+    // no recipient).
+    if (c.ownerId) {
+      await this.notificationsService.notifyPaymentFailed(c.ownerId, c.id).catch(() => {});
+    }
     if (c.owner?.email && c.owner.plan?.monthlyPriceILS) {
       try {
         await this.emailService.sendPaymentFailedEmail(
@@ -651,6 +672,94 @@ export class CommunityBillingCronService {
 
     if (due.length > 0) {
       this.logger.log(`Processed ${due.length} member monthly charge(s)`);
+    }
+  }
+
+  // Phase 5 Mission 4 — terminal cleanup for communities whose owner
+  // deleted their account. Runs LAST in the daily pass so:
+  //   1. applyDueOwnerCancellations has already flipped the community
+  //      to SUSPENDED at its grace-end date
+  //   2. all per-member cancellations + charge attempts have settled
+  // We pick up communities with both ownerDeletedAt set AND status
+  // SUSPENDED, collect their R2 file URLs (community-owned + content-
+  // owned: posts, courses), delete from R2 best-effort, then
+  // prisma.community.delete which cascades the rest (posts, comments,
+  // events, courses, member rows, etc.).
+  private async hardDeleteWoundDownCommunities() {
+    const due = await this.prisma.community.findMany({
+      where: {
+        ownerDeletedAt: { not: null },
+        subscriptionStatus: 'SUSPENDED',
+      },
+      select: {
+        id: true,
+        name: true,
+        logo: true,
+        image: true,
+        galleryImages: true,
+        galleryVideos: true,
+        posts: { select: { images: true, videos: true } },
+        courses: {
+          select: {
+            image: true,
+            chapters: {
+              select: {
+                lessons: {
+                  select: { videoUrl: true, images: true, files: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (due.length === 0) return;
+    this.logger.log(`Hard-deleting ${due.length} wound-down community/communities`);
+
+    for (const c of due) {
+      // Build flat list of R2 URLs to delete. The Lesson.files column is
+      // Json[]; each entry may be { url: string, ... } — best-effort
+      // extraction. Anything we can't recognize is left for manual cleanup.
+      const urls: string[] = [];
+      if (c.logo) urls.push(c.logo);
+      if (c.image) urls.push(c.image);
+      urls.push(...c.galleryImages, ...c.galleryVideos);
+      for (const p of c.posts) {
+        urls.push(...p.images, ...p.videos);
+      }
+      for (const course of c.courses) {
+        if (course.image) urls.push(course.image);
+        for (const ch of course.chapters) {
+          for (const l of ch.lessons) {
+            if (l.videoUrl) urls.push(l.videoUrl);
+            urls.push(...l.images);
+            for (const f of l.files as unknown as Array<{ url?: string } | string>) {
+              if (typeof f === 'string') urls.push(f);
+              else if (f && typeof f.url === 'string') urls.push(f.url);
+            }
+          }
+        }
+      }
+
+      const r2Results = await Promise.allSettled(
+        urls.map((u) => this.storageService.deleteFile(u)),
+      );
+      const r2Failed = r2Results.filter((r) => r.status === 'rejected').length;
+      if (r2Failed > 0) {
+        this.logger.warn(
+          `Community ${c.id} hard-delete: ${r2Failed}/${urls.length} R2 deletes failed (continuing with DB delete)`,
+        );
+      }
+
+      try {
+        await this.prisma.community.delete({ where: { id: c.id } });
+        this.logger.log(`Hard-deleted community ${c.id} (${c.name}) — ${urls.length} R2 files attempted`);
+      } catch (err) {
+        this.logger.error(
+          `Hard-delete failed for community ${c.id}: ${(err as Error).message}`,
+        );
+      }
     }
   }
 
@@ -773,14 +882,18 @@ export class CommunityBillingCronService {
     this.logger.warn(`MemberSubscription ${sub.id} → PAST_DUE (${reason})`);
   }
 
-  private async notifyMembersSuspended(communityId: string, ownerId: string) {
+  private async notifyMembersSuspended(communityId: string, ownerId: string | null) {
     const memberships = await this.prisma.communityMember.findMany({
       where: { communityId },
       select: { userId: true },
     });
+    // ownerId is null when the owner deleted their account (Phase 5 Mission
+    // 4 wind-down) — no "owner" filter to apply, and the notification's
+    // actorId carries null (system-suspended). notifyCommunitySuspended
+    // accepts the null actor; UI renders without an actor attribution.
     await Promise.all(
       memberships
-        .filter(m => m.userId !== ownerId)
+        .filter(m => ownerId == null || m.userId !== ownerId)
         .map(m =>
           this.notificationsService
             .notifyCommunitySuspended(m.userId, ownerId, communityId)

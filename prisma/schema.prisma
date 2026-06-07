@@ -208,7 +208,11 @@ model Community {
   id                      String                      @id @default(cuid())
   name                    String
   description             String
-  ownerId                 String
+  // Nullable for owner-account-deletion wind-down (Phase 5 Mission 4).
+  // When the owner deletes their account, this becomes NULL via SetNull
+  // and the community lingers (read-only via existing SUSPENDED rules)
+  // until grace ends and the new hard-delete cron pass removes it.
+  ownerId                 String?
   createdAt               DateTime                    @default(now())
   image                   String?
   topic                   String?
@@ -245,6 +249,12 @@ model Community {
   // SOFT charge is 2-4 days out, sends the reminder, sets this
   // timestamp. Never cleared (no "restart trial" flow today).
   trialEndReminderSentAt    DateTime?
+  // Phase 5 Mission 4 — terminal flag set when the owner deletes their
+  // account. Distinct from subscriptionCancelledAt (owner-cancel, which
+  // can be reversed). Once set, the existing cancel cron flips the
+  // community to SUSPENDED at grace-end, and a new hard-delete cron
+  // pass then removes the community + its R2 files.
+  ownerDeletedAt          DateTime?
   slug                    String?                     @unique
   // HYP-era billing fields (added Phase 1.2). Old cardLastFour/cardBrand
   // strings stay until Phase 6.1 backfill is verified, then dropped.
@@ -255,7 +265,7 @@ model Community {
   currentPeriodStart      DateTime?
   currentPeriodEnd        DateTime?
   posts                   Post[]
-  owner                   User                        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  owner                   User?                       @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   bans                    CommunityBan[]
   members                 CommunityMember[]
   courses                 Course[]

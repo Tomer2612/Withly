@@ -206,10 +206,12 @@ export class CommunitiesController {
     const userId = req.user.userId;
     const result = await this.communitiesService.joinCommunity(id, userId);
     
-    // Notify community owner if this is a new join
+    // Notify community owner if this is a new join. Skip when ownerId is
+    // NULL — owner deleted their account (Phase 5 Mission 4 wind-down),
+    // no recipient to notify.
     if (result.message === 'Joined community') {
       const community = await this.communitiesService.findById(id);
-      if (community) {
+      if (community && community.ownerId) {
         await this.notificationsService.notifyCommunityJoin(
           community.ownerId,
           userId,
