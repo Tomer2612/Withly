@@ -7,10 +7,20 @@ import { HypModule } from './hyp.module';
 import { DunningService } from './dunning.service';
 import { PrismaService } from '../common/prisma.service';
 
-// forwardRef on CommunitiesModule because CommunitiesModule's cron imports
-// PaymentsModule for DunningService (failure handlers generate links).
+// forwardRef on BOTH UsersModule and CommunitiesModule. There's a
+// three-way cycle: AppModule -> UsersModule -> CommunitiesModule
+// (forwardRef from Phase 5 wind-down) -> PaymentsModule (forwardRef
+// from Phase 6.4 dunning) -> UsersModule. When the scan reaches us via
+// CommunitiesModule, UsersModule is mid-load so the bare class
+// reference resolves to undefined — wrap it in forwardRef so it's
+// resolved lazily at DI time instead.
 @Module({
-  imports: [UsersModule, forwardRef(() => CommunitiesModule), EmailModule, HypModule],
+  imports: [
+    forwardRef(() => UsersModule),
+    forwardRef(() => CommunitiesModule),
+    EmailModule,
+    HypModule,
+  ],
   controllers: [PaymentsController],
   providers: [DunningService, PrismaService],
   exports: [DunningService],
