@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Modal from './Modal';
 
 const formatHebrewDate = (d: Date): string => d.toLocaleDateString('he-IL');
@@ -9,7 +9,9 @@ interface CancelSubscriptionModalProps {
   isOpen: boolean;
   onClose: () => void;
   communityId: string;
-  /** End-of-current-period date the subscription will switch to SUSPENDED on. */
+  /** Fallback end-of-period date used while the cancellation-preview endpoint
+      response is loading (or if it fails). Parent typically passes
+      owner.nextBillingDate — accurate when there are no paying members. */
   effectiveDate: Date;
   isPaidCommunity: boolean;
   /** For the "יש לך X חברים משלמים" line; pass 0 if free. */
@@ -31,6 +33,37 @@ export default function CancelSubscriptionModal({
   onError,
 }: CancelSubscriptionModalProps) {
   const [submitting, setSubmitting] = useState(false);
+  // Phase 5 Mission 3 follow-on — query the backend for the accurate
+  // cancellation date (max of owner.nextBillingDate and paying members'
+  // currentPeriodEnd). The parent only knows owner-side dates, so the
+  // prop-passed effectiveDate can lag in the presence of late-joined
+  // paying members. Falls back to the prop on fetch failure so the modal
+  // never breaks.
+  const [previewedDate, setPreviewedDate] = useState<Date>(effectiveDate);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    setPreviewedDate(effectiveDate);
+    (async () => {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/cancellation-preview`,
+          { credentials: 'include' },
+        );
+        if (!cancelled && res.ok) {
+          const data = await res.json();
+          if (data?.effectiveDate) {
+            setPreviewedDate(new Date(data.effectiveDate));
+          }
+        }
+      } catch {
+        // Keep the prop fallback — better to show owner.nextBillingDate
+        // than nothing.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen, communityId, effectiveDate]);
 
   const handleConfirm = async () => {
     setSubmitting(true);
@@ -40,11 +73,11 @@ export default function CancelSubscriptionModal({
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ subscriptionCancelledAt: effectiveDate.toISOString() }),
+          body: JSON.stringify({ subscriptionCancelledAt: previewedDate.toISOString() }),
         },
       );
       if (res.ok) {
-        onSuccess(effectiveDate);
+        onSuccess(previewedDate);
       } else {
         onError?.();
       }
@@ -66,7 +99,7 @@ export default function CancelSubscriptionModal({
           לבטל את המנוי?
         </h2>
         <p style={{ fontSize: '18px', fontWeight: 400, color: 'var(--color-gray-10)', marginBottom: '4px' }}>
-          {`הקהילה תישאר פעילה עד ${formatHebrewDate(effectiveDate)}. לאחר מכן היא `}
+          {`הקהילה תישאר פעילה עד ${formatHebrewDate(previewedDate)}. לאחר מכן היא `}
           <span style={{ fontWeight: 600 }}>תושבת</span>
           {`, וניתן לחדש בכל עת.`}
         </p>

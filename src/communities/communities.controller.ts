@@ -432,6 +432,17 @@ export class CommunitiesController {
     );
   }
 
+  // Phase 5 Mission 3 follow-on — preview the cancellation effective date
+  // before the owner confirms. Returns max(owner.nextBillingDate, max
+  // paying-member currentPeriodEnd) so the cancel modal can display the
+  // accurate grace-end date that will actually be persisted. Open to any
+  // logged-in user; the modal is only surfaced to owners by the frontend.
+  @UseGuards(AuthGuard('jwt'))
+  @Get(':id/cancellation-preview')
+  getCancellationPreview(@Param('id') id: string) {
+    return this.communitiesService.getCancellationPreview(id);
+  }
+
   // Owner-only payment update — separate from PUT /:id so a SUSPENDED
   // community can still complete the renewal flow.
   @UseGuards(AuthGuard('jwt'))

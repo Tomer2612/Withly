@@ -633,6 +633,32 @@ export class CommunitiesService {
     });
   }
 
+  // Phase 5 Mission 3 follow-on — public preview for the cancel modal.
+  // Returns the same date the persist path would use, so the UI can show
+  // the accurate grace-end before the owner confirms. Resolves a slug or
+  // id; throws NotFoundException if the community doesn't exist. Open to
+  // any authenticated user (the cancel modal is frontend-gated to owners).
+  async getCancellationPreview(idOrSlug: string): Promise<{ effectiveDate: Date }> {
+    const id = await this.resolveId(idOrSlug);
+    const community = await this.prisma.community.findUnique({
+      where: { id },
+      select: { nextBillingDate: true },
+    });
+    if (!community) {
+      throw new NotFoundException('Community not found');
+    }
+    // Use NOW as the floor — at minimum, the cancellation effective date
+    // can't be in the past. This mirrors what the frontend would pass as
+    // requestedDate in the (unusual) case of a fully-past owner billing
+    // date with no paying members.
+    const effectiveDate = await this.computeCancellationEffectiveDate(
+      id,
+      new Date(),
+      community.nextBillingDate,
+    );
+    return { effectiveDate };
+  }
+
   // Phase 5 Mission 3 — compute the effective cancellation date for a
   // community. The community fully closes only after every paying member's
   // currentPeriodEnd has elapsed (so members get exactly the access they
