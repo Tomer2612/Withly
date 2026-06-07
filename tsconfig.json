@@ -17,8 +17,8 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
-    "types": ["jest", "node"]
+    "types": ["node"]
   },
-  "include": ["src", "test", "src/**/*.spec.ts"],
-  "exclude": ["node_modules", "dist", "e2e-tests", "frontend"]
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", "frontend"]
 }
