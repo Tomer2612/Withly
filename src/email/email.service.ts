@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 import { readFile } from 'fs/promises';
 import * as path from 'path';
+import { hypCCodeToHebrew } from '../payments/hyp-errors';
 
 @Injectable()
 export class EmailService {
@@ -629,16 +630,22 @@ export class EmailService {
   // to update the payment method to reactivate. No auto-retry in the
   // current design (suspend-on-first-failure), so the copy avoids
   // promising a next attempt date.
+  // Phase 6.5: optional ccode adds a code-specific reason line below
+  // the generic charge-failed line when we have a Hebrew mapping for it
+  // (skipped for unmapped codes — adds noise without information).
   async sendPaymentFailedEmail(
     email: string,
     name: string,
     communityName: string,
     communityId: string,
     monthlyPriceILS: number,
+    ccode?: string | null,
   ): Promise<void> {
     const subject = `התשלום החודשי לא עבר — הקהילה "${communityName}" הושעתה`;
+    const reason = hypCCodeToHebrew(ccode);
     const lines = [
       `ניסינו לחייב את אמצעי התשלום עבור הקהילה "${communityName}" בסכום של ₪${monthlyPriceILS}, אך החיוב לא עבר.`,
+      ...(reason.isSpecific ? [`הסיבה: ${reason.message}.`] : []),
       `הקהילה הושעתה, והחברים לא יוכלו להיכנס עד שהמנוי יחודש.`,
       `לחידוש הגישה, יש לעדכן את אמצעי התשלום.`,
     ];
@@ -691,10 +698,13 @@ export class EmailService {
     name: string,
     communityName: string,
     amountILS: number,
+    ccode?: string | null,
   ): Promise<void> {
     const subject = `התשלום החודשי לקהילה "${communityName}" לא עבר`;
+    const reason = hypCCodeToHebrew(ccode);
     const lines = [
       `ניסינו לחייב את אמצעי התשלום עבור המנוי לקהילה "${communityName}" בסכום של ₪${amountILS}, אך החיוב לא עבר.`,
+      ...(reason.isSpecific ? [`הסיבה: ${reason.message}.`] : []),
       `המנוי הושהה. הגישה לקהילה תיחסם בקרוב.`,
       `לחידוש המנוי, יש לעדכן את אמצעי התשלום בהגדרות החשבון.`,
     ];

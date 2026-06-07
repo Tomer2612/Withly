@@ -12,6 +12,7 @@ import CloseIcon from '../../../components/icons/CloseIcon';
 import ChevronLeftIcon from '../../../components/icons/ChevronLeftIcon';
 import ChevronRightIcon from '../../../components/icons/ChevronRightIcon';
 import { getImageUrl } from '@/app/lib/imageUrl';
+import { hypCCodeToHebrew } from '@/app/lib/hypErrors';
 import HypPaymentIframeModal from '../../../components/HypPaymentIframeModal';
 import ExistingCardConfirmModal from '../../../components/ExistingCardConfirmModal';
 import CardPickerModal from '../../../components/CardPickerModal';
@@ -389,7 +390,16 @@ function CommunityPreviewContent() {
         const errorBody = await res.json().catch(() => ({}));
         const msg = String(errorBody?.message ?? '');
         if (msg.startsWith('CHARGE_FAILED')) {
-          setPaidJoinError('החיוב לא עבר. אפשר לנסות שוב או להשתמש בכרטיס אחר.');
+          // Phase 6.5 — backend throws `CHARGE_FAILED:<ccode>`; pull the
+          // ccode and surface a code-specific Hebrew message when we
+          // have one. Unknown codes fall back to the generic copy.
+          const ccode = msg.split(':')[1]?.trim();
+          const { message, isSpecific } = hypCCodeToHebrew(ccode);
+          setPaidJoinError(
+            isSpecific
+              ? `${message}. ניתן לנסות שוב או להשתמש בכרטיס אחר.`
+              : 'החיוב לא עבר. אפשר לנסות שוב או להשתמש בכרטיס אחר.',
+          );
         } else if (msg === 'CARD_EXPIRED') {
           setPaidJoinError('הכרטיס פג תוקף. יש להוסיף כרטיס חדש.');
         } else if (msg === 'COMMUNITY_SUSPENDED') {

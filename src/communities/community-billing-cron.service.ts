@@ -527,7 +527,7 @@ export class CommunityBillingCronService {
       this.logger.warn(
         `Community ${c.id}: card expired ${c.paymentMethod.cardExpMonth}/${c.paymentMethod.cardExpYear}, suspending`,
       );
-      await this.handleChargeFailure(c, 'CARD_EXPIRED', now);
+      await this.handleChargeFailure(c, 'CARD_EXPIRED', now, '36');
       return;
     }
 
@@ -571,7 +571,7 @@ export class CommunityBillingCronService {
         `(${c.name}): hypId=${result.body.Id}, next=${nextBillingDate.toISOString()}`,
       );
     } else {
-      await this.handleChargeFailure(c, `CCode=${result.ccode}`, now);
+      await this.handleChargeFailure(c, `CCode=${result.ccode}`, now, result.ccode);
     }
   }
 
@@ -593,6 +593,7 @@ export class CommunityBillingCronService {
     },
     reason: string,
     now: Date,
+    ccode?: string | null,
   ) {
     await this.prisma.community.update({
       where: { id: c.id },
@@ -614,6 +615,7 @@ export class CommunityBillingCronService {
           c.name,
           c.id,
           c.owner.plan.monthlyPriceILS,
+          ccode,
         );
       } catch (err) {
         this.logger.warn(
@@ -852,7 +854,7 @@ export class CommunityBillingCronService {
       this.logger.warn(
         `MemberSubscription ${sub.id}: card expired ${sub.paymentMethod.cardExpMonth}/${sub.paymentMethod.cardExpYear}, PAST_DUE`,
       );
-      await this.handleMemberChargeFailure(sub, 'CARD_EXPIRED', now);
+      await this.handleMemberChargeFailure(sub, 'CARD_EXPIRED', now, '36');
       return;
     }
 
@@ -893,7 +895,7 @@ export class CommunityBillingCronService {
         `(community "${sub.community.name}"): hypId=${result.body.Id}, next=${nextBillingDate.toISOString()}`,
       );
     } else {
-      await this.handleMemberChargeFailure(sub, `CCode=${result.ccode}`, now);
+      await this.handleMemberChargeFailure(sub, `CCode=${result.ccode}`, now, result.ccode);
     }
   }
 
@@ -912,6 +914,7 @@ export class CommunityBillingCronService {
     },
     reason: string,
     _now: Date,
+    ccode?: string | null,
   ) {
     await this.prisma.memberSubscription.update({
       where: { id: sub.id },
@@ -925,6 +928,7 @@ export class CommunityBillingCronService {
         sub.user.name ?? sub.user.email,
         sub.community.name,
         Math.round(sub.priceAtJoin),
+        ccode,
       );
     } catch (err) {
       this.logger.warn(
