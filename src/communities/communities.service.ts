@@ -180,6 +180,13 @@ export class CommunitiesService {
       if (err instanceof NotFoundException) {
         throw err;
       }
+      // Surface the real error before re-wrapping — otherwise the catch-all
+      // swallows it and the client just sees "Could not fetch community"
+      // with no idea what actually failed.
+      this.logger.error(
+        `findById(${idOrSlug}) failed: ${(err as Error).message}`,
+        (err as Error).stack,
+      );
       throw new InternalServerErrorException('Could not fetch community');
     }
   }
