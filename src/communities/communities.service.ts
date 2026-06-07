@@ -1197,7 +1197,8 @@ export class CommunitiesService {
     const community = await this.prisma.community.findUnique({
       where: { id: communityId },
       select: {
-        id: true, name: true, ownerId: true, status: true, price: true,
+        id: true, name: true, ownerId: true, status: true,
+        price: true, pendingPrice: true,
         subscriptionStatus: true, subscriptionCancelledAt: true,
       },
     });
@@ -1213,7 +1214,13 @@ export class CommunitiesService {
     if (community.ownerId === userId) {
       throw new ForbiddenException('Owner cannot join own community');
     }
-    if (!community.price || community.price <= 0) {
+    // Effective join price = pendingPrice when one is scheduled (so new
+    // joiners pay the announced new price during the notice period;
+    // existing members stay locked at their priceAtJoin). Mirrors the
+    // frontend joinPrice() helper. Falls back to community.price when
+    // no pending change is in flight.
+    const effectivePrice = community.pendingPrice ?? community.price;
+    if (!effectivePrice || effectivePrice <= 0) {
       // Free community — use the regular join endpoint, not this one.
       throw new BadRequestException('Community is free');
     }
@@ -1236,9 +1243,9 @@ export class CommunitiesService {
     const now = new Date();
     const nextBillingDate = new Date(now);
     nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
-    // HYP rejects non-integer amounts; community.price is Float but in
+    // HYP rejects non-integer amounts; price fields are Float but in
     // practice always whole shekels. Round to be safe.
-    const amount = Math.round(community.price);
+    const amount = Math.round(effectivePrice);
 
     try {
       const result = await this.prisma.$transaction(async (tx) => {
@@ -1254,10 +1261,11 @@ export class CommunitiesService {
             // server-side subscription objects) — generate a unique
             // placeholder until Phase 6.3 drops the column.
             hypSubscriptionId: randomUUID(),
-            // Non-null narrowed by the price > 0 guard above; `!` here
-            // is because Prisma's Float? type doesn't propagate the
-            // narrowing through the if-check.
-            priceAtJoin: community.price!,
+            // Non-null narrowed by the effectivePrice > 0 guard above.
+            // Locks the joiner at the price they actually paid today —
+            // when pendingPrice was in effect, that's the new price,
+            // not the soon-to-be-obsolete community.price.
+            priceAtJoin: effectivePrice,
             nextBillingDate,
             currentPeriodStart: now,
             currentPeriodEnd: nextBillingDate,
