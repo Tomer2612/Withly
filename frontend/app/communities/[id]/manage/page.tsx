@@ -50,6 +50,10 @@ interface Community {
   galleryVideos: string[];
   rules: string[];
   trialStartDate: string | null;
+  // Cron-managed billing date — authoritative. Was being recomputed from
+  // trialStartDate + planTrialLength via a local util pre-Phase-6.3; now
+  // read directly from the backend.
+  nextBillingDate: string | null;
   cardLastFour: string | null;
   cardBrand: string | null;
   subscriptionCancelledAt: string | null;
@@ -73,24 +77,14 @@ const isInTrial = (trialStart: Date | null, trialLengthMonths: number): boolean 
   const end = getTrialEnd(trialStart, trialLengthMonths);
   return !!end && end > new Date();
 };
-// "Next billing" = trial end while in trial; otherwise the next monthly anchor
-// after now, computed from the trial-start cycle. Placeholder until HYP gives
-// us authoritative billing dates (Phase 4 cron populates community.nextBillingDate).
-const getNextBillingDate = (trialStart: Date | null, trialLengthMonths: number): Date => {
-  const now = new Date();
-  if (!trialStart) return addMonths(now, 1);
-  let candidate = addMonths(trialStart, trialLengthMonths);
-  while (candidate <= now) candidate = addMonths(candidate, 1);
-  return candidate;
-};
-// Cancellation effective date: end of current paid period.
-// While in trial → trial end (so the user keeps the rest of their trial).
-// Otherwise → today + 1 month (so members keep a full final month).
-const getCancellationEffectiveDate = (trialStart: Date | null, trialLengthMonths: number): Date => {
-  const trialEnd = getTrialEnd(trialStart, trialLengthMonths);
-  if (trialEnd && trialEnd > new Date()) return trialEnd;
-  return addMonths(new Date(), 1);
-};
+// Phase 6.3: local trial-cycle math for "next billing" and "cancellation
+// effective date" was deleted. Authoritative dates come from the backend:
+//   - community.nextBillingDate (cron-managed)
+//   - CancelSubscriptionModal fetches a /cancellation-preview endpoint that
+//     factors in member periods (Phase 5 Mission 3)
+// `getTrialEnd` + `isInTrial` stay since trial-end isn't a stored column
+// (it's trialStartDate + plan.trialLengthMonths) and only the trial
+// disclosure copy reads it.
 
 interface ImageFile {
   file?: File;
@@ -170,6 +164,9 @@ export default function ManageCommunityPage() {
   
   // Trial and payment
   const [trialStartDate, setTrialStartDate] = useState<Date | null>(null);
+  // Authoritative next-bill date from the cron. Replaces the local
+  // getNextBillingDate() math (Phase 6.3).
+  const [nextBillingDate, setNextBillingDate] = useState<Date | null>(null);
   const [cardLastFour, setCardLastFour] = useState<string | null>(null);
   const [cardBrand, setCardBrand] = useState<string | null>(null);
   const [showCardModal, setShowCardModal] = useState(false);
@@ -436,6 +433,7 @@ export default function ManageCommunityPage() {
         setCurrentCommunityPrice(typeof data.price === 'number' ? data.price : 0);
         setCardLastFour(data.cardLastFour || null);
         setCardBrand(data.cardBrand || null);
+        setNextBillingDate(data.nextBillingDate ? new Date(data.nextBillingDate) : null);
         setShowOnlineMembers(data.showOnlineMembers !== false);
         setCommunityStatus(data.status || 'DRAFT');
         
@@ -730,6 +728,7 @@ export default function ManageCommunityPage() {
       setCurrentCommunityPrice(typeof data.price === 'number' ? data.price : 0);
       setCardLastFour(data.cardLastFour || null);
       setCardBrand(data.cardBrand || null);
+      setNextBillingDate(data.nextBillingDate ? new Date(data.nextBillingDate) : null);
       setLogo(
         data.logo
           ? { preview: getImageUrl(data.logo), isExisting: true, existingPath: data.logo }
@@ -2024,7 +2023,7 @@ export default function ManageCommunityPage() {
                         ₪{planMonthlyPrice} / חודש
                       </span>
                       <span className="text-[16px] font-normal text-black">
-                        החיוב הבא: {formatHebrewDate(getNextBillingDate(trialStartDate, planTrialLength))}
+                        החיוב הבא: {formatHebrewDate(nextBillingDate ?? new Date())}
                       </span>
                     </div>
                     {isInTrial(trialStartDate, planTrialLength) && (
@@ -2298,7 +2297,7 @@ export default function ManageCommunityPage() {
             isOpen={showCancelSubscriptionModal}
             onClose={() => setShowCancelSubscriptionModal(false)}
             communityId={communityId}
-            effectiveDate={getCancellationEffectiveDate(trialStartDate, planTrialLength)}
+            effectiveDate={nextBillingDate ?? new Date()}
             isPaidCommunity={isPaidCommunity}
             paidMembersCount={isPaidCommunity ? Math.max(0, (community?.memberCount ?? 1) - 1) : 0}
             onSuccess={(eff) => {
