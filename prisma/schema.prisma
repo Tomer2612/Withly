@@ -53,6 +53,7 @@ model User {
   following                UserFollow[]         @relation("UserFollowing")
   followers                UserFollow[]         @relation("UserFollowers")
   paymentMethods           UserPaymentMethod[]
+  paymentDunningRequests   PaymentDunningRequest[]
   pollVotes                PollVote[]
   // HYP customer object id; populated on first card tokenization (Phase 3).
   // Reused across all subsequent flows so we don't create duplicate customers.
@@ -268,8 +269,46 @@ model Community {
   courses                 Course[]
   events                  Event[]
   memberSubscriptions     MemberSubscription[]
+  paymentDunningRequests  PaymentDunningRequest[]
 
   @@map("communities")
+}
+
+// Phase 6.4 — outgoing dunning links for failed-charge recovery. When the
+// cron's SOFT charge fails (owner monthly or member monthly), we generate
+// a HYP-hosted pay link via signPayment(J5=J2, showAmount), email it to
+// the user, and stash a row here. HYP echoes our hypOrderId back on the
+// redirect callback so we can resolve which (user, community, kind, amount)
+// the payment was for. Single active record per (user, community, kind):
+// the failure handler reuses an existing unfulfilled link if still inside
+// expiresAt, otherwise creates a new one.
+model PaymentDunningRequest {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  communityId String
+  community   Community   @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  kind        DunningKind
+  amount      Float
+  // We send this to HYP as the Order param; it echoes it back on the
+  // redirect so the callback handler can do an O(1) lookup.
+  hypOrderId  String      @unique
+  // Set on successful callback (token mint + SOFT charge both ok).
+  fulfilledAt DateTime?
+  hypTxnId    String?
+  // 7-day cap. After this, the failure handler stops reusing the row
+  // and generates a fresh link on the next failure.
+  expiresAt   DateTime
+  createdAt   DateTime    @default(now())
+
+  // Supports the "active link for this user+community+kind" reuse lookup.
+  @@index([userId, communityId, kind, fulfilledAt])
+  @@map("payment_dunning_requests")
+}
+
+enum DunningKind {
+  OWNER_MONTHLY
+  MEMBER_MONTHLY
 }
 
 model CommunityMember {

@@ -808,6 +808,10 @@ export class CommunitiesService {
     let chargeAttempted = false;
     let chargeOk = false;
     let chargeCCode: string | null = null;
+    // Phase 6.4: surface the HYP transaction Id when the recovery SOFT
+    // succeeds — the dunning callback persists it on the dunning row so
+    // future refunds (zikoyAPI) can target the recovery charge specifically.
+    let chargeHypTxnId: string | null = null;
     if (wasSuspended) {
       chargeAttempted = true;
       const pmRow = await this.prisma.userPaymentMethod.findUnique({
@@ -845,6 +849,7 @@ export class CommunitiesService {
           });
           chargeOk = result.ok;
           chargeCCode = result.ccode;
+          chargeHypTxnId = result.body.Id ?? null;
         } catch (err) {
           this.logger.error(`Recovery SOFT threw for community ${communityId}: ${(err as Error).message}`);
           chargeOk = false;
@@ -886,6 +891,115 @@ export class CommunitiesService {
       chargeAttempted,
       chargeFailed: chargeAttempted && !chargeOk,
       chargeCCode,
+      // Phase 6.4 — HYP transaction Id of the successful recovery SOFT
+      // (null on failure or when no charge was attempted). Dunning
+      // callback stores this on the PaymentDunningRequest row.
+      chargeHypTxnId,
+    };
+  }
+
+  // Phase 6.4 — member dunning recovery. Called by the /payments/payment-
+  // success dunning dispatch when a member who failed their monthly SOFT
+  // comes back via the pay-now link and successfully tokenizes a new card.
+  //
+  // Flow: get the PAST_DUE MemberSubscription, run a fresh SOFT against
+  // the new token, on success flip ACTIVE + advance dates + swap the
+  // payment method + persist the new hypSubscriptionId (used for future
+  // refunds). On failure, leave PAST_DUE and return chargeFailed so the
+  // caller can surface the right toast + leave the dunning row open.
+  //
+  // Idempotency: if the sub is already ACTIVE (somehow paid by another
+  // path), no charge, returns ok=true with no txn id.
+  //
+  // Member is NOT removed from CommunityMember at PAST_DUE today (Phase 5
+  // leaves the row intact), so this method doesn't need to re-create it.
+  // If that ever changes, add the create here.
+  async recoverMemberFromDunning(
+    userId: string,
+    communityId: string,
+    paymentMethod: {
+      id: string;
+      hypPaymentMethodId: string;
+      cardExpMonth: number;
+      cardExpYear: number;
+    },
+  ): Promise<{
+    ok: boolean;
+    ccode: string | null;
+    hypTxnId: string | null;
+    alreadyActive: boolean;
+  }> {
+    const sub = await this.prisma.memberSubscription.findFirst({
+      where: { userId, communityId, status: { in: ['ACTIVE', 'PAST_DUE'] } },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!sub) {
+      throw new NotFoundException('No member subscription to recover');
+    }
+    if (sub.status === 'ACTIVE') {
+      return { ok: true, ccode: null, hypTxnId: null, alreadyActive: true };
+    }
+
+    const community = await this.prisma.community.findUnique({
+      where: { id: communityId },
+      select: { name: true },
+    });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, name: true },
+    });
+    if (!community || !user?.email) {
+      throw new NotFoundException('Community or user not found');
+    }
+
+    const amount = Math.round(sub.priceAtJoin);
+    let chargeResult;
+    try {
+      chargeResult = await this.hypService.softCharge({
+        token: paymentMethod.hypPaymentMethodId,
+        amount,
+        cardExpMonth: paymentMethod.cardExpMonth,
+        cardExpYear: paymentMethod.cardExpYear,
+        clientName: user.name ?? user.email,
+        email: user.email,
+        order: `dunningmember-${communityId}-${userId}-${Date.now()}`,
+        info: `Member dunning recovery for "${community.name}"`,
+      });
+    } catch (err) {
+      this.logger.error(
+        `Member dunning SOFT threw: user=${userId} community=${communityId}: ${(err as Error).message}`,
+      );
+      return { ok: false, ccode: null, hypTxnId: null, alreadyActive: false };
+    }
+
+    if (!chargeResult.ok) {
+      return { ok: false, ccode: chargeResult.ccode, hypTxnId: null, alreadyActive: false };
+    }
+
+    const now = new Date();
+    const nextBillingDate = new Date(now);
+    nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
+
+    await this.prisma.memberSubscription.update({
+      where: { id: sub.id },
+      data: {
+        status: 'ACTIVE',
+        paymentMethodId: paymentMethod.id,
+        // Replace the failed hypSubscriptionId with the fresh charge's
+        // txn id — that's the one Mission 5 refunds (CancelTrans / zikoyAPI)
+        // would target if the member later gets kicked.
+        hypSubscriptionId: chargeResult.body.Id ?? sub.hypSubscriptionId,
+        nextBillingDate,
+        currentPeriodStart: now,
+        currentPeriodEnd: nextBillingDate,
+      },
+    });
+
+    return {
+      ok: true,
+      ccode: '0',
+      hypTxnId: chargeResult.body.Id ?? null,
+      alreadyActive: false,
     };
   }
 

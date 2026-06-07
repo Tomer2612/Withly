@@ -6,6 +6,7 @@ import { UsersService } from '../users/users.service';
 import { CommunitiesService } from '../communities/communities.service';
 import { EmailService } from '../email/email.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { DunningService } from './dunning.service';
 
 // HYP returns `Bank` as a small integer indicating the card brand. Map to
 // human-readable strings for the stored cardBrand column. Defaults to
@@ -47,6 +48,13 @@ const TOKENIZE_NEW_COMMUNITY_ORDER_RE = /^tokenize-newCommunity-([a-z0-9]+)-([a-
 // AND runs the first SOFT charge atomically. Failure: rollback, no join.
 // Order shape: tokenize-memberJoin-<communityId>-<userId>-<ts>.
 const TOKENIZE_MEMBER_JOIN_ORDER_RE = /^tokenize-memberJoin-([a-z0-9]+)-([a-z0-9]+)-\d+$/;
+// Phase 6.4 — dunning callback. User clicked the pay-now link from a
+// failure email → HYP page → tokenize → redirect here. Lookup happens
+// via DunningService.findByOrderId on the full Order string (which is
+// our hypOrderId stored on PaymentDunningRequest).
+// Order shape: tokenize-dunning-<uuid>. UUID with dashes — match
+// anything that's not whitespace to keep the regex tolerant.
+const TOKENIZE_DUNNING_ORDER_RE = /^tokenize-dunning-[a-f0-9-]+$/;
 
 @Controller('payments')
 export class PaymentsController {
@@ -57,6 +65,7 @@ export class PaymentsController {
     private readonly usersService: UsersService,
     private readonly communitiesService: CommunitiesService,
     private readonly emailService: EmailService,
+    private readonly dunningService: DunningService,
   ) {}
 
   // Returns a signed HYP payment URL the frontend redirects to. The user's
@@ -126,6 +135,9 @@ export class PaymentsController {
       if (memberJoinMatch) {
         const [, communityId, userId] = memberJoinMatch;
         return this.handleTokenizeMemberJoin(query, result.body, userId, communityId, res, frontend);
+      }
+      if (TOKENIZE_DUNNING_ORDER_RE.test(order)) {
+        return this.handleTokenizeDunning(query, result.body, order, res, frontend);
       }
 
       // Default successful-payment redirect (legacy charge flow).
@@ -439,6 +451,167 @@ export class PaymentsController {
     } catch (err) {
       this.logger.error(`Paid join tokenize flow error: ${(err as Error).message}`);
       return res.redirect(failureRedirect);
+    }
+  }
+
+  // Phase 6.4 — dunning callback. The Order field encodes the dunning row
+  // id (DunningService.findByOrderId does the lookup); from there we know
+  // user, community, kind, amount. Token-mint + recovery SOFT, then persist
+  // the new payment method + mark dunning fulfilled. All failure modes
+  // redirect with a `dunning=...` query param the frontend renders as a
+  // toast on the destination page.
+  private async handleTokenizeDunning(
+    query: Record<string, string>,
+    verifiedBody: Record<string, string>,
+    order: string,
+    res: Response,
+    frontend: string,
+  ) {
+    try {
+      const dunning = await this.dunningService.findByOrderId(order);
+      if (!dunning) {
+        this.logger.warn(`Dunning callback for unknown order: ${order}`);
+        return res.redirect(`${frontend}/?dunning=invalid`);
+      }
+      const manageRedirect = `${frontend}/communities/${dunning.communityId}/manage`;
+      const feedRedirect = `${frontend}/communities/${dunning.communityId}/feed`;
+      const successRedirect = dunning.kind === 'OWNER_MONTHLY' ? manageRedirect : feedRedirect;
+
+      // Idempotency — if the user double-submits the link somehow, the
+      // second callback finds fulfilledAt set and just sends them to the
+      // post-success page without re-charging.
+      if (dunning.fulfilledAt) {
+        return res.redirect(`${successRedirect}?dunning=already_done`);
+      }
+      if (dunning.expiresAt < new Date()) {
+        return res.redirect(`${successRedirect}?dunning=expired`);
+      }
+
+      const tokenResult = await this.hypService.getToken(query.Id);
+      if (
+        !tokenResult.ok
+        || !tokenResult.token
+        || tokenResult.expMonth === null
+        || tokenResult.expYear === null
+      ) {
+        this.logger.error(
+          `Dunning getToken failed: order=${order} CCode=${tokenResult.ccode}`,
+        );
+        return res.redirect(`${successRedirect}?dunning=token_failed&ccode=${tokenResult.ccode ?? ''}`);
+      }
+
+      const cardLastFour = verifiedBody.L4digit || tokenResult.token.slice(-4);
+      const cardBrand = bankIdToBrand(verifiedBody.Bank);
+
+      const { paymentMethod } = await this.usersService.addTokenizedPaymentMethod(
+        dunning.userId,
+        {
+          token: tokenResult.token,
+          expMonth: tokenResult.expMonth,
+          expYear: tokenResult.expYear,
+          cardLastFour,
+          cardBrand,
+        },
+      );
+
+      if (dunning.kind === 'OWNER_MONTHLY') {
+        // Reuse bindTokenizedPaymentMethod — its SUSPENDED-recovery path
+        // already runs SOFT + flips ACTIVE + advances dates + fires the
+        // notifyCommunityReactivated notification. Pass dunning.userId as
+        // the trusted owner (we set it at link-generation time and HYP
+        // can't tamper with it because the Order is in the signed payload).
+        const bindResult = await this.communitiesService.bindTokenizedPaymentMethod(
+          dunning.communityId,
+          dunning.userId,
+          { id: paymentMethod.id },
+        );
+
+        if (bindResult.chargeFailed || !bindResult.chargeHypTxnId) {
+          this.logger.warn(
+            `Dunning owner recovery charge failed: order=${order} CCode=${bindResult.chargeCCode ?? '?'}`,
+          );
+          return res.redirect(
+            `${manageRedirect}?dunning=charge_failed&ccode=${bindResult.chargeCCode ?? ''}`,
+          );
+        }
+
+        await this.dunningService.markFulfilled(dunning.id, bindResult.chargeHypTxnId);
+        this.logger.log(
+          `Dunning owner recovery ok: order=${order} community=${dunning.communityId} txn=${bindResult.chargeHypTxnId}`,
+        );
+        void this.sendDunningRecoveredEmailSafely(
+          dunning.userId,
+          dunning.community.name,
+          'OWNER_MONTHLY',
+          dunning.amount,
+        );
+        return res.redirect(`${manageRedirect}?dunning=success`);
+      } else {
+        const result = await this.communitiesService.recoverMemberFromDunning(
+          dunning.userId,
+          dunning.communityId,
+          {
+            id: paymentMethod.id,
+            hypPaymentMethodId: tokenResult.token,
+            cardExpMonth: tokenResult.expMonth,
+            cardExpYear: tokenResult.expYear,
+          },
+        );
+
+        if (!result.ok) {
+          this.logger.warn(
+            `Dunning member recovery charge failed: order=${order} CCode=${result.ccode ?? '?'}`,
+          );
+          return res.redirect(
+            `${feedRedirect}?dunning=charge_failed&ccode=${result.ccode ?? ''}`,
+          );
+        }
+
+        // alreadyActive=true means the sub got paid by another path
+        // between failure email and click — still mark fulfilled to
+        // close the loop, but with no txn id since we didn't charge.
+        await this.dunningService.markFulfilled(
+          dunning.id,
+          result.hypTxnId ?? 'ALREADY_ACTIVE',
+        );
+        this.logger.log(
+          `Dunning member recovery ok: order=${order} community=${dunning.communityId} ` +
+          `txn=${result.hypTxnId ?? 'already-active'}`,
+        );
+        void this.sendDunningRecoveredEmailSafely(
+          dunning.userId,
+          dunning.community.name,
+          'MEMBER_MONTHLY',
+          dunning.amount,
+        );
+        return res.redirect(`${feedRedirect}?dunning=success`);
+      }
+    } catch (err) {
+      this.logger.error(`Dunning callback error: order=${order} ${(err as Error).message}`);
+      return res.redirect(`${frontend}/?dunning=error`);
+    }
+  }
+
+  // Fire-and-forget recovery email (Phase 6.4). Same swallow-errors pattern
+  // as the other send*EmailSafely helpers.
+  private async sendDunningRecoveredEmailSafely(
+    userId: string,
+    communityName: string,
+    kind: 'OWNER_MONTHLY' | 'MEMBER_MONTHLY',
+    amount: number,
+  ): Promise<void> {
+    try {
+      const user = await this.usersService.findById(userId);
+      if (!user?.email) return;
+      await this.emailService.sendDunningRecoveredEmail(
+        user.email,
+        user.name ?? user.email,
+        communityName,
+        kind,
+        Math.round(amount),
+      );
+    } catch (err) {
+      this.logger.warn(`Dunning-recovered email failed (userId=${userId}): ${(err as Error).message}`);
     }
   }
 

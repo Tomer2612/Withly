@@ -640,21 +640,29 @@ export class EmailService {
     communityId: string,
     monthlyPriceILS: number,
     ccode?: string | null,
+    // Phase 6.4 — when present, the CTA links straight to the HYP-hosted
+    // dunning page (one-click pay + card update). Falls back to the
+    // existing /manage link if dunning link generation failed at the
+    // call site.
+    dunningUrl?: string | null,
   ): Promise<void> {
     const subject = `התשלום החודשי לא עבר — הקהילה "${communityName}" הושעתה`;
     const reason = hypCCodeToHebrew(ccode);
+    const manageUrl = `${this.frontendUrl}/communities/${communityId}/manage`;
     const lines = [
       `ניסינו לחייב את אמצעי התשלום עבור הקהילה "${communityName}" בסכום של ₪${monthlyPriceILS}, אך החיוב לא עבר.`,
       ...(reason.isSpecific ? [`הסיבה: ${reason.message}.`] : []),
       `הקהילה הושעתה, והחברים לא יוכלו להיכנס עד שהמנוי יחודש.`,
-      `לחידוש הגישה, יש לעדכן את אמצעי התשלום.`,
+      dunningUrl
+        ? `לחידוש מיידי של הגישה, ניתן לבצע את התשלום בעמוד המאובטח של חברת הסליקה.`
+        : `לחידוש הגישה, יש לעדכן את אמצעי התשלום.`,
     ];
-    const bodyContent = this.buildLifecycleBody(name, lines, {
-      label: 'עדכון אמצעי תשלום',
-      url: `${this.frontendUrl}/communities/${communityId}/manage`,
-    });
+    const cta = dunningUrl
+      ? { label: 'תשלום מאובטח', url: dunningUrl }
+      : { label: 'עדכון אמצעי תשלום', url: manageUrl };
+    const bodyContent = this.buildLifecycleBody(name, lines, cta);
     const htmlBody = this.buildEmailHtml(bodyContent);
-    const textBody = `שלום ${name},\n\n${lines.join('\n\n')}\n\nעדכון אמצעי תשלום: ${this.frontendUrl}/communities/${communityId}/manage\n\nבברכה,\nצוות Withly`;
+    const textBody = `שלום ${name},\n\n${lines.join('\n\n')}\n\n${cta.label}: ${cta.url}\n\nבברכה,\nצוות Withly`;
     await this.sendEmail(email, subject, htmlBody, textBody);
   }
 
@@ -699,21 +707,56 @@ export class EmailService {
     communityName: string,
     amountILS: number,
     ccode?: string | null,
+    // Phase 6.4 — same dunning-CTA convention as the owner-side email.
+    dunningUrl?: string | null,
   ): Promise<void> {
     const subject = `התשלום החודשי לקהילה "${communityName}" לא עבר`;
     const reason = hypCCodeToHebrew(ccode);
+    const settingsUrl = `${this.frontendUrl}/settings#payment`;
     const lines = [
       `ניסינו לחייב את אמצעי התשלום עבור המנוי לקהילה "${communityName}" בסכום של ₪${amountILS}, אך החיוב לא עבר.`,
       ...(reason.isSpecific ? [`הסיבה: ${reason.message}.`] : []),
       `המנוי הושהה. הגישה לקהילה תיחסם בקרוב.`,
-      `לחידוש המנוי, יש לעדכן את אמצעי התשלום בהגדרות החשבון.`,
+      dunningUrl
+        ? `לחידוש מיידי של המנוי, ניתן לבצע את התשלום בעמוד המאובטח של חברת הסליקה.`
+        : `לחידוש המנוי, יש לעדכן את אמצעי התשלום בהגדרות החשבון.`,
     ];
-    const bodyContent = this.buildLifecycleBody(name, lines, {
-      label: 'עדכון אמצעי תשלום',
-      url: `${this.frontendUrl}/settings#payment`,
-    });
+    const cta = dunningUrl
+      ? { label: 'תשלום מאובטח', url: dunningUrl }
+      : { label: 'עדכון אמצעי תשלום', url: settingsUrl };
+    const bodyContent = this.buildLifecycleBody(name, lines, cta);
     const htmlBody = this.buildEmailHtml(bodyContent);
-    const textBody = `שלום ${name},\n\n${lines.join('\n\n')}\n\nעדכון אמצעי תשלום: ${this.frontendUrl}/settings#payment\n\nבברכה,\nצוות Withly`;
+    const textBody = `שלום ${name},\n\n${lines.join('\n\n')}\n\n${cta.label}: ${cta.url}\n\nבברכה,\nצוות Withly`;
+    await this.sendEmail(email, subject, htmlBody, textBody);
+  }
+
+  // Phase 6.4 — recovery confirmation. Sent after a user successfully
+  // completes the dunning pay flow. Both kinds use the same template;
+  // the kind only changes the subject + body framing (owner vs member).
+  async sendDunningRecoveredEmail(
+    email: string,
+    name: string,
+    communityName: string,
+    kind: 'OWNER_MONTHLY' | 'MEMBER_MONTHLY',
+    amountILS: number,
+  ): Promise<void> {
+    const isOwner = kind === 'OWNER_MONTHLY';
+    const subject = isOwner
+      ? `המנוי לקהילה "${communityName}" חודש בהצלחה`
+      : `החברות בקהילה "${communityName}" חודשה בהצלחה`;
+    const lines = isOwner
+      ? [
+          `התשלום על סך ₪${amountILS} עבור הקהילה "${communityName}" התקבל בהצלחה.`,
+          `הקהילה פעילה שוב, והחברים יכולים להיכנס כרגיל.`,
+          `אמצעי התשלום עודכן ויחויב אוטומטית בחיוב הבא.`,
+        ]
+      : [
+          `התשלום על סך ₪${amountILS} עבור החברות בקהילה "${communityName}" התקבל בהצלחה.`,
+          `הגישה לקהילה חודשה, ואמצעי התשלום עודכן ויחויב אוטומטית בחיוב הבא.`,
+        ];
+    const bodyContent = this.buildLifecycleBody(name, lines);
+    const htmlBody = this.buildEmailHtml(bodyContent);
+    const textBody = `שלום ${name},\n\n${lines.join('\n\n')}\n\nבברכה,\nצוות Withly`;
     await this.sendEmail(email, subject, htmlBody, textBody);
   }
 

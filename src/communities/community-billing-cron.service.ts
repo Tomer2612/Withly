@@ -5,6 +5,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../common/storage.service';
 import { EmailService } from '../email/email.service';
 import { HypService } from '../payments/hyp.service';
+import { DunningService } from '../payments/dunning.service';
 
 // Hebrew dd.M.yyyy format — matches the format used in lifecycle email
 // triggers in CommunitiesService. Kept local here to avoid a cross-module
@@ -23,6 +24,7 @@ export class CommunityBillingCronService {
     private storageService: StorageService,
     private emailService: EmailService,
     private hypService: HypService,
+    private dunningService: DunningService,
   ) {}
 
   // Midnight Israel time. Owns the time-based transitions that used to
@@ -607,7 +609,26 @@ export class CommunityBillingCronService {
     if (c.ownerId) {
       await this.notificationsService.notifyPaymentFailed(c.ownerId, c.id).catch(() => {});
     }
-    if (c.owner?.email && c.owner.plan?.monthlyPriceILS) {
+    if (c.owner?.email && c.owner.plan?.monthlyPriceILS && c.ownerId) {
+      // Phase 6.4 — generate (or reuse) a dunning link before the email
+      // so the "pay now" CTA can render. On HYP failures here we still
+      // send the email without the link so the user at least learns the
+      // charge failed; they can update card the legacy way.
+      let dunningUrl: string | null = null;
+      try {
+        dunningUrl = await this.dunningService.createOrReuseDunningLink({
+          userId: c.ownerId,
+          user: { email: c.owner.email, name: c.owner.name },
+          communityId: c.id,
+          communityName: c.name,
+          kind: 'OWNER_MONTHLY',
+          amount: c.owner.plan.monthlyPriceILS,
+        });
+      } catch (err) {
+        this.logger.warn(
+          `Dunning link generation failed for ${c.id} (email will omit pay-now CTA): ${(err as Error).message}`,
+        );
+      }
       try {
         await this.emailService.sendPaymentFailedEmail(
           c.owner.email,
@@ -616,6 +637,7 @@ export class CommunityBillingCronService {
           c.id,
           c.owner.plan.monthlyPriceILS,
           ccode,
+          dunningUrl,
         );
       } catch (err) {
         this.logger.warn(
@@ -922,6 +944,22 @@ export class CommunityBillingCronService {
     });
 
     await this.notificationsService.notifyPaymentFailed(sub.userId, sub.communityId).catch(() => {});
+    // Phase 6.4 — dunning link generation; same fail-soft pattern as owner.
+    let dunningUrl: string | null = null;
+    try {
+      dunningUrl = await this.dunningService.createOrReuseDunningLink({
+        userId: sub.userId,
+        user: { email: sub.user.email, name: sub.user.name },
+        communityId: sub.communityId,
+        communityName: sub.community.name,
+        kind: 'MEMBER_MONTHLY',
+        amount: sub.priceAtJoin,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Member dunning link generation failed for sub ${sub.id}: ${(err as Error).message}`,
+      );
+    }
     try {
       await this.emailService.sendMemberPaymentFailedEmail(
         sub.user.email,
@@ -929,6 +967,7 @@ export class CommunityBillingCronService {
         sub.community.name,
         Math.round(sub.priceAtJoin),
         ccode,
+        dunningUrl,
       );
     } catch (err) {
       this.logger.warn(
