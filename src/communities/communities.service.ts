@@ -1250,33 +1250,11 @@ export class CommunitiesService {
 
     try {
       const result = await this.prisma.$transaction(async (tx) => {
-        await tx.communityMember.create({
-          data: { userId, communityId, role: 'USER' },
-        });
-        const subscription = await tx.memberSubscription.create({
-          data: {
-            userId,
-            communityId,
-            paymentMethodId: paymentMethod.id,
-            // hypSubscriptionId is a legacy field (HYP doesn't have
-            // server-side subscription objects) — generate a unique
-            // placeholder until Phase 6.3 drops the column.
-            hypSubscriptionId: randomUUID(),
-            // Non-null narrowed by the effectivePrice > 0 guard above.
-            // Locks the joiner at the price they actually paid today —
-            // when pendingPrice was in effect, that's the new price,
-            // not the soon-to-be-obsolete community.price.
-            priceAtJoin: effectivePrice,
-            nextBillingDate,
-            currentPeriodStart: now,
-            currentPeriodEnd: nextBillingDate,
-            status: 'ACTIVE',
-          },
-        });
-
-        // First SOFT charge — last step in the tx so a non-zero CCode
-        // rolls back the rows we just created. Within-tx network call
-        // is slow (~1.5s) but acceptable for Withly's volume.
+        // First SOFT charge BEFORE the DB writes so we can store the
+        // real HYP transaction Id on the sub (Phase 5 Mission 5 needs
+        // it for refunds). Within-tx network call is slow (~1.5s) but
+        // acceptable for Withly's volume. Throws on non-zero CCode →
+        // tx rolls back (no DB writes happened yet anyway).
         const chargeResult = await this.hypService.softCharge({
           token: paymentMethod.hypPaymentMethodId,
           amount,
@@ -1290,8 +1268,41 @@ export class CommunitiesService {
         if (!chargeResult.ok) {
           throw new BadRequestException(`CHARGE_FAILED:${chargeResult.ccode}`);
         }
+        // Defensive — HYP should always return Id alongside CCode=0,
+        // but if for any reason it's missing we can't store a refund
+        // anchor. Fail loudly rather than silently lose refundability.
+        const hypTxnId = chargeResult.body.Id;
+        if (!hypTxnId) {
+          throw new InternalServerErrorException(
+            `HYP returned CCode=0 but no Id — order=${chargeResult.body.Order ?? '?'}`,
+          );
+        }
 
-        return { subscription, hypId: chargeResult.body.Id };
+        await tx.communityMember.create({
+          data: { userId, communityId, role: 'USER' },
+        });
+        const subscription = await tx.memberSubscription.create({
+          data: {
+            userId,
+            communityId,
+            paymentMethodId: paymentMethod.id,
+            // The real HYP transaction Id from the first SOFT charge.
+            // Phase 5 Mission 5 uses this as the TransId for refunds
+            // (CancelTrans + zikoyAPI both reference it).
+            hypSubscriptionId: hypTxnId,
+            // Non-null narrowed by the effectivePrice > 0 guard above.
+            // Locks the joiner at the price they actually paid today —
+            // when pendingPrice was in effect, that's the new price,
+            // not the soon-to-be-obsolete community.price.
+            priceAtJoin: effectivePrice,
+            nextBillingDate,
+            currentPeriodStart: now,
+            currentPeriodEnd: nextBillingDate,
+            status: 'ACTIVE',
+          },
+        });
+
+        return { subscription, hypId: hypTxnId };
       });
 
       // Post-success side effects (outside tx, fire-and-forget).
