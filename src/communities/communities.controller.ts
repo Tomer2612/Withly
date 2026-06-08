@@ -245,6 +245,15 @@ export class CommunitiesController {
     return this.communitiesService.getMyMembership(id, userId);
   }
 
+  // Owner-only — drives the "net to you" + "earned to date" figures on the
+  // manage-page revenue card. Service enforces ownership.
+  @UseGuards(AuthGuard('jwt'))
+  @Get(':id/earnings')
+  getEarnings(@Param('id') id: string, @Req() req) {
+    const userId = req.user.userId;
+    return this.communitiesService.getCommunityEarnings(id, userId);
+  }
+
   @UseGuards(AuthGuard('jwt'))
   @Post(':id/cancel-paid-membership')
   cancelPaidMembership(@Param('id') id: string, @Req() req) {

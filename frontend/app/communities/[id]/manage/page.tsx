@@ -193,6 +193,13 @@ export default function ManageCommunityPage() {
   // Members who joined on/after the announcement date — they pay the new
   // (pending) price; the rest are grandfathered until the effective date.
   const [newPriceMembers, setNewPriceMembers] = useState<number>(0);
+  // Owner earnings summary from /communities/:id/earnings — commission rate
+  // (for the gross→net breakdown) + ledger-derived lifetime figures.
+  const [earnings, setEarnings] = useState<{
+    commissionBasisPoints: number;
+    earnedToDateNet: number;
+    totalRefunds: number;
+  } | null>(null);
 
   // Categories - synced with COMMUNITY_TOPICS from home page
   const categories = [
@@ -530,6 +537,17 @@ export default function ManageCommunityPage() {
           }
         } catch {
           // Non-fatal; the card just renders without the recent-paid list.
+        }
+
+        // Owner earnings (commission rate + ledger lifetime figures) for the
+        // revenue card. Fire-and-forget; the card falls back to gross-only.
+        try {
+          const earningsRes = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/earnings`);
+          if (earningsRes.ok) {
+            setEarnings(await earningsRes.json());
+          }
+        } catch {
+          // Non-fatal; card shows gross figures without the net breakdown.
         }
       } catch (err) {
         console.error('Error fetching community:', err);
@@ -1002,6 +1020,18 @@ export default function ManageCommunityPage() {
   const handleRemoveRule = (index: number) => {
     setRules(prev => prev.filter((_, i) => i !== index));
   };
+
+  // Revenue card figures. Gross monthly is the forward-looking projection
+  // (paying members × price, with grandfathered vs. new-price members).
+  // Commission/net apply the "cut from owner": Withly keeps the rate, the
+  // owner nets the rest. bps falls back to the default plan until the
+  // earnings fetch resolves, so the first paint isn't misleading.
+  const grossMonthly =
+    (totalPayingMembers - newPriceMembers) * currentCommunityPrice +
+    newPriceMembers * (pendingPrice ?? currentCommunityPrice);
+  const commissionBps = earnings?.commissionBasisPoints ?? defaultPlan?.commissionBasisPoints ?? 0;
+  const commissionMonthly = Math.round((grossMonthly * commissionBps) / 10000);
+  const netMonthly = grossMonthly - commissionMonthly;
 
   if (pageLoading || !userEmail) {
     return (
@@ -1941,10 +1971,15 @@ export default function ManageCommunityPage() {
                         className="rounded-md px-5 py-3 flex flex-col gap-1"
                         style={{ backgroundColor: 'var(--color-green-lighter)', width: 'fit-content', minWidth: '160px' }}
                       >
-                        <span className="text-[16px] font-normal text-black">הכנסה חודשית</span>
+                        <span className="text-[16px] font-normal text-black">הכנסה חודשית נטו</span>
                         <span className="text-[28px] font-semibold text-black leading-none">
-                          ₪{(totalPayingMembers - newPriceMembers) * currentCommunityPrice + newPriceMembers * (pendingPrice ?? currentCommunityPrice)}
+                          ₪{netMonthly}
                         </span>
+                        {commissionBps > 0 && (
+                          <span className="text-[13px] font-normal" style={{ color: 'var(--color-gray-10)' }}>
+                            {`ברוטו ₪${grossMonthly} · עמלת Withly ₪${commissionMonthly}`}
+                          </span>
+                        )}
                       </div>
                       <div
                         className="rounded-md px-5 py-3 flex flex-col gap-1"
@@ -1959,6 +1994,33 @@ export default function ManageCommunityPage() {
                         </span>
                       </div>
                     </div>
+
+                    {/* Ledger-derived lifetime figures (net of commission +
+                        refunds). Rendered once the earnings fetch resolves. */}
+                    {earnings && (
+                      <div className="flex flex-wrap gap-4 mt-4">
+                        <div
+                          className="rounded-md px-5 py-3 flex flex-col gap-1 bg-gray-50"
+                          style={{ width: 'fit-content', minWidth: '160px' }}
+                        >
+                          <span className="text-[16px] font-normal text-black">הכנסה מצטברת נטו</span>
+                          <span className="text-[28px] font-semibold text-black leading-none">
+                            ₪{earnings.earnedToDateNet}
+                          </span>
+                        </div>
+                        {earnings.totalRefunds > 0 && (
+                          <div
+                            className="rounded-md px-5 py-3 flex flex-col gap-1 bg-gray-50"
+                            style={{ width: 'fit-content', minWidth: '160px' }}
+                          >
+                            <span className="text-[16px] font-normal text-black">סך ההחזרים</span>
+                            <span className="text-[28px] font-semibold text-black leading-none">
+                              ₪{earnings.totalRefunds}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <div className="my-6" style={{ borderTop: '1px solid var(--color-gray-4)' }} />
 

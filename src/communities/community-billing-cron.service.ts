@@ -730,9 +730,17 @@ export class CommunityBillingCronService {
       where: { refundAmountOwed: { not: null } },
       select: {
         id: true,
+        userId: true,
+        communityId: true,
         hypSubscriptionId: true,
         refundAmountOwed: true,
         refundOwedAt: true,
+        community: {
+          select: {
+            ownerId: true,
+            owner: { select: { plan: { select: { commissionBasisPoints: true } } } },
+          },
+        },
       },
     });
     if (owed.length === 0) return;
@@ -753,6 +761,17 @@ export class CommunityBillingCronService {
               refundOwedAt: null,
               refundFailureReason: null,
             },
+          });
+          // Ledger: reverse the original member charge's split (prorated).
+          await this.transactionsService.recordCharge({
+            kind: 'REFUND',
+            grossAmount: amount,
+            commissionBasisPoints: sub.community.owner?.plan?.commissionBasisPoints,
+            communityId: sub.communityId,
+            ownerId: sub.community.ownerId,
+            payerId: sub.userId,
+            memberSubscriptionId: sub.id,
+            hypOrderId: `refund-of-${sub.hypSubscriptionId}`,
           });
           this.logger.log(`Owed refund settled: sub=${sub.id} amount=₪${amount}`);
         } else {

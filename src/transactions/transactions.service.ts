@@ -36,24 +36,35 @@ export class TransactionsService {
     try {
       // Round to whole shekels — this is what actually hit the card (HYP
       // rejects non-integer amounts) and keeps the split integer-clean.
-      const gross = Math.round(input.grossAmount);
+      // Callers pass a positive magnitude; sign is applied per-kind below.
+      const absGross = Math.round(Math.abs(input.grossAmount));
 
       // OWNER_MONTHLY: the owner pays Withly its platform fee — no split,
       // the whole amount is Withly's. MEMBER_MONTHLY: Withly keeps the
-      // commission, the owner earns the remainder.
+      // commission, the owner earns the remainder. REFUND: a member charge
+      // is reversed — every amount is negative and the commission is clawed
+      // back from Withly and the owner in the same proportion as the
+      // original split, so grossAmount = platformAmount + ownerAmount holds.
       let bps = 0;
-      let platformAmount = gross;
+      let grossAmount = absGross;
+      let platformAmount = absGross;
       let ownerAmount = 0;
       if (input.kind === 'MEMBER_MONTHLY') {
         bps = input.commissionBasisPoints ?? DEFAULT_COMMISSION_BPS;
-        platformAmount = Math.round((gross * bps) / 10000);
-        ownerAmount = gross - platformAmount;
+        platformAmount = Math.round((absGross * bps) / 10000);
+        ownerAmount = absGross - platformAmount;
+      } else if (input.kind === 'REFUND') {
+        bps = input.commissionBasisPoints ?? DEFAULT_COMMISSION_BPS;
+        const platformPortion = Math.round((absGross * bps) / 10000);
+        grossAmount = -absGross;
+        platformAmount = -platformPortion;
+        ownerAmount = -(absGross - platformPortion);
       }
 
       await this.prisma.transaction.create({
         data: {
           kind: input.kind,
-          grossAmount: gross,
+          grossAmount,
           commissionBasisPoints: bps,
           platformAmount,
           ownerAmount,

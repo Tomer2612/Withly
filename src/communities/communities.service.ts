@@ -1961,6 +1961,12 @@ export class CommunitiesService {
         currentPeriodStart: true,
         currentPeriodEnd: true,
         createdAt: true,
+        community: {
+          select: {
+            ownerId: true,
+            owner: { select: { plan: { select: { commissionBasisPoints: true } } } },
+          },
+        },
       },
     });
     if (!sub) return;
@@ -2026,6 +2032,21 @@ export class CommunitiesService {
           refundFailureReason: null,
         },
       });
+      // Ledger: reverse the original member charge's split. CancelTrans
+      // (same-day) voids the FULL original charge; zikoyAPI returns the
+      // prorated amount.
+      await this.transactionsService.recordCharge({
+        kind: 'REFUND',
+        grossAmount: isSameDay ? Math.round(sub.priceAtJoin) : refundAmount,
+        commissionBasisPoints: sub.community.owner?.plan?.commissionBasisPoints,
+        communityId,
+        ownerId: sub.community.ownerId,
+        payerId: kickedUserId,
+        memberSubscriptionId: sub.id,
+        // hypTxnId left null — the original charge already owns that id
+        // (it's @unique); reference the reversed charge via hypOrderId.
+        hypOrderId: `refund-of-${sub.hypSubscriptionId}`,
+      });
       this.logger.log(
         `Kick refund OK: sub=${sub.id} amount=₪${refundAmount} method=${isSameDay ? 'CancelTrans' : 'zikoyAPI'}`,
       );
@@ -2045,6 +2066,47 @@ export class CommunitiesService {
         `Kick refund FAILED, owed: sub=${sub.id} amount=₪${refundAmount} reason=${failureReason}`,
       );
     }
+  }
+
+  // Owner-only earnings summary for the manage-page revenue card. Returns
+  // the owner's commission rate (so the client can show gross vs. net of
+  // the "cut from owner") plus ledger-derived lifetime figures the client
+  // can't compute on its own: net earned to date (member charges minus
+  // commission minus refunds) and total refunded back to members.
+  async getCommunityEarnings(communityId: string, userId: string) {
+    const community = await this.prisma.community.findUnique({
+      where: { id: communityId },
+      select: {
+        ownerId: true,
+        owner: { select: { plan: { select: { commissionBasisPoints: true } } } },
+      },
+    });
+    if (!community) {
+      throw new NotFoundException('Community not found');
+    }
+    if (community.ownerId !== userId) {
+      throw new ForbiddenException('Only the community owner can view earnings');
+    }
+
+    const [earnedAgg, refundAgg] = await Promise.all([
+      // Sum of ownerAmount across all kinds: MEMBER_MONTHLY is positive,
+      // REFUND is negative, OWNER_MONTHLY is 0 — so the sum is net earnings.
+      this.prisma.transaction.aggregate({
+        where: { communityId },
+        _sum: { ownerAmount: true },
+      }),
+      // REFUND grossAmount is stored negative; abs() gives total refunded.
+      this.prisma.transaction.aggregate({
+        where: { communityId, kind: 'REFUND' },
+        _sum: { grossAmount: true },
+      }),
+    ]);
+
+    return {
+      commissionBasisPoints: community.owner?.plan?.commissionBasisPoints ?? 500,
+      earnedToDateNet: Math.round(earnedAgg._sum.ownerAmount ?? 0),
+      totalRefunds: Math.round(Math.abs(refundAgg._sum.grossAmount ?? 0)),
+    };
   }
 
   async getUserMemberships(userId: string) {

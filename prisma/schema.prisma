@@ -805,4 +805,8 @@ model Transaction {
 enum TransactionKind {
   OWNER_MONTHLY
   MEMBER_MONTHLY
+  // Reversal of a member charge (prorated kick refund or same-day void).
+  // Amounts are stored negative; the commission is clawed back from Withly
+  // and the owner in the same proportion as the original split.
+  REFUND
 }
