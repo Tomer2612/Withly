@@ -21,7 +21,6 @@ import UpdateCardModal from '../../components/UpdateCardModal';
 import HypPaymentIframeModal from '../../components/HypPaymentIframeModal';
 import StickySaveBar from '../../components/StickySaveBar';
 import { getImageUrl } from '@/app/lib/imageUrl';
-import { useDefaultPlan } from '../../lib/usePlan';
 
 interface Membership {
   communityId: string;
@@ -123,11 +122,9 @@ export default function SettingsPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Platform plan drives the monthly fee shown in the renew popup.
-  // Fallback to 99 matches the seeded default plan during loading.
-  const defaultPlan = useDefaultPlan();
-  const planMonthlyPrice = defaultPlan?.monthlyPriceILS ?? 99;
-
+  // The renew popup's amount now comes from the community's own plan
+  // (membership.price = that community's platform fee), so no default-plan
+  // lookup is needed here.
   const { user, refresh: refreshUser, setLoggedOut } = useUser();
   const userId = user?.userId ?? null;
   const userEmail = user?.email ?? null;
@@ -1565,7 +1562,7 @@ export default function SettingsPage() {
                 onClose={() => setCommunityToRenew(null)}
                 communityId={communityToRenew.communityId}
                 wasSuspended
-                amount={planMonthlyPrice}
+                amount={communityToRenew.price}
               />
             )}
 

@@ -140,6 +140,8 @@ model Plan {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   users                 User[]
+  pendingCreations      PendingCommunityCreation[]
+  communities           Community[]
 
   @@index([isActive])
   @@map("plans")
@@ -168,6 +170,11 @@ model PendingCommunityCreation {
   galleryImages     String[]
   galleryVideos     String[]
   showOnlineMembers Boolean  @default(true)
+  // Plan the owner picked on the pricing page. Carried through checkout so
+  // finalize can pin it on the owner (user.planId). Null on the legacy
+  // single-plan flow / when no choice was made → owner keeps their plan.
+  planId            String?
+  plan              Plan?    @relation(fields: [planId], references: [id], onDelete: SetNull)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -261,6 +268,12 @@ model Community {
   // strings stay until Phase 6.1 backfill is verified, then dropped.
   paymentMethodId         String?
   paymentMethod           UserPaymentMethod?          @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
+  // The plan THIS community bills on (price + commission + trial). Set at
+  // creation from the owner's pricing-page choice. Null on communities that
+  // predate per-community plans — billing falls back to the owner's plan,
+  // then to code defaults, so nothing breaks pre-backfill.
+  planId                  String?
+  plan                    Plan?                       @relation(fields: [planId], references: [id], onDelete: SetNull)
   nextBillingDate         DateTime?
   currentPeriodStart      DateTime?
   currentPeriodEnd        DateTime?

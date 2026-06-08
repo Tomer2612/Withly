@@ -71,6 +71,9 @@ export class BeginCheckoutDto {
   @IsOptional() @IsString() @MaxLength(URL_MAX) whatsappUrl?: string;
   @IsOptional() @IsString() @MaxLength(URL_MAX) facebookUrl?: string;
   @IsOptional() @IsString() @MaxLength(URL_MAX) instagramUrl?: string;
+  // Plan the owner picked on the pricing page (e.g. "starter" | "pro").
+  // Resolved server-side to a plan id and stored on the pending row.
+  @IsOptional() @IsString() @MaxLength(50) planSlug?: string;
 }
 
 // Multipart body for community update — every text field arrives as a string,

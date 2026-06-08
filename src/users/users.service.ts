@@ -664,11 +664,11 @@ export class UsersService {
       where: { id: userId },
       select: { plan: { select: { monthlyPriceILS: true, trialLengthMonths: true } } },
     });
-    // Plan should always exist post-migration (backfill set every user),
-    // but defend against NULL planId on legacy rows or partial setups.
-    // Cheapest active plan as the fallback — matches getDefault().
-    const planMonthlyPrice = userWithPlan?.plan?.monthlyPriceILS ?? 99;
-    const planTrialLengthMonths = userWithPlan?.plan?.trialLengthMonths ?? 1;
+    // Owner-level plan is now only the FALLBACK — each owned community below
+    // prefers its own plan (per-community pricing). Defends against NULL
+    // planId on legacy rows too.
+    const ownerFallbackPrice = userWithPlan?.plan?.monthlyPriceILS ?? 99;
+    const ownerFallbackTrial = userWithPlan?.plan?.trialLengthMonths ?? 1;
 
     // Communities the user is a member of (not as owner).
     const memberRows = await this.prisma.communityMember.findMany({
@@ -701,6 +701,7 @@ export class UsersService {
         suspendedAt: true,
         trialStartDate: true,
         nextBillingDate: true,
+        plan: { select: { monthlyPriceILS: true, trialLengthMonths: true } },
         _count: { select: { members: true } },
       },
     });
@@ -708,6 +709,10 @@ export class UsersService {
     // Owner rows (computed billing).
     const ownerRows = owned.map((c) => {
       const isPaid = (c.price ?? 0) > 0;
+      // This community's plan drives its platform fee + trial; fall back to
+      // the owner's plan for communities created before per-community plans.
+      const planMonthlyPrice = c.plan?.monthlyPriceILS ?? ownerFallbackPrice;
+      const planTrialLengthMonths = c.plan?.trialLengthMonths ?? ownerFallbackTrial;
       // "Paid members" excludes the owner; owner doesn't appear in
       // CommunityMember anyway, so memberCount is paying-member count.
       // Post-Mission-4.5: CommunityMember rows are deleted at period-end

@@ -8,23 +8,18 @@ import { useUser } from '../../lib/UserContext';
 import HypPaymentIframeModal from '../../components/HypPaymentIframeModal';
 import ExistingCardConfirmModal from '../../components/ExistingCardConfirmModal';
 import CardPickerModal from '../../components/CardPickerModal';
-import { useDefaultPlan } from '../../lib/usePlan';
+import { useDefaultPlan, useActivePlans, type Plan } from '../../lib/usePlan';
 
-// Checkmark Icon component
-const CheckmarkIcon = ({ className = "w-3 h-2.5" }: { className?: string }) => (
-  <svg 
-    viewBox="0 0 6 5" 
-    fill="none" 
-    xmlns="http://www.w3.org/2000/svg"
-    className={className}
-  >
-    <path 
-      d="M0.5625 2.0625L2.0625 3.5625L5.0625 0.5625" 
-      stroke="currentColor" 
-      strokeWidth="1.125" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
+// Feature checkmark — self-contained 18px badge: light-green filled circle
+// with a dark-green tick. (clipPath dropped: the paths sit inside the
+// viewBox already, and a shared clip id would collide across instances.)
+const CheckCircleIcon = ({ className = '' }: { className?: string }) => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <path
+      d="M9 16.5C13.1421 16.5 16.5 13.1421 16.5 9C16.5 4.85786 13.1421 1.5 9 1.5C4.85786 1.5 1.5 4.85786 1.5 9C1.5 13.1421 4.85786 16.5 9 16.5Z"
+      fill="#A7EA7B" stroke="#A7EA7B" strokeWidth="1.125" strokeLinecap="round" strokeLinejoin="round"
     />
+    <path d="M6.75 9L8.25 10.5L11.25 7.5" stroke="#163300" strokeWidth="1.125" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
@@ -33,23 +28,29 @@ interface FAQ {
   answer: string;
 }
 
-interface PricingPlan {
-  name: string;
-  price: number;
-  period: string;
-  features: string[];
-}
+// Feature rows shared by every plan. The transaction-commission row is
+// appended per-plan, derived from that plan's commissionBasisPoints so the
+// marketing copy can never drift from the rate actually billed.
+const COMMON_FEATURES: string[] = [
+  'קהילה אחת',
+  'ללא הגבלת תוכן',
+  'ללא הגבלת משתמשים',
+  'דומיין מותאם',
+];
 
-// Static UI scaffold for the pricing card. The dynamic fields (name +
-// price) get filled in from the API at render time; features are
-// marketing copy that doesn't live in the Plan table yet.
-const PLAN_FEATURES: string[] = [
-  'מרחב קהילתי אחד',
-  'משתמשים ללא הגבלה',
-  'קורסים ותוכן ללא הגבלה',
-  'יומן אירועים חכם',
-  'סליקה ומנויים מובנים',
-  '5% עמלת עסקאות',
+// "940" → "9.4% עמלת עסקאות", "290" → "2.9%", "500" → "5%" (drop a
+// trailing ".0" so round rates read cleanly).
+const formatCommissionRow = (bps: number): string => {
+  const pct = bps / 100;
+  const text = bps % 100 === 0 ? String(pct) : pct.toFixed(1);
+  return `${text}% עמלת עסקאות`;
+};
+
+// First-paint scaffold so the cards aren't blank before /api/plans
+// resolves. Mirrors the seeded starter/pro rows.
+const FALLBACK_PLANS: Plan[] = [
+  { id: 'fallback-starter', slug: 'starter', name: 'Starter', monthlyPriceILS: 54, commissionBasisPoints: 940, trialLengthMonths: 1, isActive: true, isDefault: true, features: null },
+  { id: 'fallback-pro', slug: 'pro', name: 'Pro', monthlyPriceILS: 164, commissionBasisPoints: 290, trialLengthMonths: 1, isActive: true, isDefault: false, features: null },
 ];
 
 const COMMUNITY_TOPICS = [
@@ -102,15 +103,21 @@ function PricingContent() {
   const userEmail = user?.email ?? null;
   const [openFaqs, setOpenFaqs] = useState<Set<number>>(new Set());
 
-  // Pricing comes from the Plan table via /api/plans/default. Fallbacks
-  // match the seeded default plan so the first paint isn't blank — they
-  // get replaced on the next render once the fetch resolves.
   const defaultPlan = useDefaultPlan();
+
+  // Both plan cards (starter + pro), cheapest-first from the API.
+  const activePlans = useActivePlans();
+  const plansToRender = activePlans ?? FALLBACK_PLANS;
+
+  // Which plan the owner clicked. Carried into checkout so the right plan
+  // gets pinned on their account; null → falls back to the default plan.
+  const [selectedPlanSlug, setSelectedPlanSlug] = useState<string | null>(null);
+  const selectedPlan = plansToRender.find((p) => p.slug === selectedPlanSlug) ?? null;
+
+  // Drives the create-step price + payment modals. Reflects the picked plan
+  // (default plan when nothing's selected yet).
   const plan = {
-    name: defaultPlan?.name ?? 'מנוי קהילה',
-    price: defaultPlan?.monthlyPriceILS ?? 99,
-    period: 'לחודש',
-    features: PLAN_FEATURES,
+    price: selectedPlan?.monthlyPriceILS ?? defaultPlan?.monthlyPriceILS ?? 99,
   };
 
   // Flow states - 'create' is the name+category popup; the iframe modal
@@ -138,11 +145,16 @@ function PricingContent() {
   const [selectedCardId, setSelectedCardId] = useState<string>('');
   const [finalizing, setFinalizing] = useState(false);
 
-  // Check for step parameter on mount (from signup redirect)
+  // Check for step + plan params on mount (e.g. returning from signup, which
+  // carries the plan the user picked before they had an account).
   useEffect(() => {
     const stepParam = searchParams.get('step');
     if (stepParam === 'create') {
       setCurrentStep('create');
+    }
+    const planParam = searchParams.get('plan');
+    if (planParam) {
+      setSelectedPlanSlug(planParam);
     }
   }, [searchParams]);
 
@@ -162,6 +174,8 @@ function PricingContent() {
         if (cancelled || !pending) return;
         if (!communityName) setCommunityName(pending.name ?? '');
         if (!communityTopic && pending.topic) setCommunityTopic(pending.topic);
+        // Restore the plan they picked so the price + pinned plan stay right.
+        if (pending.plan?.slug) setSelectedPlanSlug(pending.plan.slug);
         setPendingId(pending.id);
       } catch {
         // Resume is a nice-to-have; failure means the user just re-fills.
@@ -183,10 +197,12 @@ function PricingContent() {
     });
   };
 
-  const handleSelectPlan = () => {
+  const handleSelectPlan = (slug: string) => {
+    setSelectedPlanSlug(slug);
     if (!userEmail) {
-      // Not logged in - redirect to signup with createCommunity flag
-      router.push('/signup?createCommunity=true');
+      // Not logged in — carry the plan choice through signup so it survives
+      // the round-trip back to ?step=create.
+      router.push(`/signup?createCommunity=true&plan=${slug}`);
     } else {
       // Logged in - go to create step first (community details)
       setCurrentStep('create');
@@ -218,6 +234,7 @@ function PricingContent() {
             name: communityName,
             description: `קהילת ${communityName}`,
             topic: communityTopic || undefined,
+            planSlug: selectedPlanSlug || undefined,
           }),
         }),
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/payment-methods`, {
@@ -396,54 +413,84 @@ function PricingContent() {
     <main className="min-h-screen" style={{ backgroundColor: '#F4F4F5' }} dir="rtl">
       {/* Hero Section */}
       <section className="text-center py-16 px-4">
-        <h1 className="font-semibold text-black mb-4 text-3xl md:text-5xl lg:text-[3.5rem]">
-          מחיר אחד. בלי הפתעות.
+        {/* !important on size/weight: a global unlayered `h1 { font-size:
+            2.5rem; font-weight:700 }` in globals.css would otherwise win
+            over these Tailwind utilities (unlayered beats @layer). */}
+        <h1 className="text-black mb-4 text-[40px]! sm:text-[56px]! font-semibold!">
+          פשוט לבנות קהילה מנצחת
         </h1>
-        <p className="text-lg" style={{ color: '#52525B' }}>
-          פותחים קהילה ומתחילים בלי לחשוב על עלויות נוספות.
+        <p style={{ color: 'var(--color-gray-8)', fontWeight: 400 }} className="text-[19px] sm:text-[21px]">
+          נהלו את הקהילה שלכם בצורה מסודרת, בלי מורכבות מיותרת
         </p>
       </section>
 
-      {/* Pricing Card */}
-      <section className="flex justify-center px-4 pb-16">
-        <div
-          className="bg-white rounded-2xl border p-8 flex flex-col w-full max-w-[300px]"
-          style={{ minHeight: '380px', borderColor: '#A1A1AA' }}
-        >
-          {/* Price */}
-          <div className="mb-6">
-            <div className="flex items-baseline gap-1">
-              <span className="text-5xl font-bold text-black">{plan.price}</span>
-              <span style={{ fontSize: '18px', color: '#3F3F46' }}>₪/{plan.period}</span>
-            </div>
-          </div>
-
-          {/* Features */}
-          <div className="space-y-3 text-right flex-1" style={{ marginBottom: '1.5rem' }}>
-            {plan.features.map((feature, fIndex) => (
-              <div key={fIndex} className="flex items-center gap-2">
-                <div 
-                  className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: '#A7EA7B' }}
+      {/* Pricing Cards — starter + pro. Stack on mobile, side-by-side on md+. */}
+      <section className="flex flex-col md:flex-row justify-center items-stretch gap-6 px-4 pb-16">
+        {plansToRender.map((p) => {
+          const isPro = p.slug === 'pro';
+          // Card stroke: gray-4 for starter, light green for pro (2px so it
+          // reads as a deliberate accent). Badge fill is lighter — gray-2 for
+          // starter, light green for pro.
+          const strokeColor = isPro ? 'var(--color-green-light)' : 'var(--color-gray-4)';
+          const badgeBg = isPro ? 'var(--color-green-light)' : 'var(--color-gray-2)';
+          const features = [...COMMON_FEATURES, formatCommissionRow(p.commissionBasisPoints)];
+          return (
+            <div
+              key={p.id}
+              className="bg-white rounded-2xl border-2 flex flex-col w-full max-w-[280px]"
+              style={{ borderColor: strokeColor, padding: '24px' }}
+            >
+              {/* Badge */}
+              <div style={{ marginBottom: '20px' }}>
+                <span
+                  className="inline-block"
+                  style={{
+                    backgroundColor: badgeBg,
+                    borderRadius: '8px',
+                    padding: '4px 12px',
+                    fontSize: '16px',
+                    fontWeight: 400,
+                    color: 'black',
+                  }}
                 >
-                  <CheckmarkIcon className="w-3 h-2.5 text-black" />
-                </div>
-                <span className="text-black" style={{ fontSize: '18px' }}>{feature}</span>
+                  {isPro ? 'Pro' : 'Starter'}
+                </span>
               </div>
-            ))}
-          </div>
 
-          {/* CTA Button */}
-          <button
-            onClick={handleSelectPlan}
-            className="block w-full bg-black text-white py-3 font-normal transition"
-            style={{ borderRadius: '16px' }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1A1A1A'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'black'}
-          >
-            נסו חינם לחודש
-          </button>
-        </div>
+              {/* Price */}
+              <div className="flex items-baseline gap-1" style={{ marginBottom: '20px' }}>
+                <span style={{ fontSize: '48px', fontWeight: 600, color: 'black', lineHeight: 1 }}>
+                  {p.monthlyPriceILS}
+                </span>
+                <span style={{ fontSize: '16px', fontWeight: 400, color: 'var(--color-gray-8)' }}>
+                  ₪ / לחודש
+                </span>
+              </div>
+
+              {/* Features */}
+              <div className="flex flex-col flex-1" style={{ gap: '12px', marginBottom: '20px' }}>
+                {features.map((feature, fIndex) => (
+                  <div key={fIndex} className="flex items-center gap-2">
+                    <CheckCircleIcon className="flex-shrink-0" />
+                    <span className="text-black" style={{ fontSize: '18px', fontWeight: 400 }}>{feature}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* CTA Button — same for both plans. Full width within the
+                  card's 24px padding (so it sits 24px from each edge). */}
+              <button
+                onClick={() => handleSelectPlan(p.slug)}
+                className="w-full bg-black text-white transition"
+                style={{ borderRadius: '16px', padding: '14px 0', fontSize: '18px', fontWeight: 400 }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#1A1A1A')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'black')}
+              >
+                נסו בחינם לחודש
+              </button>
+            </div>
+          );
+        })}
       </section>
 
       {/* FAQ Section */}

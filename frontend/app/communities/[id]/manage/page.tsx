@@ -104,12 +104,22 @@ export default function ManageCommunityPage() {
   const searchParams = useSearchParams();
   const communityId = params.id as string;
 
-  // Plan-driven values for trial math + billing labels. Fallbacks match
-  // the seeded default plan so the first paint isn't blank; replaced on
-  // the next render once /api/plans/default resolves.
+  // Owner earnings summary from /communities/:id/earnings — this community's
+  // plan (price/commission/trial) + ledger-derived lifetime figures.
+  const [earnings, setEarnings] = useState<{
+    commissionBasisPoints: number;
+    monthlyPriceILS: number;
+    trialLengthMonths: number;
+    earnedToDateNet: number;
+    totalRefunds: number;
+  } | null>(null);
+
+  // Plan-driven values for trial math + billing labels. Prefer THIS
+  // community's plan (from the earnings endpoint); fall back to the default
+  // plan for the first paint / before the fetch resolves.
   const defaultPlan = useDefaultPlan();
-  const planTrialLength = defaultPlan?.trialLengthMonths ?? 1;
-  const planMonthlyPrice = defaultPlan?.monthlyPriceILS ?? 99;
+  const planTrialLength = earnings?.trialLengthMonths ?? defaultPlan?.trialLengthMonths ?? 1;
+  const planMonthlyPrice = earnings?.monthlyPriceILS ?? defaultPlan?.monthlyPriceILS ?? 99;
 
   const [activeTab, setActiveTab] = useState<TabType>('general');
   const [community, setCommunity] = useState<Community | null>(null);
@@ -195,11 +205,6 @@ export default function ManageCommunityPage() {
   const [newPriceMembers, setNewPriceMembers] = useState<number>(0);
   // Owner earnings summary from /communities/:id/earnings — commission rate
   // (for the gross→net breakdown) + ledger-derived lifetime figures.
-  const [earnings, setEarnings] = useState<{
-    commissionBasisPoints: number;
-    earnedToDateNet: number;
-    totalRefunds: number;
-  } | null>(null);
 
   // Categories - synced with COMMUNITY_TOPICS from home page
   const categories = [
@@ -1977,7 +1982,7 @@ export default function ManageCommunityPage() {
                         </span>
                         {commissionBps > 0 && (
                           <span className="text-[13px] font-normal" style={{ color: 'var(--color-gray-10)' }}>
-                            {`ברוטו ₪${grossMonthly} · עמלת Withly ₪${commissionMonthly}`}
+                            {`₪${grossMonthly} ברוטו · ₪${commissionMonthly} עמלת Withly`}
                           </span>
                         )}
                       </div>

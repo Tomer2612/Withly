@@ -232,7 +232,9 @@ function SignupContent() {
       // Check if user was creating a community - skip email verification and go straight to pricing
       const isCreatingCommunity = searchParams.get('createCommunity') === 'true';
       if (isCreatingCommunity) {
-        router.push('/pricing?step=create');
+        // Carry the picked plan slug through so checkout pins the right plan.
+        const planParam = searchParams.get('plan');
+        router.push(`/pricing?step=create${planParam ? `&plan=${planParam}` : ''}`);
         return;
       }
       

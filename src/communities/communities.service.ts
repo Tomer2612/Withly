@@ -777,6 +777,7 @@ export class CommunitiesService {
       select: {
         id: true, name: true, ownerId: true,
         subscriptionStatus: true, paymentMethodId: true,
+        plan: { select: { monthlyPriceILS: true } },
         owner: {
           select: {
             email: true, name: true,
@@ -820,7 +821,7 @@ export class CommunitiesService {
         where: { id: paymentMethod.id },
         select: { hypPaymentMethodId: true, cardExpMonth: true, cardExpYear: true },
       });
-      const planPrice = community.owner?.plan?.monthlyPriceILS;
+      const planPrice = community.plan?.monthlyPriceILS ?? community.owner?.plan?.monthlyPriceILS;
       if (
         !pmRow?.hypPaymentMethodId
         || pmRow.cardExpMonth == null
@@ -958,6 +959,7 @@ export class CommunitiesService {
       select: {
         name: true,
         ownerId: true,
+        plan: { select: { commissionBasisPoints: true } },
         owner: { select: { plan: { select: { commissionBasisPoints: true } } } },
       },
     });
@@ -1016,7 +1018,7 @@ export class CommunitiesService {
     await this.transactionsService.recordCharge({
       kind: 'MEMBER_MONTHLY',
       grossAmount: amount,
-      commissionBasisPoints: community.owner?.plan?.commissionBasisPoints,
+      commissionBasisPoints: community.plan?.commissionBasisPoints ?? community.owner?.plan?.commissionBasisPoints,
       communityId,
       ownerId: community.ownerId,
       payerId: userId,
@@ -1050,8 +1052,19 @@ export class CommunitiesService {
       whatsappUrl?: string | null;
       facebookUrl?: string | null;
       instagramUrl?: string | null;
+      planSlug?: string | null;
     },
   ) {
+    // Resolve the picked plan slug to an active plan id. Unknown/missing
+    // slug → null (finalize then leaves the owner on their current plan).
+    let planId: string | null = null;
+    if (fields.planSlug) {
+      const plan = await this.prisma.plan.findFirst({
+        where: { slug: fields.planSlug, isActive: true },
+        select: { id: true },
+      });
+      planId = plan?.id ?? null;
+    }
     const data = {
       name: fields.name,
       description: fields.description,
@@ -1063,8 +1076,10 @@ export class CommunitiesService {
     };
     const pending = await this.prisma.pendingCommunityCreation.upsert({
       where: { userId },
-      create: { userId, ...data },
-      update: data,
+      create: { userId, ...data, planId },
+      // Only overwrite planId when a slug was actually sent, so a resume
+      // re-submit (which omits planSlug) doesn't wipe the earlier choice.
+      update: fields.planSlug !== undefined ? { ...data, planId } : data,
       select: { id: true },
     });
     return { pendingId: pending.id };
@@ -1076,6 +1091,7 @@ export class CommunitiesService {
   async getPendingForUser(userId: string) {
     return this.prisma.pendingCommunityCreation.findUnique({
       where: { userId },
+      include: { plan: { select: { slug: true } } },
     });
   }
 
@@ -1166,20 +1182,38 @@ export class CommunitiesService {
       throw new ForbiddenException('Pending checkout belongs to a different user');
     }
 
-    // Seed nextBillingDate = trialStart + plan.trialLengthMonths so the
-    // Phase 4 cron has a clean trigger when the trial ends. Falls back to
-    // 1 month if the user has no plan (shouldn't happen post-restructure
-    // but defensive).
-    const owner = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { plan: { select: { trialLengthMonths: true } } },
-    });
-    const trialLengthMonths = owner?.plan?.trialLengthMonths ?? 1;
+    // Resolve the plan the owner picked at checkout (pending.planId). Pin it
+    // on the user so billing (monthlyPriceILS) + commission read the right
+    // rates, and drive trial length off it. Falls back to the owner's
+    // current plan, then 1 month, when no choice was carried through.
+    let selectedPlan: { id: string; trialLengthMonths: number } | null = null;
+    if (pending.planId) {
+      selectedPlan = await this.prisma.plan.findUnique({
+        where: { id: pending.planId },
+        select: { id: true, trialLengthMonths: true },
+      });
+    }
+    if (!selectedPlan) {
+      const owner = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { plan: { select: { id: true, trialLengthMonths: true } } },
+      });
+      selectedPlan = owner?.plan ?? null;
+    }
+    const trialLengthMonths = selectedPlan?.trialLengthMonths ?? 1;
     const trialStartDate = new Date();
     const nextBillingDate = new Date(trialStartDate);
     nextBillingDate.setMonth(nextBillingDate.getMonth() + trialLengthMonths);
 
     const community = await this.prisma.$transaction(async (tx) => {
+      // Pin the picked plan on the owner (only when one was carried through,
+      // so the legacy single-plan flow doesn't disturb existing plans).
+      if (pending.planId && selectedPlan) {
+        await tx.user.update({
+          where: { id: userId },
+          data: { planId: selectedPlan.id },
+        });
+      }
       const created = await tx.community.create({
         data: {
           name: pending.name,
@@ -1197,6 +1231,10 @@ export class CommunitiesService {
           galleryVideos: pending.galleryVideos,
           showOnlineMembers: pending.showOnlineMembers,
           trialStartDate,
+          // Pin the plan on the community (price + commission + trial read
+          // off this). Falls back to the owner's current plan when no choice
+          // was carried through, so every new community has a plan.
+          planId: selectedPlan?.id ?? null,
           // First SOFT charge fires when nextBillingDate <= now. Cron
           // picks it up; success advances by 1 month; failure suspends.
           nextBillingDate,
@@ -1231,12 +1269,19 @@ export class CommunitiesService {
     communityId: string,
     trialStartDate: Date | null,
   ): Promise<void> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { email: true, name: true, plan: { select: { trialLengthMonths: true } } },
-    });
+    const [user, community] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true, name: true, plan: { select: { trialLengthMonths: true } } },
+      }),
+      this.prisma.community.findUnique({
+        where: { id: communityId },
+        select: { plan: { select: { trialLengthMonths: true } } },
+      }),
+    ]);
     if (!user?.email) return;
-    const trialMonths = user.plan?.trialLengthMonths ?? 1;
+    // Community plan wins; owner plan is the legacy fallback.
+    const trialMonths = community?.plan?.trialLengthMonths ?? user.plan?.trialLengthMonths ?? 1;
     const start = trialStartDate ?? new Date();
     const trialEnd = new Date(start);
     trialEnd.setMonth(trialEnd.getMonth() + trialMonths);
@@ -1329,6 +1374,7 @@ export class CommunitiesService {
         id: true, name: true, ownerId: true, status: true,
         price: true, pendingPrice: true,
         subscriptionStatus: true, subscriptionCancelledAt: true,
+        plan: { select: { commissionBasisPoints: true } },
         owner: { select: { plan: { select: { commissionBasisPoints: true } } } },
       },
     });
@@ -1440,7 +1486,7 @@ export class CommunitiesService {
       await this.transactionsService.recordCharge({
         kind: 'MEMBER_MONTHLY',
         grossAmount: amount,
-        commissionBasisPoints: community.owner?.plan?.commissionBasisPoints,
+        commissionBasisPoints: community.plan?.commissionBasisPoints ?? community.owner?.plan?.commissionBasisPoints,
         communityId: community.id,
         ownerId: community.ownerId,
         payerId: userId,
@@ -1964,6 +2010,7 @@ export class CommunitiesService {
         community: {
           select: {
             ownerId: true,
+            plan: { select: { commissionBasisPoints: true } },
             owner: { select: { plan: { select: { commissionBasisPoints: true } } } },
           },
         },
@@ -2038,7 +2085,7 @@ export class CommunitiesService {
       await this.transactionsService.recordCharge({
         kind: 'REFUND',
         grossAmount: isSameDay ? Math.round(sub.priceAtJoin) : refundAmount,
-        commissionBasisPoints: sub.community.owner?.plan?.commissionBasisPoints,
+        commissionBasisPoints: sub.community.plan?.commissionBasisPoints ?? sub.community.owner?.plan?.commissionBasisPoints,
         communityId,
         ownerId: sub.community.ownerId,
         payerId: kickedUserId,
@@ -2078,7 +2125,9 @@ export class CommunitiesService {
       where: { id: communityId },
       select: {
         ownerId: true,
-        owner: { select: { plan: { select: { commissionBasisPoints: true } } } },
+        // Per-community plan wins; owner plan is the legacy fallback.
+        plan: { select: { monthlyPriceILS: true, commissionBasisPoints: true, trialLengthMonths: true } },
+        owner: { select: { plan: { select: { monthlyPriceILS: true, commissionBasisPoints: true, trialLengthMonths: true } } } },
       },
     });
     if (!community) {
@@ -2087,6 +2136,8 @@ export class CommunitiesService {
     if (community.ownerId !== userId) {
       throw new ForbiddenException('Only the community owner can view earnings');
     }
+
+    const effectivePlan = community.plan ?? community.owner?.plan ?? null;
 
     const [earnedAgg, refundAgg] = await Promise.all([
       // Sum of ownerAmount across all kinds: MEMBER_MONTHLY is positive,
@@ -2103,7 +2154,10 @@ export class CommunitiesService {
     ]);
 
     return {
-      commissionBasisPoints: community.owner?.plan?.commissionBasisPoints ?? 500,
+      commissionBasisPoints: effectivePlan?.commissionBasisPoints ?? 500,
+      // The community's own platform fee + trial, for the manage billing card.
+      monthlyPriceILS: effectivePlan?.monthlyPriceILS ?? 99,
+      trialLengthMonths: effectivePlan?.trialLengthMonths ?? 1,
       earnedToDateNet: Math.round(earnedAgg._sum.ownerAmount ?? 0),
       totalRefunds: Math.round(Math.abs(refundAgg._sum.grossAmount ?? 0)),
     };

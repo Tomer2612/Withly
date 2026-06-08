@@ -378,6 +378,7 @@ export class CommunityBillingCronService {
         id: true,
         name: true,
         nextBillingDate: true,
+        plan: { select: { monthlyPriceILS: true } },
         owner: {
           select: {
             email: true,
@@ -389,13 +390,16 @@ export class CommunityBillingCronService {
     });
 
     for (const c of due) {
-      if (!c.nextBillingDate || !c.owner?.email || !c.owner.plan?.monthlyPriceILS) continue;
+      // Per-community plan wins; fall back to the owner's plan for rows that
+      // predate per-community plans.
+      const monthlyPrice = c.plan?.monthlyPriceILS ?? c.owner?.plan?.monthlyPriceILS;
+      if (!c.nextBillingDate || !c.owner?.email || !monthlyPrice) continue;
       try {
         await this.emailService.sendTrialEndingReminderEmail(
           c.owner.email,
           c.owner.name ?? c.owner.email,
           c.name,
-          c.owner.plan.monthlyPriceILS,
+          monthlyPrice,
           formatHebrewDate(c.nextBillingDate),
         );
       } catch (err) {
@@ -455,6 +459,7 @@ export class CommunityBillingCronService {
             cardLastFour: true,
           },
         },
+        plan: { select: { monthlyPriceILS: true } },
         owner: {
           select: {
             id: true,
@@ -489,6 +494,7 @@ export class CommunityBillingCronService {
         cardExpYear: number | null;
         cardLastFour: string;
       } | null;
+      plan: { monthlyPriceILS: number } | null;
       owner: {
         id: string;
         email: string;
@@ -498,6 +504,8 @@ export class CommunityBillingCronService {
     },
     now: Date,
   ) {
+    // Per-community plan wins; owner plan is the legacy fallback.
+    const monthlyPrice = c.plan?.monthlyPriceILS ?? c.owner?.plan?.monthlyPriceILS;
     // Defensive validations — these should never trip post-Phase 3.3.
     // ownerId NULL would mean the owner deleted their account (Phase 5
     // Mission 4 wind-down) and we shouldn't charge; the cron's findMany
@@ -514,8 +522,14 @@ export class CommunityBillingCronService {
       this.logger.error(`Community ${c.id}: missing token/expiry; skipping`);
       return;
     }
-    if (!c.owner?.plan?.monthlyPriceILS) {
-      this.logger.error(`Community ${c.id}: owner missing plan; skipping`);
+    if (!monthlyPrice) {
+      this.logger.error(`Community ${c.id}: no plan price (community or owner); skipping`);
+      return;
+    }
+    // Owner is needed for the charge's clientName/email. ownerId is already
+    // asserted above; this also narrows c.owner to non-null for TS.
+    if (!c.owner?.email) {
+      this.logger.error(`Community ${c.id}: owner missing email; skipping`);
       return;
     }
     if (!c.nextBillingDate) {
@@ -542,7 +556,7 @@ export class CommunityBillingCronService {
     try {
       result = await this.hypService.softCharge({
         token: c.paymentMethod.hypPaymentMethodId,
-        amount: c.owner.plan.monthlyPriceILS,
+        amount: monthlyPrice,
         cardExpMonth: c.paymentMethod.cardExpMonth,
         cardExpYear: c.paymentMethod.cardExpYear,
         clientName: c.owner.name ?? c.owner.email,
@@ -573,7 +587,7 @@ export class CommunityBillingCronService {
       // Ledger: owner platform fee → 100% Withly revenue (no split).
       await this.transactionsService.recordCharge({
         kind: 'OWNER_MONTHLY',
-        grossAmount: c.owner.plan.monthlyPriceILS,
+        grossAmount: monthlyPrice,
         communityId: c.id,
         ownerId: c.ownerId,
         payerId: c.ownerId,
@@ -581,7 +595,7 @@ export class CommunityBillingCronService {
         hypOrderId: result.body.Order ?? null,
       });
       this.logger.log(
-        `Charged owner ${c.owner.email} ₪${c.owner.plan.monthlyPriceILS} for community ${c.id} ` +
+        `Charged owner ${c.owner.email} ₪${monthlyPrice} for community ${c.id} ` +
         `(${c.name}): hypId=${result.body.Id}, next=${nextBillingDate.toISOString()}`,
       );
     } else {
@@ -599,6 +613,7 @@ export class CommunityBillingCronService {
       // but the type stays nullable to match the parent's narrower-than-
       // Prisma-knows shape. Treated as the actor on member notifications.
       ownerId: string | null;
+      plan: { monthlyPriceILS: number } | null;
       owner: {
         email: string;
         name: string | null;
@@ -609,6 +624,7 @@ export class CommunityBillingCronService {
     now: Date,
     ccode?: string | null,
   ) {
+    const monthlyPrice = c.plan?.monthlyPriceILS ?? c.owner?.plan?.monthlyPriceILS;
     await this.prisma.community.update({
       where: { id: c.id },
       data: { subscriptionStatus: 'SUSPENDED', suspendedAt: now },
@@ -621,7 +637,7 @@ export class CommunityBillingCronService {
     if (c.ownerId) {
       await this.notificationsService.notifyPaymentFailed(c.ownerId, c.id).catch(() => {});
     }
-    if (c.owner?.email && c.owner.plan?.monthlyPriceILS && c.ownerId) {
+    if (c.owner?.email && monthlyPrice && c.ownerId) {
       // Phase 6.4 — generate (or reuse) a dunning link before the email
       // so the "pay now" CTA can render. On HYP failures here we still
       // send the email without the link so the user at least learns the
@@ -634,7 +650,7 @@ export class CommunityBillingCronService {
           communityId: c.id,
           communityName: c.name,
           kind: 'OWNER_MONTHLY',
-          amount: c.owner.plan.monthlyPriceILS,
+          amount: monthlyPrice,
         });
       } catch (err) {
         this.logger.warn(
@@ -647,7 +663,7 @@ export class CommunityBillingCronService {
           c.owner.name ?? c.owner.email,
           c.name,
           c.id,
-          c.owner.plan.monthlyPriceILS,
+          monthlyPrice,
           ccode,
           dunningUrl,
         );
@@ -702,6 +718,7 @@ export class CommunityBillingCronService {
           select: {
             name: true,
             ownerId: true,
+            plan: { select: { commissionBasisPoints: true } },
             owner: { select: { plan: { select: { commissionBasisPoints: true } } } },
           },
         },
@@ -738,6 +755,7 @@ export class CommunityBillingCronService {
         community: {
           select: {
             ownerId: true,
+            plan: { select: { commissionBasisPoints: true } },
             owner: { select: { plan: { select: { commissionBasisPoints: true } } } },
           },
         },
@@ -766,7 +784,7 @@ export class CommunityBillingCronService {
           await this.transactionsService.recordCharge({
             kind: 'REFUND',
             grossAmount: amount,
-            commissionBasisPoints: sub.community.owner?.plan?.commissionBasisPoints,
+            commissionBasisPoints: sub.community.plan?.commissionBasisPoints ?? sub.community.owner?.plan?.commissionBasisPoints,
             communityId: sub.communityId,
             ownerId: sub.community.ownerId,
             payerId: sub.userId,
@@ -896,6 +914,7 @@ export class CommunityBillingCronService {
       community: {
         name: string;
         ownerId: string | null;
+        plan: { commissionBasisPoints: number } | null;
         owner: { plan: { commissionBasisPoints: number } | null } | null;
       };
       user: { email: string; name: string | null };
@@ -958,7 +977,7 @@ export class CommunityBillingCronService {
       await this.transactionsService.recordCharge({
         kind: 'MEMBER_MONTHLY',
         grossAmount: amount,
-        commissionBasisPoints: sub.community.owner?.plan?.commissionBasisPoints,
+        commissionBasisPoints: sub.community.plan?.commissionBasisPoints ?? sub.community.owner?.plan?.commissionBasisPoints,
         communityId: sub.communityId,
         ownerId: sub.community.ownerId,
         payerId: sub.userId,
