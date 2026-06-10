@@ -2002,34 +2002,23 @@ export default function ManageCommunityPage() {
                           </span>
                         </div>
                       </ComingSoonTooltip>
-                    </div>
-
-                    {/* Net earnings (the "what lands in your bank" metric):
-                        ledger-derived, after commission + refunds. Refunds are
-                        a small sub-label here rather than their own card. */}
-                    {earnings && (
-                      <div className="flex flex-wrap gap-4 mt-4">
+                      {/* Net earnings (the "what lands in your bank" metric):
+                          ledger-derived, after commission + refunds. The
+                          tooltip carries the detail, so no sub-labels here. */}
+                      {earnings && (
                         <ComingSoonTooltip tailDirection="up" maxWidth="260px" text="סך כל הרווחים שנצברו בקהילה עד כה, לאחר קיזוז עמלת Withly והחזרים כספיים">
                           <div
-                            className="rounded-md px-5 py-3 flex flex-col gap-1 bg-gray-50"
-                            style={{ width: 'fit-content', minWidth: '160px' }}
+                            className="rounded-md px-5 py-3 flex flex-col gap-1"
+                            style={{ backgroundColor: 'var(--color-green-lighter)', width: 'fit-content', minWidth: '160px' }}
                           >
                             <span className="text-[16px] font-normal text-black">רווחים נטו</span>
                             <span className="text-[28px] font-semibold text-black leading-none">
                               ₪{earnings.earnedToDateNet}
                             </span>
-                            <span className="text-[13px] font-normal" style={{ color: 'var(--color-gray-10)' }}>
-                              {`לאחר עמלת Withly של ${commissionRateLabel}%`}
-                            </span>
-                            {earnings.totalRefunds > 0 && (
-                              <span className="text-[13px] font-normal" style={{ color: 'var(--color-gray-10)' }}>
-                                {`כולל החזרים בסך ₪${earnings.totalRefunds}`}
-                              </span>
-                            )}
                           </div>
                         </ComingSoonTooltip>
-                      </div>
-                    )}
+                      )}
+                    </div>
 
                     <div className="my-6" style={{ borderTop: '1px solid var(--color-gray-4)' }} />
 
