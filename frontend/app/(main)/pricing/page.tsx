@@ -175,7 +175,10 @@ function PricingContent() {
         if (!communityName) setCommunityName(pending.name ?? '');
         if (!communityTopic && pending.topic) setCommunityTopic(pending.topic);
         // Restore the plan they picked so the price + pinned plan stay right.
-        if (pending.plan?.slug) setSelectedPlanSlug(pending.plan.slug);
+        // Only restore the saved plan when the user hasn't picked one this
+        // session — otherwise switching plans (pick A → back → pick B) would
+        // get clobbered back to A by the stale pending row.
+        if (pending.plan?.slug && !selectedPlanSlug) setSelectedPlanSlug(pending.plan.slug);
         setPendingId(pending.id);
       } catch {
         // Resume is a nice-to-have; failure means the user just re-fills.
@@ -303,19 +306,29 @@ function PricingContent() {
             </div>
           </div>
           
-          <button
-            onClick={handleContinueToPayment}
-            disabled={!communityName.trim() || creatingCommunity}
-            className="w-full mt-8 bg-black text-white py-4 rounded-xl font-bold text-lg hover:opacity-90 transition disabled:opacity-50"
-          >
-            {creatingCommunity ? 'יוצרים קהילה...' : 'המשך'}
-          </button>
-
-          <p className="text-center text-sm mt-4" style={{ color: '#71717A' }}>
-            חודש ראשון חינם, ולאחר מכן ₪{plan.price} בחודש.
-            <br />
-            תזכורת תישלח 3 ימים לפני החיוב, ניתן לבטל בכל עת.
-          </p>
+          {/* Standard popup button pair (PriceChangeAnnouncementModal style):
+              secondary "back" first (rightmost in RTL), primary on the left.
+              Back is the only way to switch plans here — the nav's מחירון
+              can't, since it's the same /pricing route. */}
+          <div className="flex gap-3 justify-center" style={{ marginTop: '32px' }}>
+            <button
+              type="button"
+              onClick={() => setCurrentStep('pricing')}
+              disabled={creatingCommunity}
+              style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
+              className="bg-white text-black border hover:bg-gray-50 transition disabled:opacity-50"
+            >
+              חזרה לבחירת מסלול
+            </button>
+            <button
+              onClick={handleContinueToPayment}
+              disabled={!communityName.trim() || creatingCommunity}
+              style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
+              className="bg-black text-white hover:opacity-90 transition disabled:opacity-50"
+            >
+              {creatingCommunity ? 'יוצרים קהילה...' : 'מעבר לתשלום'}
+            </button>
+          </div>
         </div>
 
         {/* Phase 3.3 — iframe-based card tokenization. Mounted on the
