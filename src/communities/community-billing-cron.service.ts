@@ -129,15 +129,28 @@ export class CommunityBillingCronService {
 
     for (const c of due) {
       try {
-        await this.prisma.community.update({
-          where: { id: c.id },
-          data: {
-            price: c.pendingPrice,
-            pendingPrice: null,
-            pendingPriceEffectiveAt: null,
-            priceChangeAnnouncedAt: null,
-          },
-        });
+        // Apply the new price to the community AND reprice existing members:
+        // once the announced notice period ends, every active/past-due member
+        // moves to the new price (this is what the price-change announcement
+        // popup promises them). New joiners during the grace period already
+        // have priceAtJoin = the pending price, so the updateMany is a no-op
+        // for them. Atomic so the community price + member prices never
+        // diverge. CANCELLED/ENDED subs are left untouched.
+        await this.prisma.$transaction([
+          this.prisma.community.update({
+            where: { id: c.id },
+            data: {
+              price: c.pendingPrice,
+              pendingPrice: null,
+              pendingPriceEffectiveAt: null,
+              priceChangeAnnouncedAt: null,
+            },
+          }),
+          this.prisma.memberSubscription.updateMany({
+            where: { communityId: c.id, status: { in: ['ACTIVE', 'PAST_DUE'] } },
+            data: { priceAtJoin: c.pendingPrice! },
+          }),
+        ]);
       } catch (err) {
         this.logger.error(`Failed to apply price change for community ${c.id}`, err as Error);
       }
