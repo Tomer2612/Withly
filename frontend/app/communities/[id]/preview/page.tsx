@@ -554,7 +554,7 @@ function CommunityPreviewContent() {
                     )}
                   </button>
                   {joinPrice(community) > 0 ? (
-                    <p className="text-xs text-gray-500 text-center mt-2">₪{joinPrice(community)} לחודש • חודש ניסיון חינם</p>
+                    <p className="text-sm text-gray-500 text-center mt-2">₪{joinPrice(community)} לחודש </p>
                   ) : null}
                 </>
               )}
