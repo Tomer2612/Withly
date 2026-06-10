@@ -1026,17 +1026,18 @@ export default function ManageCommunityPage() {
     setRules(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Revenue card figures. Gross monthly is the forward-looking projection
-  // (paying members × price, with grandfathered vs. new-price members).
-  // Commission/net apply the "cut from owner": Withly keeps the rate, the
-  // owner nets the rest. bps falls back to the default plan until the
-  // earnings fetch resolves, so the first paint isn't misleading.
+  // Revenue card figures. Monthly income is the forward-looking projection
+  // (paying members × price, with grandfathered vs. new-price members) —
+  // shown gross; the commission is surfaced as a rate in the billing panel
+  // rather than mixed into this number. bps falls back to the default plan
+  // until the earnings fetch resolves.
   const grossMonthly =
     (totalPayingMembers - newPriceMembers) * currentCommunityPrice +
     newPriceMembers * (pendingPrice ?? currentCommunityPrice);
   const commissionBps = earnings?.commissionBasisPoints ?? defaultPlan?.commissionBasisPoints ?? 0;
-  const commissionMonthly = Math.round((grossMonthly * commissionBps) / 10000);
-  const netMonthly = grossMonthly - commissionMonthly;
+  // "940" → "9.4", "500" → "5" (drop a trailing .0 so round rates read clean).
+  const commissionRateLabel =
+    commissionBps % 100 === 0 ? `${commissionBps / 100}` : (commissionBps / 100).toFixed(1);
 
   if (pageLoading || !userEmail) {
     return (
@@ -1966,8 +1967,11 @@ export default function ManageCommunityPage() {
                   </div>
                 </div>
 
-                {/* Card 3 — community revenue (paid communities only) */}
-                {isPaidCommunity && (
+                {/* Card 3 — community revenue. Visible whenever the community
+                    is earning OR will earn (covers price-change grace periods,
+                    including free↔paid transitions). Gated on the saved price
+                    reality, not the form's paid/free radio. */}
+                {(currentCommunityPrice > 0 || (pendingPrice ?? 0) > 0) && (
                   <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 mt-6">
                     <h3 className="text-[18px] font-semibold text-black">הכנסות הקהילה</h3>
 
@@ -1976,15 +1980,10 @@ export default function ManageCommunityPage() {
                         className="rounded-md px-5 py-3 flex flex-col gap-1"
                         style={{ backgroundColor: 'var(--color-green-lighter)', width: 'fit-content', minWidth: '160px' }}
                       >
-                        <span className="text-[16px] font-normal text-black">הכנסה חודשית נטו</span>
+                        <span className="text-[16px] font-normal text-black">הכנסה חודשית</span>
                         <span className="text-[28px] font-semibold text-black leading-none">
-                          ₪{netMonthly}
+                          ₪{grossMonthly}
                         </span>
-                        {commissionBps > 0 && (
-                          <span className="text-[13px] font-normal" style={{ color: 'var(--color-gray-10)' }}>
-                            {`₪${grossMonthly} ברוטו · ₪${commissionMonthly} עמלת Withly`}
-                          </span>
-                        )}
                       </div>
                       <div
                         className="rounded-md px-5 py-3 flex flex-col gap-1"
@@ -2000,15 +1999,15 @@ export default function ManageCommunityPage() {
                       </div>
                     </div>
 
-                    {/* Ledger-derived lifetime figures (net of commission +
-                        refunds). Rendered once the earnings fetch resolves. */}
+                    {/* Ledger-derived lifetime figures. Rendered once the
+                        earnings fetch resolves. */}
                     {earnings && (
                       <div className="flex flex-wrap gap-4 mt-4">
                         <div
                           className="rounded-md px-5 py-3 flex flex-col gap-1 bg-gray-50"
                           style={{ width: 'fit-content', minWidth: '160px' }}
                         >
-                          <span className="text-[16px] font-normal text-black">הכנסה מצטברת נטו</span>
+                          <span className="text-[16px] font-normal text-black">הכנסה מצטברת</span>
                           <span className="text-[28px] font-semibold text-black leading-none">
                             ₪{earnings.earnedToDateNet}
                           </span>
@@ -2093,6 +2092,9 @@ export default function ManageCommunityPage() {
                       </span>
                       <span className="text-[16px] font-normal text-black">
                         החיוב הבא: {formatHebrewDate(nextBillingDate ?? new Date())}
+                      </span>
+                      <span className="text-[16px] font-normal text-black">
+                        עמלת עסקאות: {commissionRateLabel}%
                       </span>
                     </div>
                     {isInTrial(trialStartDate, planTrialLength) && (
