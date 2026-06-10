@@ -12,11 +12,14 @@ interface ComingSoonTooltipProps {
    *  Pass "w-full" / "flex-1" etc. when used inside a flex parent that
    *  expects the tooltip wrapper to expand. */
   wrapperClassName?: string;
+  /** When set (e.g. "240px"), the bubble wraps to this max width instead of
+   *  a single nowrap line — use for longer info text. */
+  maxWidth?: string;
 }
 
 const DEFAULT_TEXT = 'הפיצ’ר הזה בדרך! אנחנו עובדים על זה.';
 
-export default function ComingSoonTooltip({ children, tailDirection, text, wrapperClassName }: ComingSoonTooltipProps) {
+export default function ComingSoonTooltip({ children, tailDirection, text, wrapperClassName, maxWidth }: ComingSoonTooltipProps) {
   const [isHovered, setIsHovered] = useState(false);
   const message = text ?? DEFAULT_TEXT;
 
@@ -51,13 +54,14 @@ export default function ComingSoonTooltip({ children, tailDirection, text, wrapp
           )}
 
           <div
-            className="relative flex items-center justify-center text-black font-normal whitespace-nowrap"
+            className={`relative flex items-center justify-center text-black font-normal ${maxWidth ? 'text-center' : 'whitespace-nowrap'}`}
             style={{
               backgroundColor: '#A7EA7B',
               borderRadius: '8px',
               padding: '10px 16px',
               fontSize: '16px',
               minWidth: '160px',
+              ...(maxWidth ? { maxWidth, whiteSpace: 'normal' } : {}),
             }}
           >
             {message}

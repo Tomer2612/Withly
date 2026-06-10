@@ -112,6 +112,8 @@ export default function ManageCommunityPage() {
     trialLengthMonths: number;
     earnedToDateNet: number;
     totalRefunds: number;
+    payingMembers: number;
+    monthlyProjection: number;
   } | null>(null);
 
   // Plan-driven values for trial math + billing labels. Prefer THIS
@@ -1931,7 +1933,7 @@ export default function ManageCommunityPage() {
                       </div>
                       {pendingPriceEffectiveAt && pendingPrice !== null && (
                         <p className="text-sm mt-2" style={{ color: 'var(--color-gray-7)' }}>
-                          {`שינוי המחיר ל-₪${pendingPrice} ייכנס לתוקף בתאריך ${formatHebrewDate(pendingPriceEffectiveAt)}.`}
+                          {`שינוי המחיר ל-₪${pendingPrice} ייכנס לתוקף בתאריך ${formatHebrewDate(pendingPriceEffectiveAt)} עבור חברים קיימים.`}
                         </p>
                       )}
                     </div>
@@ -1976,53 +1978,56 @@ export default function ManageCommunityPage() {
                     <h3 className="text-[18px] font-semibold text-black">הכנסות הקהילה</h3>
 
                     <div className="flex flex-wrap gap-4 mt-4">
-                      <div
-                        className="rounded-md px-5 py-3 flex flex-col gap-1"
-                        style={{ backgroundColor: 'var(--color-green-lighter)', width: 'fit-content', minWidth: '160px' }}
-                      >
-                        <span className="text-[16px] font-normal text-black">הכנסה חודשית</span>
-                        <span className="text-[28px] font-semibold text-black leading-none">
-                          ₪{grossMonthly}
-                        </span>
-                      </div>
-                      <div
-                        className="rounded-md px-5 py-3 flex flex-col gap-1"
-                        style={{ backgroundColor: 'var(--color-green-lighter)', width: 'fit-content', minWidth: '160px' }}
-                      >
-                        <span className="text-[16px] font-normal text-black">
-                          חברים משלמים
-                          <span className="text-[13px] font-normal text-black"> (פעילים כרגע)</span>
-                        </span>
-                        <span className="text-[28px] font-semibold text-black leading-none">
-                          {totalPayingMembers}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Ledger-derived lifetime figures. Rendered once the
-                        earnings fetch resolves. */}
-                    {earnings && (
-                      <div className="flex flex-wrap gap-4 mt-4">
+                      <ComingSoonTooltip tailDirection="up" maxWidth="240px" text="סך החברים בעלי מנוי פעיל בתשלום נכון להיום">
                         <div
-                          className="rounded-md px-5 py-3 flex flex-col gap-1 bg-gray-50"
-                          style={{ width: 'fit-content', minWidth: '160px' }}
+                          className="rounded-md px-5 py-3 flex flex-col gap-1"
+                          style={{ backgroundColor: 'var(--color-green-lighter)', width: 'fit-content', minWidth: '160px' }}
                         >
-                          <span className="text-[16px] font-normal text-black">הכנסה מצטברת</span>
+                          <span className="text-[16px] font-normal text-black">
+                            חברים משלמים
+                          </span>
                           <span className="text-[28px] font-semibold text-black leading-none">
-                            ₪{earnings.earnedToDateNet}
+                            {earnings?.payingMembers ?? totalPayingMembers}
                           </span>
                         </div>
-                        {earnings.totalRefunds > 0 && (
+                      </ComingSoonTooltip>
+                      <ComingSoonTooltip tailDirection="up" maxWidth="240px" text="צפי ההכנסות לחודש הקרוב מכלל החברים הפעילים">
+                        <div
+                          className="rounded-md px-5 py-3 flex flex-col gap-1"
+                          style={{ backgroundColor: 'var(--color-green-lighter)', width: 'fit-content', minWidth: '160px' }}
+                        >
+                          <span className="text-[16px] font-normal text-black">הכנסה חודשית צפויה</span>
+                          <span className="text-[28px] font-semibold text-black leading-none">
+                            ₪{earnings?.monthlyProjection ?? grossMonthly}
+                          </span>
+                        </div>
+                      </ComingSoonTooltip>
+                    </div>
+
+                    {/* Net earnings (the "what lands in your bank" metric):
+                        ledger-derived, after commission + refunds. Refunds are
+                        a small sub-label here rather than their own card. */}
+                    {earnings && (
+                      <div className="flex flex-wrap gap-4 mt-4">
+                        <ComingSoonTooltip tailDirection="up" maxWidth="260px" text="סך כל הרווחים שנצברו בקהילה עד כה, לאחר קיזוז עמלת Withly והחזרים כספיים">
                           <div
                             className="rounded-md px-5 py-3 flex flex-col gap-1 bg-gray-50"
                             style={{ width: 'fit-content', minWidth: '160px' }}
                           >
-                            <span className="text-[16px] font-normal text-black">סך ההחזרים</span>
+                            <span className="text-[16px] font-normal text-black">רווחים נטו</span>
                             <span className="text-[28px] font-semibold text-black leading-none">
-                              ₪{earnings.totalRefunds}
+                              ₪{earnings.earnedToDateNet}
                             </span>
+                            <span className="text-[13px] font-normal" style={{ color: 'var(--color-gray-10)' }}>
+                              {`לאחר עמלת Withly של ${commissionRateLabel}%`}
+                            </span>
+                            {earnings.totalRefunds > 0 && (
+                              <span className="text-[13px] font-normal" style={{ color: 'var(--color-gray-10)' }}>
+                                {`כולל החזרים בסך ₪${earnings.totalRefunds}`}
+                              </span>
+                            )}
                           </div>
-                        )}
+                        </ComingSoonTooltip>
                       </div>
                     )}
 
@@ -2091,15 +2096,18 @@ export default function ManageCommunityPage() {
                         ₪{planMonthlyPrice} / חודש
                       </span>
                       <span className="text-[16px] font-normal text-black">
-                        החיוב הבא: {formatHebrewDate(nextBillingDate ?? new Date())}
-                      </span>
-                      <span className="text-[16px] font-normal text-black">
                         עמלת עסקאות: {commissionRateLabel}%
                       </span>
                     </div>
-                    {isInTrial(trialStartDate, planTrialLength) && (
+                    {isInTrial(trialStartDate, planTrialLength) ? (
+                      // During the free trial: no "next billing" line — the trial
+                      // copy below already states when the first charge lands.
                       <p className="text-[16px] font-normal text-black mt-3 leading-relaxed">
                         {`תקופת הניסיון שלך (חודש) מסתיימת ב-${formatHebrewDate(getTrialEnd(trialStartDate, planTrialLength)!)}. החל מאותו תאריך יחויב אמצעי התשלום שלך ב-₪${planMonthlyPrice} לחודש.`}
+                      </p>
+                    ) : (
+                      <p className="text-[16px] font-normal text-black mt-2">
+                        החיוב הבא: {formatHebrewDate(nextBillingDate ?? new Date())}
                       </p>
                     )}
                   </div>

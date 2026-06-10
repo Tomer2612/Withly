@@ -2139,7 +2139,7 @@ export class CommunitiesService {
 
     const effectivePlan = community.plan ?? community.owner?.plan ?? null;
 
-    const [earnedAgg, refundAgg] = await Promise.all([
+    const [earnedAgg, refundAgg, activeSubsAgg] = await Promise.all([
       // Sum of ownerAmount across all kinds: MEMBER_MONTHLY is positive,
       // REFUND is negative, OWNER_MONTHLY is 0 — so the sum is net earnings.
       this.prisma.transaction.aggregate({
@@ -2151,6 +2151,16 @@ export class CommunitiesService {
         where: { communityId, kind: 'REFUND' },
         _sum: { grossAmount: true },
       }),
+      // Authoritative paying-member figures: only ACTIVE subs count (excludes
+      // PAST_DUE / cancelled), and the projection is the sum of each member's
+      // actual priceAtJoin — which already reflects price changes (existing
+      // members are repriced when a change takes effect), so it equals what
+      // the cron will charge next cycle.
+      this.prisma.memberSubscription.aggregate({
+        where: { communityId, status: 'ACTIVE' },
+        _count: { _all: true },
+        _sum: { priceAtJoin: true },
+      }),
     ]);
 
     return {
@@ -2160,6 +2170,9 @@ export class CommunitiesService {
       trialLengthMonths: effectivePlan?.trialLengthMonths ?? 1,
       earnedToDateNet: Math.round(earnedAgg._sum.ownerAmount ?? 0),
       totalRefunds: Math.round(Math.abs(refundAgg._sum.grossAmount ?? 0)),
+      // Active paying members + projected gross monthly income.
+      payingMembers: activeSubsAgg._count._all,
+      monthlyProjection: Math.round(activeSubsAgg._sum.priceAtJoin ?? 0),
     };
   }
 
