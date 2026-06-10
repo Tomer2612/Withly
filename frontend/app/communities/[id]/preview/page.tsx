@@ -275,8 +275,8 @@ function CommunityPreviewContent() {
           const allRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities`);
           if (allRes.ok) {
             const allCommunities = await allRes.json();
-            const similar = allCommunities.filter((c: Community) => 
-              c.topic === data.topic && c.id !== communityId
+            const similar = allCommunities.filter((c: Community) =>
+              c.topic === data.topic && c.id !== data.id && c.slug !== data.slug
             ).slice(0, 3);
             setSimilarCommunities(similar);
           }
