@@ -2023,30 +2023,38 @@ export default function ManageCommunityPage() {
                       return updateBtn;
                     })()}
                   </div>
-                  {/* Just-in-time hint (replaces the old tooltip): saving the
-                      price leads straight into bank-account setup. */}
-                  {isPaidCommunity && !bankAccount && (
-                    <div className="flex items-start gap-2 mt-3">
-                      <InfoCircleIcon size={16} color="black" className="flex-shrink-0 mt-0.5" />
-                      <p className="text-sm" style={{ color: 'var(--color-gray-8)' }}>
-                        לאחר קביעת מחיר המנוי ושמירתו, נעבור להגדרת חשבון הבנק לקבלת ההכנסות
-                      </p>
+                  {/* Pricing hints, fixed stacking order: pending-change (B),
+                      then the bank-setup just-in-time hint (A), then the
+                      has-account revenue reminder (C). The wrapper owns the top
+                      margin; space-y keeps the inter-hint gaps tight and only
+                      spaces the blocks that actually render. Guard === A||C
+                      (isPaidCommunity, since bank/!bank are exclusive) OR B. */}
+                  {(isPaidCommunity || (pendingPriceEffectiveAt && pendingPrice !== null)) && (
+                    <div className="mt-3 space-y-1.5">
+                      {pendingPriceEffectiveAt && pendingPrice !== null && (
+                        <p className="text-sm" style={{ color: 'var(--color-gray-7)' }}>
+                          {`שינוי המחיר ל-₪${pendingPrice} ייכנס לתוקף בתאריך ${formatHebrewDate(pendingPriceEffectiveAt)} עבור חברים קיימים.`}
+                        </p>
+                      )}
+                      {isPaidCommunity && !bankAccount && (
+                        <div className="flex items-start gap-2">
+                          <InfoCircleIcon size={16} color="black" className="flex-shrink-0 mt-0.5" />
+                          <p className="text-sm" style={{ color: 'var(--color-gray-8)' }}>
+                            לאחר קביעת מחיר המנוי ושמירתו, נעבור להגדרת חשבון הבנק לקבלת ההכנסות
+                          </p>
+                        </div>
+                      )}
+                      {/* Has-account reminder only; the no-account case is covered
+                          by the info row above (avoids showing both). */}
+                      {isPaidCommunity && bankAccount && (
+                        <p className="text-sm" style={{ color: 'var(--color-gray-7)' }}>
+                          ההכנסות מהקהילה מועברות לחשבון הבנק שלך{' '}
+                          <button type="button" onClick={() => router.push('/settings#payment')} className="underline" style={{ color: 'var(--color-gray-8)' }}>
+                            בהגדרות
+                          </button>
+                        </p>
+                      )}
                     </div>
-                  )}
-                  {pendingPriceEffectiveAt && pendingPrice !== null && (
-                    <p className="text-sm mt-2" style={{ color: 'var(--color-gray-7)' }}>
-                      {`שינוי המחיר ל-₪${pendingPrice} ייכנס לתוקף בתאריך ${formatHebrewDate(pendingPriceEffectiveAt)} עבור חברים קיימים.`}
-                    </p>
-                  )}
-                  {/* Has-account reminder only; the no-account case is covered
-                      by the info row above (avoids showing both). */}
-                  {isPaidCommunity && bankAccount && (
-                    <p className="text-sm mt-3" style={{ color: 'var(--color-gray-7)' }}>
-                      ההכנסות מהקהילה מועברות לחשבון הבנק שלך{' '}
-                      <button type="button" onClick={() => router.push('/settings#payment')} className="underline" style={{ color: 'var(--color-gray-8)' }}>
-                        בהגדרות
-                      </button>
-                    </p>
                   )}
                 </div>
 
