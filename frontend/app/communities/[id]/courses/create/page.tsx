@@ -95,7 +95,7 @@ export default function CreateCoursePage() {
   const userEmail = user?.email ?? null;
   const userProfile = user ? { name: user.name, profileImage: user.profileImage } : null;
   const [community, setCommunity] = useState<{ name: string; logo?: string | null } | null>(null);
-  const [isOwnerOrManager, setIsOwnerOrManager] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
 
   // Validation constants → ../courseFormShared
 
@@ -142,10 +142,7 @@ export default function CreateCoursePage() {
         if (!communityRes.ok) return;
         const data = await communityRes.json();
         setCommunity({ name: data.name, logo: data.logo });
-        const isOwner = data.ownerId === user.userId;
-        const membership = data.members?.find((m: any) => m.userId === user.userId);
-        const isManager = membership?.role === 'MANAGER' || membership?.role === 'OWNER';
-        setIsOwnerOrManager(isOwner || isManager);
+        setIsOwner(data.ownerId === user.userId);
       })();
     } catch (e) {
       console.error('Auth probe failed:', e);
@@ -492,7 +489,7 @@ export default function CreateCoursePage() {
         communityId={communityId}
         community={community}
         activePage="courses"
-        isOwnerOrManager={isOwnerOrManager}
+        isOwner={isOwner}
         userEmail={userEmail}
         userId={userId}
         userProfile={userProfile}

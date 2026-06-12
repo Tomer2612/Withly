@@ -245,7 +245,7 @@ export default function CommunityLayout({ children }: { children: ReactNode }) {
           communityId={communityId}
           community={community}
           activePage={getActivePage()}
-          isOwnerOrManager={isOwnerOrManager}
+          isOwner={isOwner}
           userEmail={userEmail}
           userId={userId}
           userProfile={userProfile}

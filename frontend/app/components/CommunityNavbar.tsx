@@ -13,7 +13,8 @@ interface CommunityNavbarProps {
   communityId: string;
   community: { name: string; logo?: string | null } | null;
   activePage: 'feed' | 'courses' | 'members' | 'events' | 'leaderboard' | 'about' | 'manage';
-  isOwnerOrManager: boolean;
+  /** Only owners get the management tab (managers no longer see it). */
+  isOwner: boolean;
   userEmail: string | null;
   userId: string | null;
   userProfile: { name?: string; profileImage?: string | null } | null;
@@ -27,7 +28,7 @@ export default function CommunityNavbar({
   communityId,
   community,
   activePage,
-  isOwnerOrManager,
+  isOwner,
   userEmail,
   userId,
   userProfile,
@@ -59,7 +60,7 @@ export default function CommunityNavbar({
     { key: 'events', label: 'יומן אירועים', href: `/communities/${communityId}/events` },
     { key: 'leaderboard', label: 'לוח תוצאות', href: `/communities/${communityId}/leaderboard` },
     { key: 'about', label: 'אודות', href: `/communities/${communityId}/about` },
-    ...(isOwnerOrManager ? [{ key: 'manage', label: 'ניהול קהילה', href: `/communities/${communityId}/manage` }] : []),
+    ...(isOwner ? [{ key: 'manage', label: 'ניהול קהילה', href: `/communities/${communityId}/manage` }] : []),
   ];
 
   return (
