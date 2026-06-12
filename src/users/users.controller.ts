@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, UseGuards, Req, Res, UseInterceptors, UploadedFile, UploadedFiles, Body, BadRequestException, Param, NotFoundException, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, UseGuards, Req, Res, UseInterceptors, UploadedFile, UploadedFiles, Body, BadRequestException, Param, NotFoundException, Query } from '@nestjs/common';
 import type { Response } from 'express';
 import { clearAuthCookies } from '../auth/cookies.helper';
 import { FileInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
@@ -15,6 +15,7 @@ import {
   UpdateNotificationPreferencesDto,
   ChangePasswordDto,
   AddPaymentMethodDto,
+  SaveBankAccountDto,
 } from './dto/users.dto';
 
 const storage = memoryStorage();
@@ -85,6 +86,19 @@ export class UsersController {
   @Patch('me/online-status')
   async toggleOnlineStatus(@Req() req, @Body() body: ToggleOnlineStatusDto) {
     return this.usersService.toggleOnlineStatus(req.user.userId, body.showOnline);
+  }
+
+  // Owner payout bank account (per-owner; used for monthly payout transfers).
+  @UseGuards(AuthGuard('jwt'))
+  @Get('me/bank-account')
+  async getBankAccount(@Req() req) {
+    return this.usersService.getBankAccount(req.user.userId);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Put('me/bank-account')
+  async saveBankAccount(@Req() req, @Body() body: SaveBankAccountDto) {
+    return this.usersService.saveBankAccount(req.user.userId, body);
   }
 
   @UseGuards(AuthGuard('jwt'))

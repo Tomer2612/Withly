@@ -39,6 +39,30 @@ export class UsersService {
     });
   }
 
+  // Owner payout bank account (one per owner). Returns the full row — it's
+  // the owner's own data behind JWT; the client masks the account number for
+  // display and pre-fills it for editing.
+  async getBankAccount(userId: string) {
+    return this.prisma.ownerBankAccount.findUnique({ where: { userId } });
+  }
+
+  async saveBankAccount(
+    userId: string,
+    dto: {
+      accountHolderName: string;
+      bank: string;
+      branchNumber: string;
+      accountNumber: string;
+      idNumber: string;
+    },
+  ) {
+    return this.prisma.ownerBankAccount.upsert({
+      where: { userId },
+      create: { userId, ...dto },
+      update: { ...dto },
+    });
+  }
+
   async findById(id: string) {
     return this.prisma.user.findUnique({
       where: { id },

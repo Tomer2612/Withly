@@ -1,5 +1,25 @@
 import { IsBoolean, IsOptional, IsString, MaxLength, MinLength, Matches } from 'class-validator';
 
+// Owner bank account for monthly payout transfers. All fields stored as
+// strings (codes keep their shape); the bank field is the canonical
+// Bank-of-Israel code chosen in the frontend dropdown.
+export class SaveBankAccountDto {
+  @IsString() @MinLength(2) @MaxLength(100)
+  accountHolderName!: string;
+
+  @IsString() @MinLength(1) @MaxLength(10)
+  bank!: string;
+
+  @IsString() @MinLength(1) @MaxLength(10)
+  branchNumber!: string;
+
+  @IsString() @MinLength(1) @MaxLength(30)
+  accountNumber!: string;
+
+  @IsString() @MinLength(5) @MaxLength(15)
+  idNumber!: string;
+}
+
 export class UpdateProfileDto {
   @IsOptional()
   @IsString()

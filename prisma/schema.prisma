@@ -61,6 +61,8 @@ model User {
   memberSubscriptions      MemberSubscription[]
   transactionsAsOwner      Transaction[]        @relation("TransactionOwner")
   transactionsAsPayer      Transaction[]        @relation("TransactionPayer")
+  bankAccount              OwnerBankAccount?
+  payouts                  OwnerPayout[]
   pendingCommunityCreation PendingCommunityCreation?
   // Withly platform plan (price/trial length/commission rate). Nullable
   // for legacy rows; new signups land on the default plan. Read via
@@ -822,4 +824,61 @@ enum TransactionKind {
   // Amounts are stored negative; the commission is clawed back from Withly
   // and the owner in the same proportion as the original split.
   REFUND
+}
+
+// Payout layer (manual model). Purely additive on top of the Transaction
+// ledger — nothing here changes billing/charge logic. An owner's bank
+// account (one per owner) for monthly manual bank transfers of their net
+// earnings (gross member income minus Withly commission, from the ledger).
+model OwnerBankAccount {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountHolderName String
+  // Canonical Bank-of-Israel bank code chosen in the dropdown (string so a
+  // code like "12" keeps its shape).
+  bank              String
+  branchNumber      String
+  accountNumber     String
+  idNumber          String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("owner_bank_accounts")
+}
+
+// A payout Withly makes to an owner. Manual today (admin records the bank
+// transfer via script); the same row works for automated MASAV later — only
+// the execution changes, not the model. Balance owed to an owner =
+// Σ Transaction.ownerAmount − Σ OwnerPayout.amount (PENDING + PAID).
+model OwnerPayout {
+  id          String       @id @default(cuid())
+  ownerId     String
+  owner       User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  amount      Float
+  status      PayoutStatus @default(PENDING)
+  method      PayoutMethod @default(MANUAL_BANK_TRANSFER)
+  // Bank-transfer reference / MASAV batch id once paid.
+  reference   String?
+  // Optional period this payout covers, for the owner's records.
+  periodStart DateTime?
+  periodEnd   DateTime?
+  notes       String?
+  paidAt      DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([ownerId])
+  @@map("owner_payouts")
+}
+
+enum PayoutStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+enum PayoutMethod {
+  MANUAL_BANK_TRANSFER
+  MASAV
 }
