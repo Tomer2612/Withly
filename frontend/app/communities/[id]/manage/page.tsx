@@ -26,8 +26,10 @@ import EditIcon from '../../../components/icons/EditIcon';
 import LinkIcon from '../../../components/icons/LinkIcon';
 import GlobeIcon from '../../../components/icons/GlobeIcon';
 import ComingSoonTooltip from '../../../components/ComingSoonTooltip';
+import InfoCircleIcon from '../../../components/icons/InfoCircleIcon';
 import CancelSubscriptionModal from '../../../components/CancelSubscriptionModal';
 import UpdateCardModal from '../../../components/UpdateCardModal';
+import BankAccountModal, { type BankAccount } from '../../../components/BankAccountModal';
 import { getImageUrl } from '@/app/lib/imageUrl';
 import StickySaveBar from '../../../components/StickySaveBar';
 import { useDefaultPlan } from '../../../lib/usePlan';
@@ -134,7 +136,7 @@ export default function ManageCommunityPage() {
   const [pageLoading, setPageLoading] = useState(true);
 
   // Get user data from layout context
-  const { userEmail, userId, isOwner, isOwnerOrManager, loading: contextLoading, community: contextCommunity, refreshCommunity } = useCommunityContext();
+  const { userEmail, userId, isOwner, loading: contextLoading, community: contextCommunity, refreshCommunity } = useCommunityContext();
   const isSuspended = contextCommunity?.subscriptionStatus === 'SUSPENDED';
   
   // Slug
@@ -194,6 +196,11 @@ export default function ManageCommunityPage() {
   const [priceChangeAnnouncedAt, setPriceChangeAnnouncedAt] = useState<Date | null>(null);
   const [showPriceChangeConfirmModal, setShowPriceChangeConfirmModal] = useState(false);
   const [announcingPrice, setAnnouncingPrice] = useState(false);
+  // Owner payout bank account. When absent, the price-change confirm becomes
+  // step 1 of 2 and chains into the bank-account form (step 2) before the
+  // price change is applied.
+  const [bankAccount, setBankAccount] = useState<BankAccount | null>(null);
+  const [showBankStep, setShowBankStep] = useState(false);
   // Server-stored price snapshot, separate from the editable `price` input.
   // Used for revenue calc and the recent-paid list so they don't twitch
   // while the owner is mid-edit (or while a change is pending).
@@ -404,8 +411,8 @@ export default function ManageCommunityPage() {
       // Wait for context to finish loading
       if (contextLoading) return;
       
-      // Only owners and managers can access manage page (from context)
-      if (!isOwnerOrManager) {
+      // Only owners can access the manage page — managers are redirected.
+      if (!isOwner) {
         router.push(`/communities/${communityId}/feed`);
         return;
       }
@@ -556,6 +563,18 @@ export default function ManageCommunityPage() {
         } catch {
           // Non-fatal; card shows gross figures without the net breakdown.
         }
+
+        // Owner payout bank account (drives the just-in-time step-1→2 flow on
+        // price changes). Returns an empty body when none, so parse via text.
+        try {
+          const bankRes = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/bank-account`);
+          if (bankRes.ok) {
+            const text = await bankRes.text();
+            setBankAccount(text ? JSON.parse(text) : null);
+          }
+        } catch {
+          // Non-fatal.
+        }
       } catch (err) {
         console.error('Error fetching community:', err);
         router.push('/');
@@ -565,7 +584,8 @@ export default function ManageCommunityPage() {
     };
 
     fetchCommunity();
-  }, [communityId, userId, router, contextLoading, isOwnerOrManager]);
+  }, [communityId, userId, router, contextLoading, isOwner]);
+
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -812,6 +832,46 @@ export default function ManageCommunityPage() {
     const effInit = init.isPaidCommunity ? init.price : 0;
     if (effNext === effInit) return; // no net change — nothing to confirm
     setShowPriceChangeConfirmModal(true);
+  };
+
+  // Applies the confirmed price change: announces it (pendingPrice + effective
+  // date) and re-fires the form save so other edits persist. Called directly
+  // when the owner already has a payout bank account, or after the bank
+  // account is saved in the step-1→2 flow (no account yet).
+  const applyAnnouncedPriceChange = async () => {
+    const newPriceVal = isPaidCommunity ? price : 0;
+    const effectiveDate = addMonths(new Date(), 1);
+    setAnnouncingPrice(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/payment/announce-price`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPrice: newPriceVal }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        const msg = err?.message === 'PRICE_CHANGE_RATE_LIMIT'
+          ? 'ניתן לשנות את המחיר פעם בחודש בלבד'
+          : 'שגיאה בעדכון המחיר';
+        setMessage(msg);
+        setMessageType('error');
+        setShowPriceChangeConfirmModal(false);
+        return;
+      }
+      const updated = await res.json();
+      setPendingPrice(typeof updated.pendingPrice === 'number' ? updated.pendingPrice : newPriceVal);
+      setPendingPriceEffectiveAt(updated.pendingPriceEffectiveAt ? new Date(updated.pendingPriceEffectiveAt) : effectiveDate);
+      setPriceChangeAnnouncedAt(updated.priceChangeAnnouncedAt ? new Date(updated.priceChangeAnnouncedAt) : new Date());
+      setShowPriceChangeConfirmModal(false);
+      skipPriceRef.current = true;
+      formRef.current?.requestSubmit();
+    } catch {
+      setMessage('שגיאה בעדכון המחיר');
+      setMessageType('error');
+      setShowPriceChangeConfirmModal(false);
+    } finally {
+      setAnnouncingPrice(false);
+    }
   };
 
   const handleUpdateCommunity = async (e?: React.FormEvent) => {
@@ -1931,11 +1991,6 @@ export default function ManageCommunityPage() {
                           disabled={!isPaidCommunity || !!pendingPriceEffectiveAt}
                         />
                       </div>
-                      {pendingPriceEffectiveAt && pendingPrice !== null && (
-                        <p className="text-sm mt-2" style={{ color: 'var(--color-gray-7)' }}>
-                          {`שינוי המחיר ל-₪${pendingPrice} ייכנס לתוקף בתאריך ${formatHebrewDate(pendingPriceEffectiveAt)} עבור חברים קיימים.`}
-                        </p>
-                      )}
                     </div>
                     {(() => {
                       const init = initialFormRef.current;
@@ -1950,7 +2005,7 @@ export default function ManageCommunityPage() {
                         !!pendingPriceEffectiveAt ||
                         loading ||
                         announcingPrice;
-                      return (
+                      const updateBtn = (
                         <button
                           type="button"
                           onClick={() => openPriceChangeIfChanged(isPaidCommunity, price)}
@@ -1965,8 +2020,34 @@ export default function ManageCommunityPage() {
                           עדכן מחיר
                         </button>
                       );
+                      return updateBtn;
                     })()}
                   </div>
+                  {/* Just-in-time hint (replaces the old tooltip): saving the
+                      price leads straight into bank-account setup. */}
+                  {isPaidCommunity && !bankAccount && (
+                    <div className="flex items-start gap-2 mt-3">
+                      <InfoCircleIcon size={16} color="black" className="flex-shrink-0 mt-0.5" />
+                      <p className="text-sm" style={{ color: 'var(--color-gray-8)' }}>
+                        לאחר קביעת מחיר המנוי ושמירתו, נעבור להגדרת חשבון הבנק לקבלת ההכנסות
+                      </p>
+                    </div>
+                  )}
+                  {pendingPriceEffectiveAt && pendingPrice !== null && (
+                    <p className="text-sm mt-2" style={{ color: 'var(--color-gray-7)' }}>
+                      {`שינוי המחיר ל-₪${pendingPrice} ייכנס לתוקף בתאריך ${formatHebrewDate(pendingPriceEffectiveAt)} עבור חברים קיימים.`}
+                    </p>
+                  )}
+                  {/* Has-account reminder only; the no-account case is covered
+                      by the info row above (avoids showing both). */}
+                  {isPaidCommunity && bankAccount && (
+                    <p className="text-sm mt-3" style={{ color: 'var(--color-gray-7)' }}>
+                      ההכנסות מהקהילה מועברות לחשבון הבנק שלך{' '}
+                      <button type="button" onClick={() => router.push('/settings#payment')} className="underline" style={{ color: 'var(--color-gray-8)' }}>
+                        בהגדרות
+                      </button>
+                    </p>
+                  )}
                 </div>
 
                 {/* Card 3 — community revenue. Visible whenever the community
@@ -2272,6 +2353,11 @@ export default function ManageCommunityPage() {
                     maxWidth: 'min(90vw, 640px)',
                   }}
                 >
+                  {!bankAccount && (
+                    <p className="text-center" style={{ fontSize: '14px', fontWeight: 400, color: 'var(--color-gray-8)', marginBottom: '8px' }}>
+                      שלב 1 מתוך 2
+                    </p>
+                  )}
                   <h2
                     className="font-semibold text-black"
                     style={{ fontSize: '21px', marginBottom: '12px' }}
@@ -2312,53 +2398,51 @@ export default function ManageCommunityPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={async () => {
-                        setAnnouncingPrice(true);
-                        try {
-                          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/payment/announce-price`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ newPrice: newPriceVal }),
-                          });
-                          if (!res.ok) {
-                            const err = await res.json().catch(() => ({}));
-                            const msg = err?.message === 'PRICE_CHANGE_RATE_LIMIT'
-                              ? 'ניתן לשנות את המחיר פעם בחודש בלבד'
-                              : 'שגיאה בעדכון המחיר';
-                            setMessage(msg);
-                            setMessageType('error');
-                            setShowPriceChangeConfirmModal(false);
-                            return;
-                          }
-                          const updated = await res.json();
-                          setPendingPrice(typeof updated.pendingPrice === 'number' ? updated.pendingPrice : newPriceVal);
-                          setPendingPriceEffectiveAt(updated.pendingPriceEffectiveAt ? new Date(updated.pendingPriceEffectiveAt) : effectiveDate);
-                          setPriceChangeAnnouncedAt(updated.priceChangeAnnouncedAt ? new Date(updated.priceChangeAnnouncedAt) : new Date());
+                      onClick={() => {
+                        if (bankAccount) {
+                          applyAnnouncedPriceChange();
+                        } else {
+                          // No payout account yet → step 2: collect bank
+                          // details first, then apply the price change.
                           setShowPriceChangeConfirmModal(false);
-                          // Re-fire the save so the rest of the form's edits
-                          // also persist; skipPriceRef tells the handler not
-                          // to re-trip the intercept and to skip price field.
-                          skipPriceRef.current = true;
-                          formRef.current?.requestSubmit();
-                        } catch {
-                          setMessage('שגיאה בעדכון המחיר');
-                          setMessageType('error');
-                          setShowPriceChangeConfirmModal(false);
-                        } finally {
-                          setAnnouncingPrice(false);
+                          setShowBankStep(true);
                         }
                       }}
                       disabled={announcingPrice}
                       style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
                       className="bg-black text-white hover:opacity-90 transition disabled:opacity-50"
                     >
-                      {announcingPrice ? 'מעדכן...' : 'עדכון המחיר'}
+                      {bankAccount ? (announcingPrice ? 'מעדכן...' : 'עדכון המחיר') : 'המשך לפרטי החשבון'}
                     </button>
                   </div>
                 </div>
               </div>
             );
           })()}
+
+          {/* Step 2 of the price-change flow (only when the owner has no payout
+              account yet): collect bank details, then apply the price change. */}
+          {showBankStep && (
+            <BankAccountModal
+              stepLabel="שלב 2 מתוך 2"
+              title="הגדרת חשבון בנק"
+              animateIn
+              onCancel={() => {
+                // Abandon the whole flow — revert the pricing fields too.
+                const init = initialFormRef.current;
+                if (init) {
+                  setPrice(init.price);
+                  setIsPaidCommunity(init.isPaidCommunity);
+                }
+                setShowBankStep(false);
+              }}
+              onSaved={(acc) => {
+                setBankAccount(acc);
+                setShowBankStep(false);
+                applyAnnouncedPriceChange();
+              }}
+            />
+          )}
 
           {/* Cancel Subscription Confirmation Modal - Outside form */}
           <CancelSubscriptionModal

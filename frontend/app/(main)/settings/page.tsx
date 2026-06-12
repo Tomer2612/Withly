@@ -20,6 +20,8 @@ import CancelSubscriptionModal from '../../components/CancelSubscriptionModal';
 import UpdateCardModal from '../../components/UpdateCardModal';
 import HypPaymentIframeModal from '../../components/HypPaymentIframeModal';
 import StickySaveBar from '../../components/StickySaveBar';
+import BankAccountModal, { type BankAccount } from '../../components/BankAccountModal';
+import { bankLabel } from '../../lib/israelBanks';
 import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface Membership {
@@ -130,6 +132,9 @@ export default function SettingsPage() {
   const userEmail = user?.email ?? null;
   const [activeTab, setActiveTab] = useState<TabType>('profile');
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  // Owner payout bank account (per-owner). Fetched on mount; edited via modal.
+  const [bankAccount, setBankAccount] = useState<BankAccount | null>(null);
+  const [showBankModal, setShowBankModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [settingOffline, setSettingOffline] = useState(false);
   const [showOnline, setShowOnline] = useState(true);
@@ -323,6 +328,13 @@ export default function SettingsPage() {
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/memberships`)
       .then(res => res.json())
       .then(data => setMemberships(Array.isArray(data) ? data : []))
+      .catch(console.error);
+
+    // The endpoint returns null (empty body) when no account exists, so read
+    // as text and parse only when non-empty — res.json() throws on "".
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/bank-account`, { credentials: 'include' })
+      .then(res => (res.ok ? res.text() : ''))
+      .then(text => setBankAccount(text ? JSON.parse(text) : null))
       .catch(console.error);
   }, [router, user]);
 
@@ -1141,6 +1153,52 @@ export default function SettingsPage() {
             {/* Payment Tab */}
             {activeTab === 'payment' && (
               <div className="space-y-6">
+                {/* Payout bank account (per-owner) — shown only to community
+                    owners, since only they receive payouts. Extra bottom space
+                    separates it from "אמצעי תשלום" (more in the empty state). */}
+                {memberships.some((m) => m.role === 'OWNER') && (
+                <div className={bankAccount ? 'pb-4' : 'pb-8'}>
+                  <h2 className="text-lg font-bold" style={{ color: '#3F3F46' }}>חשבון בנק לקבלת הכנסות</h2>
+                  {bankAccount ? (
+                    <div className="flex flex-wrap items-center justify-between gap-3 mt-4 p-4 border rounded-xl bg-white" style={{ borderColor: '#E1E1E2' }}>
+                      <div className="flex items-center gap-3">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
+                          <path d="M10 18V11" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M11.119 2.20449C11.3932 2.06995 11.6946 2 12 2C12.3054 2 12.6068 2.06995 12.881 2.20449L20.721 6.0505C20.8225 6.10024 20.9042 6.18294 20.9527 6.28508C21.0012 6.38722 21.0136 6.50278 20.988 6.6129C20.9623 6.72302 20.9001 6.8212 20.8115 6.89141C20.7229 6.96162 20.6131 6.99972 20.5 6.99949H3.5C3.38702 6.9995 3.27737 6.96123 3.18892 6.89094C3.10047 6.82065 3.03843 6.72247 3.01292 6.61241C2.9874 6.50235 2.99992 6.38689 3.04842 6.28485C3.09692 6.18281 3.17855 6.10021 3.28 6.0505L11.119 2.20449Z" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M14 18V11" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M18 18V11" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M3 22H21" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M6 18V11" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        <span className="text-[16px] text-black">
+                          פרטי חשבון בנק: {bankLabel(bankAccount.bank)} · <span dir="ltr">••••{bankAccount.accountNumber.slice(-4)}</span>
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowBankModal(true)}
+                        className="text-[16px] font-normal bg-white text-black hover:bg-gray-50 transition flex-shrink-0"
+                        style={{ border: '1px solid var(--color-gray-4)', borderRadius: '12px', padding: '0.5rem 1.25rem' }}
+                      >
+                        עדכון פרטי חשבון
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center justify-between gap-3 mt-4">
+                      <p className="text-sm text-gray-500">הגדרת חשבון הבנק שאליו יועברו ההכנסות ממנויי הקהילות שלך, אחת לחודש.</p>
+                      <button
+                        type="button"
+                        onClick={() => setShowBankModal(true)}
+                        className="px-4 py-2 bg-black text-white font-medium hover:opacity-90 transition flex-shrink-0"
+                        style={{ borderRadius: '12px' }}
+                      >
+                        הגדרת חשבון בנק
+                      </button>
+                    </div>
+                  )}
+                </div>
+                )}
+
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-bold" style={{ color: '#3F3F46' }}>אמצעי תשלום</h2>
                   <button
@@ -1577,6 +1635,15 @@ export default function SettingsPage() {
                 email={user.email}
                 userId={user.userId}
                 onClose={() => setShowAddCardModal(false)}
+              />
+            )}
+
+            {showBankModal && (
+              <BankAccountModal
+                initial={bankAccount}
+                title={bankAccount ? 'עדכון פרטי חשבון בנק' : 'הגדרת חשבון בנק'}
+                onCancel={() => setShowBankModal(false)}
+                onSaved={(acc) => { setBankAccount(acc); setShowBankModal(false); }}
               />
             )}
 

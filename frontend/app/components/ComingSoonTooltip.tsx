@@ -4,24 +4,49 @@ import { useState } from 'react';
 
 interface ComingSoonTooltipProps {
   children: React.ReactNode;
-  /** Direction the tail arrow points from the tooltip toward the trigger */
-  tailDirection: 'up' | 'right';
+  /** Direction the tail points from the bubble toward the trigger.
+   *  'up' = bubble below, 'down' = bubble above, 'right' = bubble to the left. */
+  tailDirection: 'up' | 'right' | 'down';
   /** Tooltip body. Defaults to the "feature coming soon" message. */
   text?: string;
-  /** Override the wrapper sizing — defaults to w-fit (content-sized).
-   *  Pass "w-full" / "flex-1" etc. when used inside a flex parent that
-   *  expects the tooltip wrapper to expand. */
+  /** Override the wrapper sizing — defaults to w-fit (content-sized). */
   wrapperClassName?: string;
   /** When set (e.g. "240px"), the bubble wraps to this max width instead of
    *  a single nowrap line — use for longer info text. */
   maxWidth?: string;
+  /** Show the bubble regardless of hover (e.g. an auto-appearing hint). */
+  forceShow?: boolean;
 }
 
 const DEFAULT_TEXT = 'הפיצ’ר הזה בדרך! אנחנו עובדים על זה.';
 
-export default function ComingSoonTooltip({ children, tailDirection, text, wrapperClassName, maxWidth }: ComingSoonTooltipProps) {
+const UpTail = () => (
+  <div className="flex justify-center -mb-px">
+    <svg width="16" height="8" viewBox="0 0 16 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M0 8L16 8L9.41421 1.41421C8.63316 0.633165 7.36683 0.633165 6.58579 1.41421L0 8Z" fill="#A7EA7B" />
+    </svg>
+  </div>
+);
+
+const DownTail = () => (
+  <div className="flex justify-center -mt-px">
+    <svg width="16" height="8" viewBox="0 0 16 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M0 0L16 0L9.41421 6.58579C8.63316 7.36684 7.36683 7.36684 6.58579 6.58579L0 0Z" fill="#A7EA7B" />
+    </svg>
+  </div>
+);
+
+export default function ComingSoonTooltip({ children, tailDirection, text, wrapperClassName, maxWidth, forceShow }: ComingSoonTooltipProps) {
   const [isHovered, setIsHovered] = useState(false);
   const message = text ?? DEFAULT_TEXT;
+  const visible = forceShow || isHovered;
+
+  const posClass =
+    tailDirection === 'up'
+      ? 'top-full mt-2 left-1/2 -translate-x-1/2'
+      : tailDirection === 'down'
+      ? 'bottom-full mb-2 left-1/2 -translate-x-1/2'
+      : 'top-1/2 -translate-y-1/2';
 
   return (
     <div
@@ -32,26 +57,12 @@ export default function ComingSoonTooltip({ children, tailDirection, text, wrapp
     >
       {children}
 
-      {isHovered && (
+      {visible && (
         <div
-          className={`absolute z-50 ${
-            tailDirection === 'up'
-              ? 'top-full mt-2 left-1/2 -translate-x-1/2'
-              : 'top-1/2 -translate-y-1/2'
-          }`}
+          className={`absolute z-50 ${posClass}`}
           style={tailDirection === 'right' ? { pointerEvents: 'none', right: '100%', marginRight: '2px' } : { pointerEvents: 'none' }}
         >
-          {/* Tail arrow - up (for navbar item) */}
-          {tailDirection === 'up' && (
-            <div className="flex justify-center -mb-px">
-              <svg width="16" height="8" viewBox="0 0 16 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path
-                  d="M0 8L16 8L9.41421 1.41421C8.63316 0.633165 7.36683 0.633165 6.58579 1.41421L0 8Z"
-                  fill="#A7EA7B"
-                />
-              </svg>
-            </div>
-          )}
+          {tailDirection === 'up' && <UpTail />}
 
           <div
             className={`relative flex items-center justify-center text-black font-normal ${maxWidth ? 'text-center' : 'whitespace-nowrap'}`}
@@ -66,16 +77,14 @@ export default function ComingSoonTooltip({ children, tailDirection, text, wrapp
           >
             {message}
 
-            {/* Tail arrow - right (for sidebar item, pointing right toward trigger) */}
             {tailDirection === 'right' && (
               <svg width="8" height="16" viewBox="0 0 8 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute" style={{ right: '-8px', top: '50%', transform: 'translateY(-50%)' }}>
-                <path
-                  d="M-2.22545e-07 0L4.76837e-07 16L6.58579 9.41421C7.36684 8.63316 7.36684 7.36683 6.58579 6.58579L-2.22545e-07 0Z"
-                  fill="#A7EA7B"
-                />
+                <path d="M-2.22545e-07 0L4.76837e-07 16L6.58579 9.41421C7.36684 8.63316 7.36684 7.36683 6.58579 6.58579L-2.22545e-07 0Z" fill="#A7EA7B" />
               </svg>
             )}
           </div>
+
+          {tailDirection === 'down' && <DownTail />}
         </div>
       )}
     </div>
