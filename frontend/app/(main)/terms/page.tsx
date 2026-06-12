@@ -77,7 +77,7 @@ export default function TermsPage() {
       {/* 2. User Content */}
       <section className="max-w-4xl mx-auto px-4 pb-8">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-6">2. תוכן גולשים (User Generated Content)</h2>
+          <h2 className="text-2xl font-bold text-black mb-6">2. תוכן גולשים</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
               <strong>2.1.</strong> הפלטפורמה מאפשרת למשתמשים לפרסם פוסטים, תגובות, קורסים ותכנים נוספים.
@@ -116,16 +116,40 @@ export default function TermsPage() {
         </div>
       </section>
 
+      {/* Payments to community creators & taxes */}
+      <section className="max-w-4xl mx-auto px-4 pb-8">
+        <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
+          <h2 className="text-2xl font-bold text-black mb-6">4. תשלומים ליוצרי קהילות ומסים</h2>
+          <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
+            <p>
+              <strong>4.1. גבייה ועמלות:</strong> הפלטפורמה מאפשרת ליוצרי קהילות לגבות תשלום ממנויים עבור הגישה לקהילה. התשלומים נסלקים במרוכז אל חשבון הבנק של Withly. מתוך סך ההכנסות ברוטו, Withly תנכה את עמלת הפלטפורמה שלה (כפי שמוצגת בדשבורד מנהל הקהילה).
+            </p>
+            <p>
+              <strong>4.2. העברת הכספים:</strong> אחת לחודש (עד ה-10 לכל חודש עוקב), Withly תעביר ליוצר הקהילה באמצעות העברה בנקאית את סך ההכנסות נטו שייצרה קהילתו בחודש הקודם.
+            </p>
+            <p>
+              <strong>4.3. פרטי חשבון בנק:</strong> באחריות יוצר הקהילה לספק ולעדכן פרטי חשבון בנק מדויקים (שם בנק, סניף, מספר חשבון ושם בעל החשבון). Withly לא תשא באחריות לכל עיכוב, אובדן כספים או עמלות החזרה הנובעים מהזנת פרטי בנק שגויים או חסרים על ידי היוצר.
+            </p>
+            <p>
+              <strong>4.4. חשבוניות ומיסים (ניכוי מס במקור):</strong> יוצרי הקהילות פועלים כקבלנים עצמאיים. כתנאי להעברת הכספים, יוצר הקהילה מחוייב להפיק עבור חברת Withly חשבונית מס/קבלה כחוק על סך הסכום המועבר לו. Withly תנכה מס במקור מכל העברה בהתאם להוראות כדין, אלא אם יוצר הקהילה יספק "אישור ניכוי מס במקור" תקף בשיעור מופחת או פטור.
+            </p>
+            <p>
+              <strong>4.5. אחריות מס:</strong> יוצר הקהילה נושא באחריות הבלעדית לדיווח ותשלום כל המיסים החלים עליו (מע"מ, מס הכנסה, ביטוח לאומי וכו') בגין הכנסותיו מהפלטפורמה.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* 4. Limitation of Liability */}
       <section className="max-w-4xl mx-auto px-4 pb-8">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-6">4. הגבלת אחריות</h2>
+          <h2 className="text-2xl font-bold text-black mb-6">5. הגבלת אחריות</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
-              <strong>4.1.</strong> הפלטפורמה מסופקת כמות שהיא (AS IS). אנו לא מבטיחים שהשירות יהיה חסין מתקלות, שגיאות או הפרעות, או שיעמוד בכל ציפייה ספציפית של המשתמש.
+              <strong>5.1.</strong> הפלטפורמה מסופקת כמות שהיא (AS IS). אנו לא מבטיחים שהשירות יהיה חסין מתקלות, שגיאות או הפרעות, או שיעמוד בכל ציפייה ספציפית של המשתמש.
             </p>
             <p>
-              <strong>4.2.</strong> Withly לא תהיה אחראית לכל נזק עקיף או תוצאתי שייגרם כתוצאה משימוש בפלטפורמה, לרבות אובדן נתונים, אובדן רווחים או נזק למוניטין.
+              <strong>5.2.</strong> Withly לא תהיה אחראית לכל נזק עקיף או תוצאתי שייגרם כתוצאה משימוש בפלטפורמה, לרבות אובדן נתונים, אובדן רווחים או נזק למוניטין.
             </p>
           </div>
         </div>
@@ -134,10 +158,10 @@ export default function TermsPage() {
       {/* 5. Copyright Takedown */}
       <section className="max-w-4xl mx-auto px-4 pb-8">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-6">5. הסרת תוכן מפר זכויות יוצרים</h2>
+          <h2 className="text-2xl font-bold text-black mb-6">6. הסרת תוכן מפר זכויות יוצרים</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
-              <strong>5.1.</strong> על מנת לדווח על תוכן המפר זכויות יוצרים,שלך או של אחרים, יש לפנות אלינו במייל לכתובת <a href="mailto:support@withly.co.il" className="underline hover:opacity-70" style={{ color: '#003233' }}>support@withly.co.il</a> וכלול בפנייתך:
+              <strong>6.1.</strong> על מנת לדווח על תוכן המפר זכויות יוצרים,שלך או של אחרים, יש לפנות אלינו במייל לכתובת <a href="mailto:support@withly.co.il" className="underline hover:opacity-70" style={{ color: '#003233' }}>support@withly.co.il</a> וכלול בפנייתך:
             </p>
             <ul className="list-disc list-inside space-y-2 mr-4">
               <li>קישור מדויק לתוכן המפר.</li>
@@ -147,13 +171,13 @@ export default function TermsPage() {
               <li>הצהרה בתום לב כי השימוש בתוכן אינו מורשה על ידי בעל הזכויות.</li>
             </ul>
             <p>
-              <strong>5.2.</strong> נבחן את הפנייה ונשיב לה תוך 14 ימי עסקים. במידה ונמצא כי התוכן אכן מפר, נסיר אותו מהפלטפורמה ונודיע על כך הן לפונה והן למשתמש שפרסם אותו.
+              <strong>6.2.</strong> נבחן את הפנייה ונשיב לה תוך 14 ימי עסקים. במידה ונמצא כי התוכן אכן מפר, נסיר אותו מהפלטפורמה ונודיע על כך הן לפונה והן למשתמש שפרסם אותו.
             </p>
             <p>
-              <strong>5.3.</strong> משתמש שתוכנו הוסר רשאי להגיש לנו פנייה נגדית אם הוא סבור שההסרה נעשתה בטעות. אנו שומרים את הזכות להפעיל שיקול דעת בכל מחלוקת.
+              <strong>6.3.</strong> משתמש שתוכנו הוסר רשאי להגיש לנו פנייה נגדית אם הוא סבור שההסרה נעשתה בטעות. אנו שומרים את הזכות להפעיל שיקול דעת בכל מחלוקת.
             </p>
             <p>
-              <strong>5.4.</strong> שימוש לרעה בהליך זה (פניות כוזבות) עלול להוביל לחסימת חשבון.
+              <strong>6.4.</strong> שימוש לרעה בהליך זה (פניות כוזבות) עלול להוביל לחסימת חשבון.
             </p>
           </div>
         </div>
@@ -162,7 +186,7 @@ export default function TermsPage() {
       {/* 6. Changes & Termination */}
       <section className="max-w-4xl mx-auto px-4 pb-8">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-6">6. שינויים וסיום התקשרות</h2>
+          <h2 className="text-2xl font-bold text-black mb-6">7. שינויים וסיום התקשרות</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
               אנו שומרים לעצמנו את הזכות לעדכן תנאים אלו מעת לעת. שינויים מהותיים יפורסמו בעמוד זה. המשך השימוש בפלטפורמה לאחר העדכון מהווה הסכמה לתנאים החדשים.
@@ -177,7 +201,7 @@ export default function TermsPage() {
       {/* 7. Jurisdiction */}
       <section className="max-w-4xl mx-auto px-4 pb-16">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-6">7. דין וסמכות שיפוט</h2>
+          <h2 className="text-2xl font-bold text-black mb-6">8. דין וסמכות שיפוט</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
               על תנאי שימוש אלו והשימוש בפלטפורמה יחולו דיני מדינת ישראל בלבד. סמכות השיפוט הבלעדית בכל מחלוקת הנוגעת לתנאים אלו או לשימוש בפלטפורמה נתונה לבתי המשפט המוסמכים בעיר תל אביב-יפו.
