@@ -94,8 +94,7 @@ export default function FilterDropdown({
       </button>
 
       {isOpen && (
-        <div 
-          dir="ltr"
+        <div
           className="absolute top-full mt-2 w-full min-w-[140px] bg-white border border-[#D0D0D4] rounded-[10px] z-50 overflow-hidden p-1.5"
           style={{ 
             maxHeight: '280px', 

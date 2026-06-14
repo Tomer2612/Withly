@@ -98,8 +98,7 @@ export default function FormSelect({
       </button>
 
       {isOpen && (
-        <div 
-          dir="ltr"
+        <div
           className={`absolute w-full bg-white border border-[#D0D0D4] rounded-[10px] z-50 overflow-hidden p-1.5 ${openUpward ? 'bottom-full mb-2' : 'top-full mt-2'}`}
           style={{ 
             maxHeight: '280px', 

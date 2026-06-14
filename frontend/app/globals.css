@@ -84,25 +84,45 @@ select:disabled,
   display: none;
 }
 
-/* Thin styled scrollbar for textareas and scrollable areas */
-.scrollbar-styled {
-  scrollbar-width: thin;
-  scrollbar-color: #D0D0D4 transparent;
-  direction: ltr;
-  unicode-bidi: plaintext;
+/* ── Global scrollbar baseline: "floating pill" (one look everywhere) ──
+   A single rule for every scrollbar (root + all descendants) so the app is
+   consistent on desktop Chrome/Edge and Android. Known platform limits:
+     • iOS Safari/Chrome ignore these and draw their own overlay bar.
+     • Firefox supports thin + colour only (no track/inset), so it shows a
+       plain thin grey bar — close, but not the floating pill.
+   The transparent 3px borders + background-clip:padding-box inset the visible
+   6px pill so it "floats" off the edge and isn't sliced by rounded corners.
+   The faint track gives the thumb a lane so it reads as a real bar, not a
+   stray grey line. .scrollbar-hide still wins (higher specificity) to hide.
+
+   IMPORTANT: do NOT set the standard `scrollbar-width`/`scrollbar-color` here.
+   Chrome 121+ supports them and, when present, IGNORES every ::-webkit-scrollbar
+   rule on that element. Since those props inherit from <html>, setting them
+   globally silently kills this whole pill (incl. arrow-hiding). WebKit-only it
+   is; Firefox falls back to its default bar. */
+/* Scoped to :not(html):not(body) on purpose: styling a scrollbar forces it to
+   be permanent (non-overlay), which feels heavy on the main browser window. So
+   we leave the DOCUMENT bar native (auto-hides on macOS) and reserve the pill
+   for inner UI only — dropdowns, textareas, sidebars, modals, lists.
+   Note: a custom-styled WebKit bar has no arrow buttons (chosen look). */
+:not(html):not(body)::-webkit-scrollbar {
+  width: 12px;                           /* 3px transparent border/side -> 6px visible pill */
+  height: 12px;                          /* horizontal strips too */
 }
-.scrollbar-styled::-webkit-scrollbar {
-  width: 6px;
+:not(html):not(body)::-webkit-scrollbar-track {
+  background-color: rgba(0, 0, 0, 0.03); /* faint lane */
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  border-radius: 10px;
 }
-.scrollbar-styled::-webkit-scrollbar-track {
-  background: transparent;
-}
-.scrollbar-styled::-webkit-scrollbar-thumb {
+:not(html):not(body)::-webkit-scrollbar-thumb {
   background-color: #D0D0D4;
-  border-radius: 3px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  border-radius: 10px;
 }
-.scrollbar-styled::-webkit-scrollbar-thumb:hover {
-  background-color: #A1A1AA;
+:not(html):not(body)::-webkit-scrollbar-thumb:hover {
+  background-color: #A1A1AA;          /* border + clip persist from the base rule */
 }
 
 /* Placeholder color - Gray 5 */

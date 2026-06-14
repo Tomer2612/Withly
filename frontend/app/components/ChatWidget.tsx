@@ -679,7 +679,7 @@ function ChatWindow({
       </div>
 
       {/* Messages */}
-      <div dir="ltr" className="flex-1 max-h-[250px] overflow-y-auto p-3 bg-[#F4F4F5]">
+      <div className="flex-1 max-h-[250px] overflow-y-auto p-3 bg-[#F4F4F5]">
         <div dir="rtl" className="space-y-3">
         {chat.isLoading ? (
           <div className="flex justify-center py-4">

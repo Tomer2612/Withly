@@ -911,7 +911,7 @@ export default function EditCoursePage() {
                     }}
                     maxLength={MAX_DESCRIPTION_LENGTH}
                     rows={4}
-                    className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black text-right resize-none scrollbar-styled ${
+                    className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black text-right resize-none ${
                       errors.description ? 'border-[#B3261E]' : 'border-gray-300'
                     }`}
                     placeholder="תאר את הקורס בכמה משפטים"

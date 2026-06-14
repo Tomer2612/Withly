@@ -1112,7 +1112,7 @@ export default function ManageCommunityPage() {
   return (
     <main className="min-h-[calc(100vh-72px)] bg-gray-100 text-right" dir="rtl">
       {/* Mobile Tab Bar */}
-      <div className="md:hidden flex overflow-x-auto bg-white px-3 py-2 gap-1 border-b" style={{ borderColor: '#E1E1E2' }}>
+      <div className="md:hidden flex overflow-x-auto bg-white px-3 py-2 gap-1 border-b scrollbar-hide" style={{ borderColor: '#E1E1E2' }}>
         {[
           { key: 'general' as const, label: 'כללי' },
           { key: 'rules' as const, label: 'כללי הקהילה' },

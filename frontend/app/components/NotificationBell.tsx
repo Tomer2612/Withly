@@ -526,7 +526,7 @@ export default function NotificationBell() {
           </div>
 
           {/* Notifications List */}
-          <div className="max-h-[400px] overflow-y-auto" dir="ltr">
+          <div className="max-h-[400px] overflow-y-auto">
             <div dir="rtl">
             {loading ? (
               <div className="flex items-center justify-center py-8">

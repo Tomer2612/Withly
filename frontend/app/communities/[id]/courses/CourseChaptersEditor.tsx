@@ -756,7 +756,7 @@ export default function CourseChaptersEditor({
                                       value={lesson.content}
                                       onChange={(e) => updateLesson(chapterIndex, lessonIndex, { content: e.target.value })}
                                       rows={3}
-                                      className="w-full p-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-black focus:border-black text-right scrollbar-styled"
+                                      className="w-full p-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-black focus:border-black text-right"
                                       style={{ resize: 'none' }}
                                       placeholder="תוכן טקסט לשיעור..."
                                     />

@@ -201,7 +201,7 @@ export default function CoursesPage() {
       {/* Sub header with tabs and create button */}
       <div className="bg-white md:bg-[#F4F4F5] border-b border-gray-200 md:pt-10">
         <div className="max-w-5xl mx-auto px-4 md:px-8 flex items-center justify-between">
-          <div className="flex gap-1 md:gap-4 overflow-x-auto">
+          <div className="flex gap-1 md:gap-4 overflow-x-auto scrollbar-hide">
             {/* Owner sees only הקורסים שלי tab, regular users see the other 3 tabs */}
             {isOwner ? (
               <button

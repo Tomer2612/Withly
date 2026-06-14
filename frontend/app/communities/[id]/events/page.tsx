@@ -948,7 +948,7 @@ function EventsPageContent() {
                 
                 {selectedDate ? (
                   selectedDateEvents.length > 0 ? (
-                    <div className="space-y-3 overflow-y-auto flex-1 pb-4" dir="ltr">
+                    <div className="space-y-3 overflow-y-auto flex-1 pb-4">
                       <div dir="rtl" className="space-y-3">
                         {selectedDateEvents.map(event => (
                           <EventCard 
@@ -1423,7 +1423,7 @@ function AddEventModal({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto" dir="ltr">
+        <div className="flex-1 overflow-y-auto">
           <form onSubmit={handleSubmit} className="p-6 space-y-5" dir="rtl">
           {/* Title */}
           <div>
@@ -1868,7 +1868,7 @@ function EditEventModal({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto" dir="ltr">
+        <div className="flex-1 overflow-y-auto">
           <form onSubmit={handleSubmit} className="p-6 space-y-5" dir="rtl">
           {/* Title */}
           <div>

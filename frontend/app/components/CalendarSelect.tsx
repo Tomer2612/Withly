@@ -77,8 +77,7 @@ export default function CalendarSelect({
       </button>
 
       {isOpen && (
-        <div 
-          dir="ltr"
+        <div
           className="absolute w-max min-w-full bg-white border border-[#D0D0D4] rounded-lg z-[9999] overflow-hidden p-1 top-full mt-1"
           style={{ 
             maxHeight: '200px', 

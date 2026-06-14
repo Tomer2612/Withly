@@ -153,20 +153,16 @@ export default function UserCommunitiesDropdown({ activeCommunity }: UserCommuni
           className="absolute top-full mt-1 right-0 bg-white border border-gray-200 rounded-xl z-50 overflow-hidden min-w-[200px] py-1.5"
           style={{ boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.12)' }}
         >
-          {/* py-1.5 on the parent insets the scrollbar from the panel's
-              rounded corners so it doesn't visually clip at the top/bottom.
-              Inside, all entries share the same shell. Discover is just the
-              first item (not sticky) — it scrolls with the rest.
-              `flex-row-reverse` puts the logo on the right and text on the
-              left (the scroll container is direction:ltr via
-              `scrollbar-styled` to put the scrollbar on the right, so we
-              reverse flex order manually rather than fight with `dir`). */}
-          <div className="max-h-[280px] overflow-y-auto scrollbar-styled px-1.5">
+          {/* px-1.5 insets the (native, left-side) scrollbar from the panel's
+              rounded corners. Native RTL: a normal `flex` row already places the
+              logo on the right and the text on the left. Discover is just the
+              first item (not sticky) — it scrolls with the rest. */}
+          <div className="max-h-[280px] overflow-y-auto px-1.5">
             {showDiscover && (
               <Link
                 href="/"
                 onClick={() => setIsOpen(false)}
-                className="w-full flex flex-row-reverse items-center gap-2 px-2 py-2 rounded-lg hover:bg-gray-50 transition-colors text-black"
+                className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-gray-50 transition-colors text-black"
                 style={{ fontSize: '16px', fontWeight: 400 }}
               >
                 <span
@@ -191,7 +187,7 @@ export default function UserCommunitiesDropdown({ activeCommunity }: UserCommuni
                 <button
                   key={comm.id}
                   onClick={() => handleSwitch(comm)}
-                  className="w-full flex flex-row-reverse items-center gap-2 px-2 py-2 rounded-lg hover:bg-gray-50 transition-colors text-black"
+                  className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-gray-50 transition-colors text-black"
                   style={{ fontSize: '16px', fontWeight: 400 }}
                 >
                   <span

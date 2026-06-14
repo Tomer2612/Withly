@@ -509,7 +509,7 @@ function CourseViewerContent() {
         {/* Sidebar - hidden on mobile unless toggled */}
         <aside className={`${sidebarOpen ? 'block' : 'hidden'} lg:block w-full lg:w-80 border-l border-gray-200 bg-white flex-col overflow-hidden ${sidebarOpen ? 'relative z-30 max-h-[60vh] border-b lg:max-h-none lg:border-b-0' : ''} lg:flex`}>
           {/* Sidebar - scrollable as one unit */}
-          <div className="flex-1 overflow-y-auto" dir="ltr">
+          <div className="flex-1 overflow-y-auto">
             <div dir="rtl">
             <div className="p-4">
             {/* Edit button for course author */}
@@ -629,7 +629,7 @@ function CourseViewerContent() {
         </aside>
 
         {/* Main Content */}
-        <main ref={contentRef} onScroll={handleContentScroll} className="flex-1 bg-gray-100 overflow-y-auto" dir="ltr">
+        <main ref={contentRef} onScroll={handleContentScroll} className="flex-1 bg-gray-100 overflow-y-auto">
           <div dir="rtl" className="p-4 flex justify-center min-h-full">
           {currentLesson ? (
             <div className="w-full max-w-4xl">

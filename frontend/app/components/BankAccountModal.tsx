@@ -195,10 +195,9 @@ export default function BankAccountModal({ initial, stepLabel, title, animateIn,
                   className="absolute z-10 w-full mt-1 bg-white border rounded-lg overflow-hidden"
                   style={{ borderColor: '#D0D0D4' }}
                 >
-                  {/* scrollbar-styled puts a thin scrollbar on the right
-                      (direction: ltr) with a transparent track, so it reads
-                      clean against the rounded corners. Items stay RTL. */}
-                  <div className="scrollbar-styled p-1.5" style={{ maxHeight: '220px', overflowY: 'auto' }}>
+                  {/* Native RTL list: the (global pill) scrollbar sits on the
+                      left, inset from the rounded corners by p-1.5. Each item is dir="rtl". */}
+                  <div className="p-1.5" style={{ maxHeight: '220px', overflowY: 'auto' }}>
                     {filteredBanks.map((b) => (
                       <button
                         key={b.code}
