@@ -32,7 +32,6 @@ import UpdateCardModal from '../../../components/UpdateCardModal';
 import BankAccountModal, { type BankAccount } from '../../../components/BankAccountModal';
 import { getImageUrl } from '@/app/lib/imageUrl';
 import StickySaveBar from '../../../components/StickySaveBar';
-import { useDefaultPlan } from '../../../lib/usePlan';
 
 interface Community {
   id: string;
@@ -118,12 +117,13 @@ export default function ManageCommunityPage() {
     monthlyProjection: number;
   } | null>(null);
 
-  // Plan-driven values for trial math + billing labels. Prefer THIS
-  // community's plan (from the earnings endpoint); fall back to the default
-  // plan for the first paint / before the fetch resolves.
-  const defaultPlan = useDefaultPlan();
-  const planTrialLength = earnings?.trialLengthMonths ?? defaultPlan?.trialLengthMonths ?? 1;
-  const planMonthlyPrice = earnings?.monthlyPriceILS ?? defaultPlan?.monthlyPriceILS ?? 99;
+  // Plan-driven values for trial math + billing labels — sourced ONLY from
+  // THIS community's plan (the owner-only earnings endpoint, which resolves
+  // community.plan ?? owner.plan, same as user settings). No system-default
+  // fallback: that silently showed an unrelated plan when earnings was null,
+  // which is exactly why the card disagreed with settings.
+  const planTrialLength = earnings?.trialLengthMonths ?? 1;
+  const planMonthlyPrice = earnings?.monthlyPriceILS ?? 0;
 
   const [activeTab, setActiveTab] = useState<TabType>('general');
   const [community, setCommunity] = useState<Community | null>(null);
@@ -1091,12 +1091,12 @@ export default function ManageCommunityPage() {
   // Revenue card figures. Monthly income is the forward-looking projection
   // (paying members × price, with grandfathered vs. new-price members) —
   // shown gross; the commission is surfaced as a rate in the billing panel
-  // rather than mixed into this number. bps falls back to the default plan
-  // until the earnings fetch resolves.
+  // rather than mixed into this number.
   const grossMonthly =
     (totalPayingMembers - newPriceMembers) * currentCommunityPrice +
     newPriceMembers * (pendingPrice ?? currentCommunityPrice);
-  const commissionBps = earnings?.commissionBasisPoints ?? defaultPlan?.commissionBasisPoints ?? 0;
+  // Commission comes only from this community's plan (earnings) — no default.
+  const commissionBps = earnings?.commissionBasisPoints ?? 0;
   // "940" → "9.4", "500" → "5" (drop a trailing .0 so round rates read clean).
   const commissionRateLabel =
     commissionBps % 100 === 0 ? `${commissionBps / 100}` : (commissionBps / 100).toFixed(1);
@@ -2164,11 +2164,19 @@ export default function ManageCommunityPage() {
                     </p>
                   </div>
 
-                  {/* Gray summary panel — price, next billing date, optional trial copy */}
+                  {/* Gray summary panel — price, next billing date, optional trial copy.
+                      Gated on earnings so it never shows a fabricated plan: until
+                      this community's plan resolves, show a loading line. */}
                   <div
                     className="rounded-lg p-4"
                     style={{ backgroundColor: 'var(--color-gray-2)' }}
                   >
+                    {!earnings ? (
+                      <p className="text-[16px] font-normal" style={{ color: 'var(--color-gray-7)' }}>
+                        טוען את פרטי המנוי...
+                      </p>
+                    ) : (
+                    <>
                     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                       <span className="text-[18px] font-semibold text-black">
                         ₪{planMonthlyPrice} / חודש
@@ -2187,6 +2195,8 @@ export default function ManageCommunityPage() {
                       <p className="text-[16px] font-normal text-black mt-2">
                         החיוב הבא: {formatHebrewDate(nextBillingDate ?? new Date())}
                       </p>
+                    )}
+                    </>
                     )}
                   </div>
 
