@@ -2120,7 +2120,12 @@ export class CommunitiesService {
   // the "cut from owner") plus ledger-derived lifetime figures the client
   // can't compute on its own: net earned to date (member charges minus
   // commission minus refunds) and total refunded back to members.
-  async getCommunityEarnings(communityId: string, userId: string) {
+  async getCommunityEarnings(idOrSlug: string, userId: string) {
+    // The manage page passes the URL param, which is the SLUG for communities
+    // that have one. findOne/other routes accept slug, so the page loads — but
+    // this endpoint looked up by id only, so it 404'd and the card silently
+    // showed the default plan. Resolve slug→id first (same as every other route).
+    const communityId = await this.resolveId(idOrSlug);
     const community = await this.prisma.community.findUnique({
       where: { id: communityId },
       select: {
