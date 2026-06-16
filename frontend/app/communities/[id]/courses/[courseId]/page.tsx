@@ -89,6 +89,7 @@ function CourseViewerContent() {
   const lessonIdFromUrl = searchParams.get('lesson');
 
   const [course, setCourse] = useState<Course | null>(null);
+  const [loading, setLoading] = useState(true);
   const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
   const [enrolling, setEnrolling] = useState(false);
   const [unenrolling, setUnenrolling] = useState(false);
@@ -305,6 +306,7 @@ function CourseViewerContent() {
   };
 
   const fetchCourse = async () => {
+    setLoading(true);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/${courseId}`, );
       if (res.ok) {
@@ -316,9 +318,11 @@ function CourseViewerContent() {
         // Other error (500, etc.) - log but don't redirect, show error state
         console.error('Failed to fetch course:', res.status, res.statusText);
       }
-    } catch (err) { 
+    } catch (err) {
       // Network error - don't redirect, retry will happen on next navigation
       console.error('Failed to fetch course:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -462,6 +466,8 @@ function CourseViewerContent() {
     if (hasImages(lesson)) return <ImageIcon size={14} className={iconClass} />;
     return <FileTextIcon size={14} className={iconClass} />;
   };
+
+  if (loading) return <div className="min-h-screen bg-white flex items-center justify-center"><div className="w-8 h-8 border-4 border-gray-300 border-t-black rounded-full animate-spin"></div></div>;
 
   if (!course) return <div className="min-h-screen bg-white flex items-center justify-center"><p className="text-gray-500">הקורס לא נמצא</p></div>;
 

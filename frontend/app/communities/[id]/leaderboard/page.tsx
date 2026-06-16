@@ -28,6 +28,7 @@ export default function LeaderboardPage() {
   const { userId } = useCommunityContext();
 
   const [members, setMembers] = useState<LeaderboardMember[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -57,6 +58,8 @@ export default function LeaderboardPage() {
         }
       } catch (err) {
         console.error('Error fetching data:', err);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -162,6 +165,10 @@ export default function LeaderboardPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          ) : loading ? (
+            <div className="flex justify-center p-12">
+              <div className="w-8 h-8 border-4 border-gray-300 border-t-black rounded-full animate-spin"></div>
             </div>
           ) : (
             <div className="p-12 text-center">

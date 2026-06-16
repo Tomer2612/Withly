@@ -72,6 +72,7 @@ export default function CoursesPage() {
   const communityId = params.id as string;
 
   const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'all' | 'in-progress' | 'completed' | 'my-courses'>('all');
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; courseId: string | null; courseTitle: string }>({ open: false, courseId: null, courseTitle: '' });
 
@@ -125,6 +126,8 @@ export default function CoursesPage() {
       }
     } catch (err) {
       console.error('Failed to fetch courses:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -274,7 +277,11 @@ export default function CoursesPage() {
 
       {/* Course Grid */}
       <div className="max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-8">
-        {displayedCourses.length === 0 ? (
+        {loading ? (
+          <div className="flex justify-center py-16">
+            <div className="w-8 h-8 border-4 border-gray-300 border-t-black rounded-full animate-spin"></div>
+          </div>
+        ) : displayedCourses.length === 0 ? (
           <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center">
             {searchQuery ? (
               <>

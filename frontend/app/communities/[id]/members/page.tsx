@@ -43,6 +43,7 @@ export default function CommunityMembersPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [filteredMembers, setFilteredMembers] = useState<Member[]>([]);
   const [bannedUsers, setBannedUsers] = useState<BannedUser[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [removeModal, setRemoveModal] = useState<{ open: boolean; memberId: string | null; memberName: string }>({ open: false, memberId: null, memberName: '' });
   const [liftBanModal, setLiftBanModal] = useState<{ open: boolean; banId: string | null; memberName: string }>({ open: false, banId: null, memberName: '' });
@@ -88,6 +89,8 @@ export default function CommunityMembersPage() {
         }
       } catch (err) {
         console.error('Error fetching data:', err);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -315,6 +318,10 @@ export default function CommunityMembersPage() {
                 )}
               </div>
             ))
+          ) : loading ? (
+            <div className="flex justify-center py-12">
+              <div className="w-8 h-8 border-4 border-gray-300 border-t-black rounded-full animate-spin"></div>
+            </div>
           ) : (
             <div className="text-center py-12">
               {searchQuery ? (

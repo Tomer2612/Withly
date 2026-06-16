@@ -398,6 +398,7 @@ function EventsPageContent() {
 
   const [events, setEvents] = useState<Event[]>([]);
   const [allEvents, setAllEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
@@ -456,8 +457,8 @@ function EventsPageContent() {
       }
     };
 
-    fetchData();
-    fetchAllEventsInitial();
+    setLoading(true);
+    Promise.all([fetchData(), fetchAllEventsInitial()]).finally(() => setLoading(false));
   }, [communityId]);
 
   const fetchEventsForMonth = async (year: number, month: number) => {
@@ -964,6 +965,10 @@ function EventsPageContent() {
                         ))}
                       </div>
                     </div>
+                  ) : loading ? (
+                    <div className="flex justify-center py-6">
+                      <div className="w-6 h-6 border-4 border-gray-300 border-t-black rounded-full animate-spin"></div>
+                    </div>
                   ) : (
                     <p className="text-gray-500 text-sm">אין אירועים בתאריך זה</p>
                   )
@@ -980,9 +985,9 @@ function EventsPageContent() {
             <div className="space-y-4">
               {allEvents.length > 0 ? (
                 allEvents.map(event => (
-                    <EventCard 
-                      key={event.id} 
-                      event={event} 
+                    <EventCard
+                      key={event.id}
+                      event={event}
                       onRsvp={handleRsvp}
                       onEdit={handleEditEvent}
                       onDelete={(id) => setDeleteEventId(id)}
@@ -990,6 +995,10 @@ function EventsPageContent() {
                       isManager={isOwnerOrManager}
                     />
                   ))
+              ) : loading ? (
+                <div className="bg-white rounded-2xl border border-gray-200 p-12 flex justify-center">
+                  <div className="w-8 h-8 border-4 border-gray-300 border-t-black rounded-full animate-spin"></div>
+                </div>
               ) : (
                 <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
                   <CalendarIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
