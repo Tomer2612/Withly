@@ -1,21 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// ============================================
-// SITE ACCESS GATE (remove this block to disable)
-// ============================================
-// Only enabled in production - local development bypasses this
-const SITE_ACCESS_ENABLED = process.env.NODE_ENV === 'production';
-
-// Routes that bypass the access gate
-const accessGateExemptRoutes = [
-  '/access-gate',
-  '/api/access-gate',
-  '/info',
-];
-
-// ============================================
-
 // Routes that require authentication
 const protectedRoutes = [
   '/settings',
@@ -36,7 +21,6 @@ const publicRoutes = [
   '/contact',
   '/support',
   '/google-success',
-  '/access-gate',
 ];
 
 // Routes that are public within protected paths
@@ -46,22 +30,6 @@ const publicExceptions = [
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  
-  // ============================================
-  // SITE ACCESS GATE CHECK (runs first)
-  // ============================================
-  if (SITE_ACCESS_ENABLED) {
-    const siteAccessCookie = request.cookies.get('site-access')?.value;
-    const isAccessGateExempt = accessGateExemptRoutes.some(route => 
-      pathname === route || pathname.startsWith(`${route}/`)
-    );
-    
-    // If no access cookie and not on exempt route, redirect to gate
-    if (siteAccessCookie !== 'granted' && !isAccessGateExempt) {
-      return NextResponse.redirect(new URL('/access-gate', request.url));
-    }
-  }
-  // ============================================
 
   // Read the httpOnly access cookie set by the backend on login/refresh.
   // Middleware runs server-side so it CAN read httpOnly cookies — that's

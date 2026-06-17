@@ -6,8 +6,8 @@ export const REFRESH_TOKEN_COOKIE = 'refresh_token';
 // Short-lived access cookie + long-lived refresh cookie. When the access
 // cookie expires, the next API call gets 401 and the frontend interceptor
 // silently rotates via /auth/refresh.
-export const ACCESS_TOKEN_TTL_MS = 15 * 60 * 1000; // 15 minutes
-export const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const ACCESS_TOKEN_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 const isProd = process.env.NODE_ENV === 'production';
 

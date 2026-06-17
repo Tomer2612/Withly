@@ -122,13 +122,13 @@ export function expandChaptersWithErrors<
  * Behaviour is byte-identical to each page's old validateForm given the
  * right params (verified against both bodies).
  */
-export interface ValidateOption { text: string; isCorrect: boolean }
-export interface ValidateQuestion {
+interface ValidateOption { text: string; isCorrect: boolean }
+interface ValidateQuestion {
   question: string;
   questionType: string;
   options: ValidateOption[];
 }
-export interface ValidateLesson {
+interface ValidateLesson {
   title: string;
   duration: number;
   videoUrl?: string | null;
@@ -140,7 +140,7 @@ export interface ValidateLesson {
   isDeleted?: boolean;
   quiz?: unknown;
 }
-export interface ValidateChapter {
+interface ValidateChapter {
   title: string;
   isDeleted?: boolean;
   lessons: ValidateLesson[];

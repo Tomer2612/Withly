@@ -35,19 +35,6 @@ export function getDailymotionVideoId(url: string): string | null {
   return match ? match[1] : null;
 }
 
-export function getVideoThumbnail(url: string): string | null {
-  const provider = getVideoProvider(url);
-  if (provider === 'youtube') {
-    const videoId = getYouTubeVideoId(url);
-    return videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : null;
-  }
-  if (provider === 'vimeo') {
-    // Vimeo thumbnails require API call; return null and let component handle it
-    return null;
-  }
-  return null;
-}
-
 export function getProviderLabel(provider: VideoProvider): string {
   const labels: Record<VideoProvider, string> = {
     youtube: 'YouTube',
@@ -59,6 +46,5 @@ export function getProviderLabel(provider: VideoProvider): string {
   return labels[provider];
 }
 
-export const VIDEO_MIMETYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/ogg'];
-export const MAX_VIDEO_SIZE_MB = 100;
+const MAX_VIDEO_SIZE_MB = 100;
 export const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;

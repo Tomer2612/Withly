@@ -51,14 +51,14 @@ import ImageIcon from '../../../components/icons/ImageIcon';
  * Every other handler/state is supplied by the host page as a prop with the
  * same name it had inline, so the JSX is otherwise a verbatim relocation.
  */
-export interface EditorOption { text: string; isCorrect: boolean; order?: number }
-export interface EditorQuestion {
+interface EditorOption { text: string; isCorrect: boolean; order?: number }
+interface EditorQuestion {
   question: string;
   questionType: string;
   order?: number;
   options: EditorOption[];
 }
-export interface EditorLesson {
+interface EditorLesson {
   id?: string;
   title: string;
   content: string;
@@ -74,7 +74,7 @@ export interface EditorLesson {
   contentOrder?: string[];
   quiz?: unknown;
 }
-export interface EditorChapter {
+interface EditorChapter {
   id?: string;
   title: string;
   expanded: boolean;

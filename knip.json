@@ -1,0 +1,34 @@
+{
+  "$schema": "./node_modules/knip/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": [
+        "src/main.ts",
+        "scripts/**/*.{js,ts}"
+      ],
+      "project": [
+        "src/**/*.ts"
+      ],
+      "ignoreDependencies": [
+        "ts-loader",
+        "ts-node"
+      ],
+      "ignoreBinaries": [
+        "prettier"
+      ]
+    },
+    "frontend": {
+      "ignore": [
+        "public/**"
+      ],
+      "ignoreDependencies": [
+        "eslint",
+        "eslint-config-next",
+        "@types/react-datepicker"
+      ],
+      "ignoreBinaries": [
+        "jest"
+      ]
+    }
+  }
+}

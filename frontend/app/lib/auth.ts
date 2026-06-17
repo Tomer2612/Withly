@@ -50,12 +50,6 @@ export function clearSessionAndRedirect() {
   }
 }
 
-/** Clear local auth-derived caches without redirecting. */
-export function clearSessionData() {
-  localStorage.removeItem('userProfileCache');
-  clearLegacyAuthCookie();
-}
-
 /**
  * Wrapper around fetch for API calls. Cookies are sent automatically by
  * the global fetch interceptor — this wrapper exists mostly so call sites
