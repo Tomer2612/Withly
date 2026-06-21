@@ -1253,7 +1253,7 @@ function CommunityFeedContent() {
           <p className="text-xl">אין קהילות להצגה כרגע.</p>
           <Link
             href="/communities/create"
-            className="inline-flex flex-row-reverse items-center gap-2 bg-black text-white px-6 py-3 rounded-full"
+            className="inline-flex flex-row-reverse items-center gap-2 bg-black text-white px-6 py-3 rounded-md"
           >
             <span className="inline-flex items-center justify-center text-xl leading-none">+</span>
             צרו קהילה חדשה
@@ -1291,7 +1291,7 @@ function CommunityFeedContent() {
           <div className="mb-2">
             <button 
               onClick={() => setShowSavedOnly(false)}
-              className={`w-full px-4 py-3 flex items-center gap-3 rounded-xl ${
+              className={`w-full px-4 py-3 flex items-center gap-3 rounded-md ${
                 !showSavedOnly 
                   ? 'bg-gray-950 text-white' 
                   : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -1334,7 +1334,7 @@ function CommunityFeedContent() {
             <div className="mb-2">
               <button 
                 onClick={() => setShowSavedOnly(true)}
-                className={`w-full px-4 py-3 flex items-center gap-3 rounded-xl ${
+                className={`w-full px-4 py-3 flex items-center gap-3 rounded-md ${
                   showSavedOnly 
                     ? 'bg-gray-950 text-white' 
                     : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -1449,6 +1449,7 @@ function CommunityFeedContent() {
                 <div className="flex items-start gap-3">
                   <div className="flex-1">
                     <textarea
+                      dir="rtl"
                       value={newPostContent}
                       onChange={(e) => setNewPostContent(e.target.value)}
                       placeholder="שתפו משהו עם הקהילה..."
@@ -1568,7 +1569,7 @@ function CommunityFeedContent() {
                       <button
                         onClick={addLink}
                         disabled={!newLinkInput.trim() || addingLink}
-                        className={`px-3 py-2 rounded-lg text-sm transition ${
+                        className={`px-3 py-2 rounded-md text-sm transition ${
                           newLinkInput.trim() 
                             ? 'bg-[#91DCED] text-black hover:bg-[#7ad0e3]' 
                             : 'bg-[#c4ebf5] text-[#A1A1AA] cursor-not-allowed'
@@ -1648,7 +1649,7 @@ function CommunityFeedContent() {
                       <button
                         onClick={() => setPollOptions([...pollOptions, ''])}
                         style={{ fontSize: '14px' }}
-                        className="mt-3 text-gray-800 font-normal underline hover:opacity-80"
+                        className="mt-3 text-gray-800 font-semibold underline hover:opacity-80"
                       >
                         הוסף אפשרות
                       </button>
@@ -1755,7 +1756,7 @@ function CommunityFeedContent() {
                   <button
                     onClick={(e) => handleCreatePost(e as unknown as React.FormEvent)}
                     disabled={postSubmitting || !newPostContent.trim()}
-                    className={`px-5 py-2 rounded-lg font-normal flex items-center gap-2 ${
+                    className={`px-5 py-2 rounded-md font-semibold flex items-center gap-2 ${
                       !newPostContent.trim() 
                         ? 'bg-gray-400 text-gray-500 cursor-not-allowed' 
                         : 'bg-black text-white hover:opacity-90'
@@ -1987,6 +1988,7 @@ function CommunityFeedContent() {
                           className="w-full p-3 mb-2 border border-gray-200 rounded-lg text-right font-medium focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
                         />
                         <textarea
+                          dir="rtl"
                           value={editContent}
                           onChange={(e) => setEditContent(e.target.value)}
                           className="w-full p-3 border border-gray-200 rounded-lg text-right resize-none focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
@@ -2166,14 +2168,14 @@ function CommunityFeedContent() {
                           <button
                             onClick={resetEditState}
                             disabled={editSubmitting}
-                            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
+                            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md disabled:opacity-50"
                           >
                             ביטול
                           </button>
                           <button
                             onClick={() => handleEditPost(post.id)}
                             disabled={editSubmitting || !editContent.trim()}
-                            className="px-4 py-2 text-sm bg-black text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-4 py-2 text-sm bg-black text-white rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {editSubmitting ? '...' : 'שמור'}
                           </button>
@@ -2384,7 +2386,7 @@ function CommunityFeedContent() {
                     <div className="flex items-center gap-2 text-sm mt-2">
                       <button
                         onClick={() => handleToggleLike(post.id)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition ${
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border transition ${
                           post.isLiked 
                             ? 'text-[#163300] bg-[#A7EA7B] border-[#A7EA7B] hover:bg-[#96D96C]' 
                             : 'text-[#3F3F46] bg-[#F4F4F5] border-[#E4E4E7] hover:bg-[#E4E4E7]'
@@ -2395,7 +2397,7 @@ function CommunityFeedContent() {
                       </button>
                       <button
                         onClick={() => handleLoadComments(post.id)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[#3F3F46] bg-[#F4F4F5] border border-[#E4E4E7] hover:bg-[#E4E4E7] transition"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[#3F3F46] bg-[#F4F4F5] border border-[#E4E4E7] hover:bg-[#E4E4E7] transition"
                       >
                         <CommentIcon className="w-4 h-4" />
                         <span className="font-normal">{post._count?.comments || 0}</span>
@@ -2603,7 +2605,7 @@ function CommunityFeedContent() {
                             <button
                               onClick={() => handleAddComment(post.id)}
                               disabled={!newCommentContent[post.id]?.trim() || submittingComment[post.id]}
-                              className="px-4 py-2 bg-black text-white text-sm rounded-lg hover:opacity-90 disabled:bg-[#A1A1AA] disabled:text-[#71717A] disabled:cursor-not-allowed"
+                              className="px-4 py-2 bg-black text-white text-sm rounded-md hover:opacity-90 disabled:bg-[#A1A1AA] disabled:text-[#71717A] disabled:cursor-not-allowed"
                             >
                               {submittingComment[post.id] ? '...' : 'שלח'}
                             </button>
@@ -2948,14 +2950,14 @@ function CommunityFeedContent() {
                 <button
                   onClick={() => setDeletePostModalId(null)}
                   className="bg-white text-black border hover:bg-gray-50 transition"
-                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '6px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
                 >
                   ביטול
                 </button>
                 <button
                   onClick={() => handleDeletePost(deletePostModalId)}
                   className="bg-error text-white hover:opacity-90 transition"
-                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '6px', padding: '0.375rem 1.25rem' }}
                 >
                   מחיקת הפוסט
                 </button>
@@ -2999,7 +3001,7 @@ function CommunityFeedContent() {
             <button
               onClick={() => { handleCloseWelcome(); router.push(`/communities/${communityId}/manage`); }}
               className="font-normal hover:opacity-90 transition cursor-pointer"
-              style={{ backgroundColor: '#A7EA7B', color: '#163300', fontSize: '1rem', fontWeight: 400, padding: '0.5rem 1.5rem', borderRadius: '12px' }}
+              style={{ backgroundColor: '#A7EA7B', color: '#163300', fontSize: '1rem', fontWeight: 400, padding: '0.5rem 1.5rem', borderRadius: '6px' }}
             >
               בואו נתחיל!
             </button>

@@ -58,7 +58,7 @@ export default function SupportPage() {
     <main className="min-h-screen" dir="rtl" style={{ backgroundColor: '#F4F4F5' }}>
       {/* Hero Section */}
       <section className="text-center py-16 px-4">
-        <h1 className="font-semibold text-black text-3xl md:text-5xl lg:text-[3.5rem]">
+        <h1 className="font-semibold text-black text-3xl md:text-4xl lg:text-[40px]">
           שאלות ותשובות
         </h1>
       </section>

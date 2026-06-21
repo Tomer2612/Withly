@@ -51,6 +51,7 @@ export default function CommunityMembersPage() {
   const { userEmail, userRole } = useCommunityContext();
   const currentUserRole = userRole;
   const [showBanned, setShowBanned] = useState(false);
+  const [menuOpenMemberId, setMenuOpenMemberId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -293,27 +294,66 @@ export default function CommunityMembersPage() {
 
                 {/* Role Management & Remove - Only for Owners/Managers, can't change owner role */}
                 {(currentUserRole === 'OWNER' || currentUserRole === 'MANAGER') && member.role !== 'OWNER' && (
-                  <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-                    {/* Role change button - Only owners can change roles */}
-                    {currentUserRole === 'OWNER' && (
+                  <div className="flex-shrink-0">
+                    {/* Desktop: inline buttons */}
+                    <div className="hidden sm:flex items-center gap-2">
+                      {currentUserRole === 'OWNER' && (
+                        <button
+                          onClick={() => handleRoleChange(member.id, member.role === 'MANAGER' ? 'USER' : 'MANAGER')}
+                          className="px-3 py-1.5 text-[12px] font-semibold rounded-md bg-[#3F3F46] text-white hover:bg-[#52525B] transition whitespace-nowrap"
+                        >
+                          {member.role === 'MANAGER' ? 'שינוי לחבר קהילה' : 'קידום למנהל קהילה'}
+                        </button>
+                      )}
+                      {(currentUserRole === 'OWNER' || (currentUserRole === 'MANAGER' && member.role === 'USER')) && (
+                        <button
+                          onClick={() => setRemoveModal({ open: true, memberId: member.id, memberName: member.name || 'משתמש' })}
+                          className="p-1.5 text-[#B3261E] hover:bg-[#F4F4F5] rounded-md transition"
+                          title="השעיה מהקהילה"
+                        >
+                          <UserRemoveIcon className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Mobile: 3-dots menu (mirrors the feed post menu) */}
+                    <div className="sm:hidden relative">
                       <button
-                        onClick={() => handleRoleChange(member.id, member.role === 'MANAGER' ? 'USER' : 'MANAGER')}
-                        className="px-2 sm:px-3 py-1.5 text-[11px] sm:text-[12px] font-medium rounded-md bg-[#3F3F46] text-white hover:bg-[#52525B] transition whitespace-nowrap"
+                        onClick={() => setMenuOpenMemberId(menuOpenMemberId === member.id ? null : member.id)}
+                        className="p-2 text-[#52525B] rounded-md hover:bg-gray-100 transition"
+                        aria-label="פעולות"
                       >
-                        {member.role === 'MANAGER' ? 'שנה לחבר קהילה' : 'קדם למנהל'}
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                          <circle cx="12" cy="5" r="1.75" />
+                          <circle cx="12" cy="12" r="1.75" />
+                          <circle cx="12" cy="19" r="1.75" />
+                        </svg>
                       </button>
-                    )}
-                    
-                    {/* Remove button - Owners can remove anyone, Managers can only remove Users */}
-                    {(currentUserRole === 'OWNER' || (currentUserRole === 'MANAGER' && member.role === 'USER')) && (
-                      <button
-                        onClick={() => setRemoveModal({ open: true, memberId: member.id, memberName: member.name || 'משתמש' })}
-                        className="p-1.5 text-[#B3261E] hover:bg-[#F4F4F5] rounded-lg transition"
-                        title="השעה מהקהילה"
-                      >
-                        <UserRemoveIcon className="w-5 h-5" />
-                      </button>
-                    )}
+                      {menuOpenMemberId === member.id && (
+                        <>
+                          <div className="fixed inset-0 z-10" onClick={() => setMenuOpenMemberId(null)} />
+                          <div className="absolute left-0 top-full mt-1 bg-white border border-[#E4E4E7] rounded-xl shadow-lg z-20 min-w-[180px] p-1" dir="rtl">
+                            {currentUserRole === 'OWNER' && (
+                              <button
+                                onClick={() => { handleRoleChange(member.id, member.role === 'MANAGER' ? 'USER' : 'MANAGER'); setMenuOpenMemberId(null); }}
+                                className="w-full px-3 py-2.5 text-right text-sm rounded-lg hover:bg-[#F4F4F5] flex items-center gap-3 transition text-[#3F3F46]"
+                              >
+                                {member.role === 'MANAGER' ? 'שינוי לחבר קהילה' : 'קידום למנהל קהילה'}
+                              </button>
+                            )}
+                            {(currentUserRole === 'OWNER' || (currentUserRole === 'MANAGER' && member.role === 'USER')) && (
+                              <button
+                                onClick={() => { setRemoveModal({ open: true, memberId: member.id, memberName: member.name || 'משתמש' }); setMenuOpenMemberId(null); }}
+                                className="w-full px-3 py-2.5 text-right text-sm text-[#B3261E] rounded-lg hover:bg-[#F4F4F5] flex items-center gap-3 transition"
+                              >
+                                <UserRemoveIcon className="w-5 h-5" />
+                                השעיה מהקהילה
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -366,7 +406,7 @@ export default function CommunityMembersPage() {
                 {bannedUsers.map((ban) => (
                   <div
                     key={ban.id}
-                    className="flex items-center gap-4 p-4 hover:bg-[#F4F4F5] rounded-xl transition"
+                    className="flex items-center gap-3 sm:gap-4 p-4 hover:bg-[#F4F4F5] rounded-xl transition"
                   >
                     {/* Profile Image */}
                     <div className="relative flex-shrink-0">
@@ -384,15 +424,9 @@ export default function CommunityMembersPage() {
                     </div>
 
                     {/* Ban Info */}
-                    <div className="flex-1 text-right">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-700">{ban.user.name || 'משתמש'}</span>
-                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: '#B3261E', color: '#FFFFFF' }}>
-                          <UserRemoveIcon className="w-3 h-3" />
-                          מושעה
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-500">
+                    <div className="flex-1 text-right min-w-0">
+                      <span className="font-semibold text-gray-700 truncate block">{ban.user.name || 'משתמש'}</span>
+                      <p className="text-sm text-gray-500 truncate">
                         {ban.daysLeft === null ? 'השעיה לצמיתות' : `נותרו ${ban.daysLeft} ימים`}
                       </p>
                     </div>
@@ -400,10 +434,10 @@ export default function CommunityMembersPage() {
                     {/* Lift Ban Button */}
                     <button
                       onClick={() => setLiftBanModal({ open: true, banId: ban.id, memberName: ban.user.name || 'משתמש' })}
-                      className="px-3 py-1.5 text-sm font-medium rounded-lg transition hover:opacity-90"
+                      className="px-3 py-1.5 text-sm font-semibold rounded-md transition hover:opacity-90 flex-shrink-0 whitespace-nowrap"
                       style={{ backgroundColor: '#A7EA7B', color: '#163300' }}
                     >
-                      הסר השעיה
+                      הסרת השעיה
                     </button>
                   </div>
                 ))}
@@ -458,7 +492,7 @@ export default function CommunityMembersPage() {
             dir="rtl"
           >
             <div className="text-center">
-              <h3 className="font-semibold text-black mb-2" style={{ fontSize: '21px' }}>הסר השעיה</h3>
+              <h3 className="font-semibold text-black mb-2" style={{ fontSize: '21px' }}>הסרת השעיה</h3>
               <p className="mb-6" style={{ fontSize: '18px', color: 'var(--color-gray-10)' }}>
                 האם אתה בטוח שברצונך להסיר את ההשעיה של <span className="font-semibold">{liftBanModal.memberName}</span>? הוא יוכל להצטרף שוב לקהילה.
               </p>

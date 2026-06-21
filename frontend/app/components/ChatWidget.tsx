@@ -49,7 +49,7 @@ export default function ChatWidget() {
   // Pixel offsets read from the messages bell button at open-time so the
   // dropdown lines up under the icon (the bell is rendered in the navbar,
   // so we can't anchor the dropdown via CSS alone).
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number } | null>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const conversationsRef = useRef<HTMLDivElement>(null);
   const justMarkedAllReadRef = useRef(false);
   
@@ -163,28 +163,30 @@ export default function ChatWidget() {
   }, [showConversations]);
 
   // Recompute dropdown position whenever it opens, and keep it in sync if the
-  // viewport changes while open (resize / scroll). On desktop we anchor the
-  // dropdown's left edge under the bell button. On mobile we let Tailwind
-  // classes (left-2 right-2) span the full width — the JS only fills `top`.
+  // viewport changes while open (resize / scroll). It's a content-width card on
+  // every screen: anchored under the bell, clamped to the viewport, and opened
+  // just below the sticky navbar so it never overlaps it.
   useEffect(() => {
     if (!showConversations) {
       setDropdownPos(null);
       return;
     }
-    const SM_BREAKPOINT = 640;
     const place = () => {
-      const btn = document.querySelector('[data-messages-bell]') as HTMLElement | null;
+      // SiteHeader renders two bells (desktop + mobile, one is display:none).
+      // Pick the visible one — a hidden bell's rect is all-zero, which would
+      // drop the dropdown at the top of the page, over the navbar.
+      const bells = Array.from(document.querySelectorAll('[data-messages-bell]')) as HTMLElement[];
+      const btn = bells.find(b => b.getBoundingClientRect().height > 0) ?? bells[0];
       if (!btn) return;
       const rect = btn.getBoundingClientRect();
-      const isMobile = window.innerWidth < SM_BREAKPOINT;
-      if (isMobile) {
-        setDropdownPos({ top: rect.bottom + 8, left: -1 });
-        return;
-      }
-      // Desktop: anchor LEFT edge to button's left edge. Clamp so it can't
-      // overflow the right edge.
-      const left = Math.max(8, Math.min(rect.left, window.innerWidth - 384 - 8));
-      setDropdownPos({ top: rect.bottom + 8, left });
+      const width = Math.min(320, window.innerWidth - 16);
+      const isMobile = window.innerWidth < 640;
+      // Anchor flush under the bell on every screen (matches the notifications &
+      // profile dropdowns). On mobile the wider card pins to the left edge so it
+      // still fits a narrow screen; a slight overlap with the navbar edge is ok.
+      const left = isMobile ? 8 : Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
+      const top = rect.bottom + 8;
+      setDropdownPos({ top, left, width });
     };
     place();
     window.addEventListener('resize', place);
@@ -411,12 +413,11 @@ export default function ChatWidget() {
       {showConversations && (
         <div
           ref={conversationsRef}
-          className="fixed bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden left-2 right-2 sm:right-auto sm:left-auto"
+          className="fixed bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden"
           style={{
-            top: dropdownPos?.top ?? 64,
-            ...(dropdownPos && dropdownPos.left >= 0
-              ? { left: dropdownPos.left, right: 'auto', width: 384 }
-              : {}),
+            top: dropdownPos?.top ?? 76,
+            left: dropdownPos?.left ?? 8,
+            width: dropdownPos?.width ?? 320,
           }}
           dir="rtl"
         >
@@ -436,13 +437,13 @@ export default function ChatWidget() {
               )}
             </div>
           </div>
-          <div className="max-h-[400px] overflow-y-auto">
+          <div className="max-h-[60vh] overflow-y-auto">
             {loadingConversations ? (
-              <div className="flex items-center justify-center py-8">
+              <div className="flex items-center justify-center min-h-[260px]">
                 <div className="w-6 h-6 border-2 border-gray-300 border-t-black rounded-full animate-spin" />
               </div>
             ) : conversations.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
+              <div className="flex flex-col items-center justify-center min-h-[260px] px-4 text-center text-gray-500">
                 <svg className="w-8 h-8 mx-auto mb-2 opacity-30" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path 
                     d="M22 17C22 17.5304 21.7893 18.0391 21.4142 18.4142C21.0391 18.7893 20.5304 19 20 19H6.828C6.29761 19.0001 5.78899 19.2109 5.414 19.586L3.212 21.788C3.1127 21.8873 2.9862 21.9549 2.84849 21.9823C2.71077 22.0097 2.56803 21.9956 2.43831 21.9419C2.30858 21.8881 2.1977 21.7971 2.11969 21.6804C2.04167 21.5637 2.00002 21.4264 2 21.286V5C2 4.46957 2.21071 3.96086 2.58579 3.58579C2.96086 3.21071 3.46957 3 4 3H20C20.5304 3 21.0391 3.21071 21.4142 3.58579C21.7893 3.96086 22 4.46957 22 5V17Z" 
@@ -527,7 +528,7 @@ export default function ChatWidget() {
       )}
 
       {/* Chat windows at bottom */}
-      <div className="fixed bottom-0 right-2 sm:right-24 flex flex-row-reverse items-end gap-2 z-40">
+      <div className="fixed bottom-0 right-2 sm:right-24 flex flex-row-reverse items-end gap-2 z-50">
       {openChats.map((chat) => (
         chat.isMinimized ? (
           <div
@@ -642,7 +643,7 @@ function ChatWindow({
   };
 
   return (
-    <div className="w-[calc(100vw-1rem)] sm:w-80 max-h-[350px] bg-white rounded-t-xl shadow-2xl border border-gray-200 flex flex-col">
+    <div className="w-[calc(100vw-1rem)] sm:w-80 h-[420px] max-h-[calc(100dvh-88px)] bg-white rounded-t-xl shadow-2xl border border-gray-200 flex flex-col">
       {/* Header */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200 px-3 py-2 flex items-center justify-between rounded-t-xl">
         <a
@@ -679,7 +680,7 @@ function ChatWindow({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 max-h-[250px] overflow-y-auto p-3 bg-[#F4F4F5]">
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 bg-[#F4F4F5]">
         <div dir="rtl" className="space-y-3">
         {chat.isLoading ? (
           <div className="flex justify-center py-4">

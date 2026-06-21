@@ -424,7 +424,7 @@ export default function CommunityAboutPage() {
               {/* Social Links */}
               {(community.youtubeUrl || community.whatsappUrl || community.facebookUrl || community.instagramUrl) && (
                 <div className="p-5">
-                  <h4 className="text-sm font-medium text-gray-500 mb-3 text-center">עקבו אחרינו</h4>
+                  <h4 className="text-[18px] font-semibold text-gray-500 mb-3 text-center">עקבו אחרינו</h4>
                   <div className="flex justify-center gap-3">
                     {community.youtubeUrl && (
                     <a 
@@ -477,7 +477,7 @@ export default function CommunityAboutPage() {
 
             {/* Invite Link */}
             <div className="bg-white rounded-2xl border border-gray-200 p-5">
-              <h4 className="text-sm font-medium text-gray-500 mb-3">הזמנת חברים</h4>
+              <h4 className="text-[18px] font-semibold text-gray-500 mb-3">הזמנת חברים</h4>
               <div className="space-y-3">
                 <input
                   type="text"
@@ -521,7 +521,7 @@ export default function CommunityAboutPage() {
                 <div className="bg-white rounded-2xl border border-gray-200 p-5">
                   <button
                     onClick={() => (isPaidActive ? setShowCancelPaidModal(true) : setShowLeaveModal(true))}
-                    className="w-full flex items-center justify-center gap-2 py-3 px-4 hover:bg-red-50 rounded-xl transition font-medium"
+                    className="w-full flex items-center justify-center gap-2 py-3 px-4 hover:bg-red-50 rounded-md transition font-semibold"
                     style={{ color: 'var(--color-error)' }}
                   >
                     <LogoutIcon size={16} />
@@ -536,7 +536,7 @@ export default function CommunityAboutPage() {
           <div className="space-y-6">
             {/* About Section - moved above image */}
             <div className="bg-white rounded-2xl border border-gray-200 p-6">
-              <h2 className="text-xl font-bold text-black mb-4">{community.name}</h2>
+              <h2 className="text-[28px] font-semibold text-black mb-4">{community.name}</h2>
               <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
                 {community.description}
               </p>

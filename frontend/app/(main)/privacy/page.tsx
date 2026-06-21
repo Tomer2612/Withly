@@ -8,7 +8,7 @@ export default function PrivacyPage() {
     <main className="min-h-screen" dir="rtl" style={{ backgroundColor: '#F4F4F5' }}>
       {/* Hero Section */}
       <section className="text-center py-16 px-4">
-        <h1 className="font-semibold text-black text-3xl md:text-5xl lg:text-[3.5rem]">
+        <h1 className="font-semibold text-black text-3xl md:text-4xl lg:text-[40px]">
           מדיניות פרטיות
         </h1>
         <p className="text-lg max-w-2xl mx-auto" style={{ color: '#52525B' }}>
@@ -22,7 +22,7 @@ export default function PrivacyPage() {
       {/* Introduction */}
       <section className="max-w-4xl mx-auto px-4 pb-8">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-4">מבוא</h2>
+          <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-4">מבוא</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
               ב-<strong>Withly</strong> הפרטיות שלך חשובה לנו. מדיניות זו מסבירה איזה מידע אנו אוספים, כיצד אנו משתמשים בו, וכיצד אנו מגנים עליו. המדיניות נוסחה בהתאם לדרישות חוק הגנת הפרטיות, התשמ"א-1981, לרבות העדכונים מכוח תיקון 13 לחוק.
@@ -37,7 +37,7 @@ export default function PrivacyPage() {
       {/* 1. Information We Collect */}
       <section className="max-w-4xl mx-auto px-4 pb-8">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-6">1. מידע שאנו אוספים</h2>
+          <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-6">1. מידע שאנו אוספים</h2>
           <div className="space-y-6 leading-relaxed" style={{ color: '#52525B' }}>
             <div>
               <h3 className="font-semibold text-black mb-2">1.1. מידע המסופק לנו ישירות</h3>
@@ -76,7 +76,7 @@ export default function PrivacyPage() {
       {/* 2. How We Use Information */}
       <section className="max-w-4xl mx-auto px-4 pb-8">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-6">2. כיצד אנו משתמשים במידע</h2>
+          <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-6">2. כיצד אנו משתמשים במידע</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>אנו משתמשים במידע אך ורק כדי:</p>
             <ul className="list-disc list-inside space-y-2 mr-4">
@@ -100,7 +100,7 @@ export default function PrivacyPage() {
       {/* 3. Sharing */}
       <section className="max-w-4xl mx-auto px-4 pb-8">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-6">3. שיתוף המידע שלך</h2>
+          <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-6">3. שיתוף המידע שלך</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
               Withly <strong>אינה מוכרת</strong> את המידע האישי שלך לצדדים שלישיים. אנו נשתף מידע רק במקרים הבאים:
@@ -117,7 +117,7 @@ export default function PrivacyPage() {
       {/* 4. Your Rights */}
       <section className="max-w-4xl mx-auto px-4 pb-8">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-6">4. הזכויות שלך</h2>
+          <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-6">4. הזכויות שלך</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>בהתאם לחוק הגנת הפרטיות ותיקון 13 לחוק, עומדות לך הזכויות הבאות:</p>
             <ul className="list-disc list-inside space-y-2 mr-4">
@@ -136,7 +136,7 @@ export default function PrivacyPage() {
       {/* 5. Security */}
       <section className="max-w-4xl mx-auto px-4 pb-8">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-6">5. אבטחת מידע</h2>
+          <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-6">5. אבטחת מידע</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>אנו נוקטים באמצעי אבטחה מתקדמים להגנה על המידע שלך:</p>
             <ul className="list-disc list-inside space-y-2 mr-4">
@@ -155,7 +155,7 @@ export default function PrivacyPage() {
       {/* 6. Storage Location */}
       <section className="max-w-4xl mx-auto px-4 pb-16">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-6">6. מיקום אחסון המידע</h2>
+          <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-6">6. מיקום אחסון המידע</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
               המידע שלך מאוחסן בשרתי <strong>Amazon Web Services (AWS)</strong> באזור ישראל (תל אביב, <code>il-central-1</code>). המידע אינו מועבר אל מחוץ למדינת ישראל במהלך הפעלת הפלטפורמה הרגילה.

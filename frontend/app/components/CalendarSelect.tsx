@@ -78,7 +78,7 @@ export default function CalendarSelect({
 
       {isOpen && (
         <div
-          className="absolute w-max min-w-full bg-white border border-[#D0D0D4] rounded-lg z-[9999] overflow-hidden p-1 top-full mt-1"
+          className="absolute w-max min-w-full bg-white border border-[#D0D0D4] rounded z-[9999] overflow-hidden p-1 top-full mt-1"
           style={{ 
             maxHeight: '200px', 
             overflowY: 'auto',
@@ -95,10 +95,10 @@ export default function CalendarSelect({
                   setIsOpen(false);
                 }}
                 className={`
-                  w-full px-2 py-1.5 text-right text-sm rounded transition-colors whitespace-nowrap
+                  w-full px-2 py-1.5 text-right text-sm rounded-sm transition-colors whitespace-nowrap
                   ${value === option.value 
                     ? 'bg-[#E4E4E7] font-semibold text-black' 
-                    : 'text-gray-700 hover:bg-[#F4F4F5] active:bg-[#3F3F46] active:text-white font-normal'
+                    : 'text-gray-700 hover:bg-[#F4F4F5] active:bg-[#3F3F46] active:text-white font-semibold'
                   }
                 `}
               >

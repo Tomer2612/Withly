@@ -196,10 +196,10 @@ export default function Home() {
     <main className="min-h-screen text-right" style={{ backgroundColor: '#F4F4F5' }}>
       {/* Title + CTA */}
       <section className="text-center mb-8 mt-8 md:mt-12 px-4">
-        <h1 className="text-black mb-3" style={{ fontWeight: 600, fontSize: '48px' }}>
+        <h1 className="text-black mb-3" style={{ fontWeight: 600, fontSize: 'clamp(28px, 7vw, 48px)' }}>
           גלו קהילות שמעניינות אתכם
         </h1>
-        <p style={{ color: '#3F3F46', fontSize: '21px' }}>
+        <p style={{ color: '#3F3F46', fontSize: 'clamp(12px, 3.6vw, 21px)' }}>
           חפשו והצטרפו לקהילות, או הקימו קהילה משלכם בקלות.
         </p>
       </section>
@@ -225,14 +225,14 @@ export default function Home() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 justify-center mb-6 w-full max-w-5xl mx-auto px-4">
-        <div className="flex items-center flex-grow max-w-xs rounded-lg border border-[#D0D0D4] bg-white px-4 py-3 focus-within:border-transparent focus-within:ring-2 focus-within:ring-black transition-all">
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            fill="none" 
-            viewBox="0 0 24 24" 
-            strokeWidth={1.5} 
-            stroke="currentColor" 
+      <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 sm:justify-center mb-6 w-full max-w-5xl mx-auto px-4">
+        <div className="flex items-center w-full sm:w-auto sm:flex-grow sm:max-w-xs rounded-lg border border-[#D0D0D4] bg-white px-4 py-3 focus-within:border-transparent focus-within:ring-2 focus-within:ring-black transition-all">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={1.5}
+            stroke="currentColor"
             className="w-5 h-5 text-gray-600"
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
@@ -248,38 +248,41 @@ export default function Home() {
           />
         </div>
 
-        <div style={{ width: '1px', backgroundColor: '#D0D0D4', alignSelf: 'stretch' }}></div>
+        <div className="hidden sm:block" style={{ width: '1px', backgroundColor: '#D0D0D4', alignSelf: 'stretch' }}></div>
 
-        <FilterDropdown
-          value={selectedPrice}
-          onChange={setSelectedPrice}
-          placeholder="מחיר"
-          allLabel="כל המחירים"
-          buttonFontSize="18px"
-          options={[
-            { value: 'free', label: 'חינם' },
-            { value: 'low', label: '₪1-50' },
-            { value: 'high', label: '₪51-100' },
-          ]}
-        />
+        {/* Filters share their own row on mobile (content-width, centered); inline on sm+ via display:contents */}
+        <div className="flex flex-wrap gap-2 justify-center sm:contents">
+          <FilterDropdown
+            value={selectedPrice}
+            onChange={setSelectedPrice}
+            placeholder="מחיר"
+            allLabel="כל המחירים"
+            className="min-w-0"
+            options={[
+              { value: 'free', label: 'חינם' },
+              { value: 'low', label: '₪1-50' },
+              { value: 'high', label: '₪51-100' },
+            ]}
+          />
 
-        <FilterDropdown
-          value={selectedTopic}
-          onChange={setSelectedTopic}
-          placeholder="נושא"
-          allLabel="כל הנושאים"
-          buttonFontSize="18px"
-          options={COMMUNITY_TOPICS.map(topic => ({ value: topic, label: topic }))}
-        />
+          <FilterDropdown
+            value={selectedTopic}
+            onChange={setSelectedTopic}
+            placeholder="נושא"
+            allLabel="כל הנושאים"
+            className="min-w-0"
+            options={COMMUNITY_TOPICS.map(topic => ({ value: topic, label: topic }))}
+          />
 
-        <FilterDropdown
-          value={selectedSize}
-          onChange={setSelectedSize}
-          placeholder="גודל"
-          allLabel="כל הגדלים"
-          buttonFontSize="18px"
-          options={COMMUNITY_SIZES.map(size => ({ value: size.value, label: size.label }))}
-        />
+          <FilterDropdown
+            value={selectedSize}
+            onChange={setSelectedSize}
+            placeholder="גודל"
+            allLabel="כל הגדלים"
+            className="min-w-0"
+            options={COMMUNITY_SIZES.map(size => ({ value: size.value, label: size.label }))}
+          />
+        </div>
       </div>
 
       {/* Active filters indicator */}
@@ -360,7 +363,7 @@ export default function Home() {
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <h2 className="font-bold text-black truncate" style={{ fontSize: '1.5rem' }}>{community.name}</h2>
+                      <h2 className="font-semibold text-black truncate" style={{ fontSize: '1.5rem' }}>{community.name}</h2>
                       {/* Category below heading */}
                       {community.topic && (
                         <span className="font-normal" style={{ fontSize: '1rem', color: '#3F3F46' }}>{community.topic}</span>

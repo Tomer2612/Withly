@@ -99,8 +99,8 @@ export default function ContactPage() {
   return (
     <main className="min-h-screen" dir="rtl" style={{ backgroundColor: '#F4F4F5' }}>
       {/* Hero Section */}
-      <section className="text-center py-16 px-4">
-        <h1 className="font-semibold text-black text-3xl md:text-5xl lg:text-[3.5rem]">
+      <section className="text-center pt-16 pb-6 px-4">
+        <h1 className="font-semibold text-black text-3xl md:text-4xl lg:text-[40px]">
           דברו איתנו
         </h1>
         <p className="text-lg max-w-2xl mx-auto" style={{ marginBottom: '2rem', color: '#52525B' }}>
@@ -194,6 +194,7 @@ export default function ContactPage() {
                 </div>
                 <div className="bg-white focus-within:border-transparent focus-within:ring-2 focus-within:ring-black transition-all" style={{ borderRadius: '10px', border: '1px solid #D0D0D4' }}>
                   <textarea
+                    dir="rtl"
                     value={contactMessage}
                     onChange={(e) => setContactMessage(e.target.value.slice(0, CHAR_LIMITS.message))}
                     required
@@ -206,7 +207,7 @@ export default function ContactPage() {
               <button
                 type="submit"
                 disabled={formLoading || !isFormValid}
-                className="w-full bg-black text-white py-3 rounded-lg font-semibold hover:opacity-90 transition disabled:opacity-50"
+                className="w-full bg-black text-white py-3 rounded-md font-semibold hover:opacity-90 transition disabled:opacity-50"
               >
                 {formLoading ? 'שולח...' : 'שלח'}
               </button>

@@ -34,15 +34,27 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Prevent body scroll when mobile menu is open
+  // Prevent body scroll when mobile menu is open. Compensate for the
+  // scrollbar width (left side in RTL) so locking doesn't shift the page —
+  // which otherwise makes the fixed overlay look misaligned vs the content.
   useEffect(() => {
-    document.body.style.overflow = mobileMenuOpen ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
+    if (mobileMenuOpen) {
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+      document.body.style.overflow = 'hidden';
+      if (scrollbarWidth > 0) document.body.style.paddingLeft = `${scrollbarWidth}px`;
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.paddingLeft = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.paddingLeft = '';
+    };
   }, [mobileMenuOpen]);
 
   return (
     <>
-    <header dir="rtl" className="flex items-center justify-between px-4 md:px-8 py-4 bg-white border-b h-[72px]" style={{ borderColor: '#E1E1E2' }}>
+    <header dir="rtl" className="sticky top-0 z-40 flex items-center justify-between px-4 md:px-8 py-4 bg-white border-b h-[72px]" style={{ borderColor: '#E1E1E2' }}>
       {/* Right side: hamburger (mobile) + logo + (logged-in) divider + communities dropdown */}
       <div className="flex items-center gap-1">
         {/* Mobile hamburger - on right side in RTL */}
@@ -73,7 +85,10 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
         {userEmail && (
           <>
             <div className="w-px h-[30px] flex-shrink-0 mx-2 md:mx-4 hidden xl:block" style={{ backgroundColor: 'var(--color-gray-4)' }} />
-            <UserCommunitiesDropdown />
+            {/* Switcher hidden on mobile — it moves into the hamburger menu */}
+            <div className="hidden md:block">
+              <UserCommunitiesDropdown />
+            </div>
           </>
         )}
       </div>
@@ -101,13 +116,13 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
             <div className="flex items-center gap-4">
               <Link
                 href="/login"
-                className="border-2 border-black text-black px-6 py-2 rounded-lg font-semibold hover:bg-black hover:text-white transition"
+                className="border-2 border-black text-black px-6 py-2 rounded-[16px] font-semibold hover:bg-black hover:text-white transition"
               >
                 כניסה
               </Link>
               <Link
                 href="/signup"
-                className="bg-black text-white px-6 py-2 rounded-lg font-semibold hover:opacity-90 transition border-2 border-black"
+                className="bg-black text-white px-6 py-2 rounded-[16px] font-semibold hover:opacity-90 transition border-2 border-black"
               >
                 הרשמה
               </Link>
@@ -147,13 +162,13 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
           <div className="flex items-center gap-2">
             <Link
               href="/login"
-              className="border-2 border-black text-black px-3 py-1.5 rounded-lg font-semibold hover:bg-black hover:text-white transition text-sm"
+              className="border-2 border-black text-black px-3 py-1.5 rounded-[16px] font-semibold hover:bg-black hover:text-white transition text-sm"
             >
               כניסה
             </Link>
             <Link
               href="/signup"
-              className="bg-black text-white px-3 py-1.5 rounded-lg font-semibold hover:opacity-90 transition border-2 border-black text-sm"
+              className="bg-black text-white px-3 py-1.5 rounded-[16px] font-semibold hover:opacity-90 transition border-2 border-black text-sm"
             >
               הרשמה
             </Link>
@@ -162,10 +177,16 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
       </div>
     </header>
 
-    {/* Mobile menu overlay */}
+    {/* Mobile menu overlay (auth-button radii unified to 16px below) */}
     {mobileMenuOpen && (
-      <div dir="rtl" className="fixed inset-0 top-[72px] z-50 bg-white md:hidden overflow-y-auto">
+      <div dir="rtl" className="fixed left-0 right-0 bottom-0 top-[72px] z-50 bg-white md:hidden overflow-y-auto">
         <div className="flex flex-col px-6 py-6 gap-2">
+          {/* Communities switcher — lives here on mobile (per nav layout decision) */}
+          {userEmail && (
+            <div className="pb-3 mb-1 border-b border-gray-100">
+              <UserCommunitiesDropdown />
+            </div>
+          )}
           {!hideNavLinks && (
             <>
               <Link href="/pricing" onClick={() => setMobileMenuOpen(false)} className="text-black text-lg font-normal py-3 border-b border-gray-100 hover:opacity-70 transition">
@@ -185,14 +206,14 @@ export default function SiteHeader({ hideNavLinks = false, hideAuthButtons = fal
               <Link
                 href="/login"
                 onClick={() => setMobileMenuOpen(false)}
-                className="border-2 border-black text-black px-6 py-3 rounded-lg font-semibold hover:bg-black hover:text-white transition text-center"
+                className="border-2 border-black text-black px-6 py-3 rounded-[16px] font-semibold hover:bg-black hover:text-white transition text-center"
               >
                 כניסה
               </Link>
               <Link
                 href="/signup"
                 onClick={() => setMobileMenuOpen(false)}
-                className="bg-black text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition border-2 border-black text-center"
+                className="bg-black text-white px-6 py-3 rounded-[16px] font-semibold hover:opacity-90 transition border-2 border-black text-center"
               >
                 הרשמה
               </Link>

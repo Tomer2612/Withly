@@ -422,7 +422,7 @@ export default function MemberProfilePage() {
                 <button
                   onClick={handleFollowToggle}
                   disabled={followLoading}
-                  className={`px-8 py-2.5 rounded-xl font-medium transition ${
+                  className={`px-8 py-2.5 rounded-md font-semibold transition ${
                     isFollowing
                       ? 'border border-black text-black bg-white hover:bg-gray-100'
                       : 'bg-black text-white hover:opacity-90'
@@ -433,7 +433,7 @@ export default function MemberProfilePage() {
                 <button
                   onClick={handleSendMessage}
                   disabled={!isFollowing && !hasConversation}
-                  className={`border px-6 py-2.5 rounded-xl font-medium transition ${
+                  className={`border px-6 py-2.5 rounded-md font-semibold transition ${
                     (isFollowing || hasConversation)
                       ? 'border-black text-black hover:bg-gray-100 cursor-pointer' 
                       : 'border-gray-300 text-gray-300 cursor-not-allowed'
@@ -523,7 +523,7 @@ export default function MemberProfilePage() {
                               </div>
                             )}
                             <div className="flex-1 min-w-0">
-                              <h2 className="font-bold text-black truncate" style={{ fontSize: '1.5rem' }}>{community.name}</h2>
+                              <h2 className="font-semibold text-black truncate" style={{ fontSize: '1.5rem' }}>{community.name}</h2>
                               {/* Topic below heading */}
                               {community.topic && (
                                 <span className="font-normal" style={{ fontSize: '1rem', color: '#3F3F46' }}>{community.topic}</span>
@@ -590,7 +590,7 @@ export default function MemberProfilePage() {
                         <button
                           key={page}
                           onClick={() => setCreatedPage(page)}
-                          className={`flex items-center justify-center font-medium text-[16px] transition ${
+                          className={`flex items-center justify-center font-semibold text-[16px] transition ${
                             page === createdPage
                               ? 'bg-[#71717A] text-white'
                               : 'bg-white text-[#71717A] hover:bg-gray-50'
@@ -660,7 +660,7 @@ export default function MemberProfilePage() {
                               </div>
                             )}
                             <div className="flex-1 min-w-0">
-                              <h2 className="font-bold text-black truncate" style={{ fontSize: '1.5rem' }}>{community.name}</h2>
+                              <h2 className="font-semibold text-black truncate" style={{ fontSize: '1.5rem' }}>{community.name}</h2>
                               {/* Topic below heading */}
                               {community.topic && (
                                 <span className="font-normal" style={{ fontSize: '1rem', color: '#3F3F46' }}>{community.topic}</span>
@@ -727,7 +727,7 @@ export default function MemberProfilePage() {
                         <button
                           key={page}
                           onClick={() => setMemberPage(page)}
-                          className={`flex items-center justify-center font-medium text-[16px] transition ${
+                          className={`flex items-center justify-center font-semibold text-[16px] transition ${
                             page === memberPage
                               ? 'bg-[#71717A] text-white'
                               : 'bg-white text-[#71717A] hover:bg-gray-50'

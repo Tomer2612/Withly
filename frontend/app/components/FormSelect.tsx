@@ -76,7 +76,7 @@ export default function FormSelect({
         }}
         className={`
           w-full flex items-center justify-between gap-4 px-4
-          bg-white font-normal text-black transition-colors duration-200
+          bg-white font-semibold text-black transition-colors duration-200
           ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-400 cursor-pointer'}
           ${value === '' ? 'text-gray-400' : 'text-black'}
         `}
@@ -99,7 +99,7 @@ export default function FormSelect({
 
       {isOpen && (
         <div
-          className={`absolute w-full bg-white border border-[#D0D0D4] rounded-[10px] z-50 overflow-hidden p-1.5 ${openUpward ? 'bottom-full mb-2' : 'top-full mt-2'}`}
+          className={`absolute w-full bg-white border border-[#D0D0D4] rounded-md z-50 overflow-hidden p-1.5 ${openUpward ? 'bottom-full mb-2' : 'top-full mt-2'}`}
           style={{ 
             maxHeight: '280px', 
             overflowY: 'auto',
@@ -117,10 +117,10 @@ export default function FormSelect({
                 }}
                 style={{ fontSize: '16px' }}
                 className={`
-                  w-full px-3 py-2 text-right rounded-lg transition-colors
+                  w-full px-3 py-2 text-right rounded-sm transition-colors
                   ${value === option.value 
-                    ? 'bg-[#E4E4E7] font-normal text-black' 
-                    : 'text-gray-700 hover:bg-[#F4F4F5] active:bg-[#3F3F46] active:text-white font-normal'
+                    ? 'bg-[#E4E4E7] font-semibold text-black' 
+                    : 'text-gray-700 hover:bg-[#F4F4F5] active:bg-[#3F3F46] active:text-white font-semibold'
                   }
                 `}
               >

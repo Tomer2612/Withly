@@ -150,7 +150,7 @@ export default function UserCommunitiesDropdown({ activeCommunity }: UserCommuni
 
       {isOpen && (
         <div
-          className="absolute top-full mt-1 right-0 bg-white border border-gray-200 rounded-xl z-50 overflow-hidden min-w-[200px] py-1.5"
+          className="absolute top-full mt-1 right-0 bg-white border border-gray-200 rounded-md z-50 overflow-hidden min-w-[200px] py-1.5"
           style={{ boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.12)' }}
         >
           {/* px-1.5 insets the (native, left-side) scrollbar from the panel's
@@ -162,7 +162,7 @@ export default function UserCommunitiesDropdown({ activeCommunity }: UserCommuni
               <Link
                 href="/"
                 onClick={() => setIsOpen(false)}
-                className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-gray-50 transition-colors text-black"
+                className="w-full flex items-center gap-2 px-2 py-2 rounded-sm hover:bg-gray-50 transition-colors text-black"
                 style={{ fontSize: '16px', fontWeight: 400 }}
               >
                 <span
@@ -187,7 +187,7 @@ export default function UserCommunitiesDropdown({ activeCommunity }: UserCommuni
                 <button
                   key={comm.id}
                   onClick={() => handleSwitch(comm)}
-                  className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-gray-50 transition-colors text-black"
+                  className="w-full flex items-center gap-2 px-2 py-2 rounded-sm hover:bg-gray-50 transition-colors text-black"
                   style={{ fontSize: '16px', fontWeight: 400 }}
                 >
                   <span

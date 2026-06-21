@@ -101,7 +101,7 @@ export default function LeaderboardPage() {
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-full mb-3" style={{ backgroundColor: '#A7EA7B' }}>
             <TrophyIcon className="w-7 h-7 text-black" />
           </div>
-          <h1 className="text-2xl font-semibold text-gray-900">עשרת המובילים</h1>
+          <h1 className="text-3xl md:text-4xl lg:text-[40px] font-semibold text-gray-900">עשרת המובילים</h1>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-6">
@@ -189,7 +189,7 @@ export default function LeaderboardPage() {
               </div>
               
               <div className="border-t border-gray-100 pt-4">
-                <h4 className="font-semibold text-gray-900 mb-3 text-sm">איך צוברים נקודות:</h4>
+                <h4 className="font-semibold text-gray-900 mb-3 text-[18px]">איך צוברים נקודות:</h4>
                 <ul className="space-y-2 text-sm text-gray-600">
                   <li className="flex items-start gap-2">
                     <span className="text-gray-400">•</span>

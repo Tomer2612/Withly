@@ -540,7 +540,7 @@ function CommunityPreviewContent() {
                   <button
                     onClick={handleJoinClick}
                     disabled={joining}
-                    className="w-full py-3 px-4 bg-black text-white rounded-xl font-bold text-lg hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="w-full py-3 px-4 bg-black text-white rounded-md font-semibold text-lg hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {joining ? (
                       <>
@@ -593,7 +593,7 @@ function CommunityPreviewContent() {
               {/* Social Links */}
               {(community.youtubeUrl || community.whatsappUrl || community.facebookUrl || community.instagramUrl) && (
                 <div className="p-5">
-                  <h4 className="text-sm font-medium text-gray-500 mb-3 text-center">עקבו אחרינו</h4>
+                  <h4 className="text-[18px] font-semibold text-gray-500 mb-3 text-center">עקבו אחרינו</h4>
                   <div className="flex justify-center gap-3">
                     {community.youtubeUrl && (
                       <a href={community.youtubeUrl} target="_blank" rel="noopener noreferrer" 
@@ -639,7 +639,7 @@ function CommunityPreviewContent() {
 
             {/* About Section */}
             <div className="bg-white rounded-2xl border border-gray-200 p-6">
-              <h2 className="text-2xl font-bold text-black mb-4">{community.name}</h2>
+              <h2 className="text-[28px] font-semibold text-black mb-4">{community.name}</h2>
               <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
                 {community.description}
               </p>
@@ -650,7 +650,7 @@ function CommunityPreviewContent() {
         {/* Similar Communities Section */}
         {similarCommunities.length > 0 && (
           <div className="mt-20">
-            <h2 className="text-2xl font-bold text-right mb-8">קהילות דומות</h2>
+            <h2 className="text-[28px] font-semibold text-right mb-8">קהילות דומות</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {similarCommunities.map((comm) => {
                 // Format member count like homepage
@@ -700,7 +700,7 @@ function CommunityPreviewContent() {
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-black truncate" style={{ fontSize: '1.5rem' }}>{comm.name}</h3>
+                          <h3 className="font-semibold text-black truncate" style={{ fontSize: '1.5rem' }}>{comm.name}</h3>
                           {comm.topic && (
                             <span className="font-normal" style={{ fontSize: '1rem', color: '#3F3F46' }}>{comm.topic}</span>
                           )}

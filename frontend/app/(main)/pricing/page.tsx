@@ -280,7 +280,7 @@ function PricingContent() {
     return (
       <main className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#F4F4F5' }} dir="rtl">
         <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-md">
-          <h2 className="text-2xl font-bold text-center mb-2">פרטי הקהילה</h2>
+          <h2 className="text-[28px] font-semibold text-center mb-2">פרטי הקהילה</h2>
           <p className="text-center mb-8" style={{ color: '#71717A' }}>אפשר לערוך ולשנות את הכל גם אחרי ההקמה.</p>
           
           <div className="space-y-4">
@@ -438,7 +438,7 @@ function PricingContent() {
       </section>
 
       {/* Pricing Cards — starter + pro. Stack on mobile, side-by-side on md+. */}
-      <section className="flex flex-col md:flex-row justify-center items-stretch gap-6 px-4 pb-16">
+      <section className="flex flex-col-reverse md:flex-row justify-center items-center md:items-stretch gap-6 px-4 pb-16">
         {plansToRender.map((p) => {
           const isPro = p.slug === 'pro';
           // Card stroke: gray-4 for starter, light green for pro (2px so it
@@ -508,7 +508,7 @@ function PricingContent() {
 
       {/* FAQ Section */}
       <section className="max-w-2xl mx-auto px-4 pb-16">
-        <h2 className="font-bold text-black text-center mb-8" style={{ fontSize: '40px' }}>
+        <h2 className="font-semibold text-black text-center mb-8" style={{ fontSize: '40px' }}>
           שאלות נפוצות
         </h2>
 

@@ -54,30 +54,28 @@ export default function FilterDropdown({
 
   // Size-specific styles
   const isSmall = size === 'small';
-  const buttonHeight = isSmall ? '36px' : '51px';
-  const buttonRadius = isSmall ? '10px' : '15.5px';
-  const buttonPadding = isSmall ? '6px 12px' : '0 16px';
-  const fontSize = buttonFontSize ?? (isSmall ? '14px' : '18px');
-  const minWidth = isSmall ? '90px' : '110px';
   const dropdownFontSize = isSmall ? '14px' : '16px';
+
+  // `small` stays compact/fixed everywhere (community feed toolbars).
+  // `default` is responsive: compact + shrinkable on mobile, full size on sm+ (homepage).
+  const buttonSizeClasses = isSmall
+    ? 'h-[36px] rounded-[10px] px-3 min-w-[90px]'
+    : 'h-[51px] rounded-lg px-4 min-w-[110px]';
+  const labelSizeClasses = isSmall ? '' : 'text-[18px]';
+  // default size: drive font via responsive classes; small (or explicit override) via inline.
+  const labelFontSize = isSmall ? (buttonFontSize ?? '14px') : buttonFontSize;
 
   return (
     <div className={`relative inline-block text-right ${className}`} dir="rtl" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
         style={{
-          minWidth,
-          height: buttonHeight,
-          borderRadius: buttonRadius,
-          padding: buttonPadding,
-          borderWidth: '1px',
-          borderStyle: 'solid',
           borderColor: isOpen ? '#3F3F46' : '#D0D0D4',
           fontWeight: 400,
         }}
-        className="flex items-center justify-between gap-2 bg-white font-normal text-black transition-colors duration-200 hover:border-gray-400 overflow-visible"
+        className={`flex w-full items-center justify-between gap-2 border border-solid bg-white font-normal text-black transition-colors duration-200 hover:border-gray-400 ${buttonSizeClasses}`}
       >
-        <span style={{ fontSize, fontWeight: 400 }}>{displayLabel}</span>
+        <span className={`truncate ${labelSizeClasses}`} style={{ fontSize: labelFontSize, fontWeight: 400 }}>{displayLabel}</span>
         <svg 
           width="10" height="5" viewBox="0 0 10 5" fill="none" 
           xmlns="http://www.w3.org/2000/svg"
@@ -95,7 +93,7 @@ export default function FilterDropdown({
 
       {isOpen && (
         <div
-          className="absolute top-full mt-2 w-full min-w-[140px] bg-white border border-[#D0D0D4] rounded-[10px] z-50 overflow-hidden p-1.5"
+          className="absolute top-full mt-2 right-0 w-max min-w-[140px] max-w-[calc(100vw-1rem)] bg-white border border-[#D0D0D4] rounded-md z-50 overflow-hidden p-1.5"
           style={{ 
             maxHeight: '280px', 
             overflowY: 'auto',
@@ -111,10 +109,10 @@ export default function FilterDropdown({
                 }}
                 style={{ fontSize: dropdownFontSize }}
                 className={`
-                  w-full px-3 py-2 text-right rounded-lg transition-colors
+                  w-full px-3 py-2 text-right rounded-sm transition-colors
                   ${value === '' 
-                    ? 'bg-[#E4E4E7] font-normal text-black' 
-                    : 'text-gray-700 hover:bg-[#F4F4F5] active:bg-[#3F3F46] active:text-white font-normal'
+                    ? 'bg-[#E4E4E7] font-semibold text-black' 
+                    : 'text-gray-700 hover:bg-[#F4F4F5] active:bg-[#3F3F46] active:text-white font-semibold'
                   }
                 `}
               >
@@ -131,10 +129,10 @@ export default function FilterDropdown({
                 }}
                 style={{ fontSize: dropdownFontSize }}
                 className={`
-                  w-full px-3 py-2 text-right rounded-lg transition-colors
+                  w-full px-3 py-2 text-right rounded-sm transition-colors
                   ${value === option.value 
-                    ? 'bg-[#E4E4E7] font-normal text-black' 
-                    : 'text-gray-700 hover:bg-[#F4F4F5] active:bg-[#3F3F46] active:text-white font-normal'
+                    ? 'bg-[#E4E4E7] font-semibold text-black' 
+                    : 'text-gray-700 hover:bg-[#F4F4F5] active:bg-[#3F3F46] active:text-white font-semibold'
                   }
                 `}
               >

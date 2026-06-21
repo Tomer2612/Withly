@@ -8,7 +8,7 @@ export default function AccessibilityPage() {
     <main className="min-h-screen" dir="rtl" style={{ backgroundColor: '#F4F4F5' }}>
       {/* Hero Section */}
       <section className="text-center py-16 px-4">
-        <h1 className="font-semibold text-black text-3xl md:text-5xl lg:text-[3.5rem]">
+        <h1 className="font-semibold text-black text-3xl md:text-4xl lg:text-[40px]">
           הצהרת נגישות
         </h1>
         <p className="text-lg max-w-2xl mx-auto" style={{ color: '#52525B' }}>
@@ -22,7 +22,7 @@ export default function AccessibilityPage() {
       {/* Intro */}
       <section className="max-w-4xl mx-auto px-4 pb-8">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-4">מבוא</h2>
+          <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-4">מבוא</h2>
           <p className="leading-relaxed" style={{ color: '#52525B' }}>
             הפלטפורמה מופעלת על ידי <strong>תומר שמחון ברעם</strong>, עוסק פטור שמספרו <strong>323115600</strong>. ב-Withly אנו רואים חשיבות במתן שירות שוויוני ונגיש לכלל המשתמשים, ופועלים להנגיש את הפלטפורמה הדיגיטלית שלנו בהתאם לתקנות שוויון זכויות לאנשים עם מוגבלות (התאמות נגישות לשירות), התשע"ג-2013.
           </p>
@@ -32,7 +32,7 @@ export default function AccessibilityPage() {
       {/* 1. Digital Accessibility */}
       <section className="max-w-4xl mx-auto px-4 pb-8">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-6">1. נגישות דיגיטלית</h2>
+          <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-6">1. נגישות דיגיטלית</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
               אנו שואפים שהפלטפורמה שלנו תעמוד בדרישות התקן הישראלי לנגישות באינטרנט (ת"י 5568) ברמה AA, ובהנחיות WCAG 2.1 ברמה AA.
@@ -51,7 +51,7 @@ export default function AccessibilityPage() {
       {/* 2. Supported Browsers */}
       <section className="max-w-4xl mx-auto px-4 pb-8">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-6">2. דפדפנים נתמכים</h2>
+          <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-6">2. דפדפנים נתמכים</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
               האתר תומך בגרסאות העדכניות של הדפדפנים הנפוצים: Chrome, Firefox, Safari, Edge. לחוויה מיטבית, מומלץ להשתמש בגרסה העדכנית ביותר של הדפדפן.
@@ -63,7 +63,7 @@ export default function AccessibilityPage() {
       {/* 3. Physical Accessibility */}
       <section className="max-w-4xl mx-auto px-4 pb-8">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-6">3. הסדרי נגישות פיזיים</h2>
+          <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-6">3. הסדרי נגישות פיזיים</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
               Withly היא פלטפורמה אינטרנטית (שירות דיגיטלי) לחלוטין. אין לחברה משרדים המקבלים קהל, ולפיכך לא קיימים הסדרי נגישות פיזיים למבנים או קבלת קהל פרונטלית. כלל השירות, התמיכה והתקשורת מתבצעים באמצעים דיגיטליים.
@@ -75,7 +75,7 @@ export default function AccessibilityPage() {
       {/* 4. Accessibility Limitations */}
       <section className="max-w-4xl mx-auto px-4 pb-8">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-6">4. סייגים לנגישות</h2>
+          <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-6">4. סייגים לנגישות</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
               מכיוון ש-Withly היא פלטפורמה מבוססת תוכן גולשים (UGC), חלק מהתכנים המועלים על ידי מנהלי קהילות או משתמשים אחרים עשויים שלא להיות נגישים באופן מלא (לדוגמה: העדר טקסט חלופי לתמונות שמעלים משתמשים, או תוכן וידאו ללא כתוביות). אנו עושים את מירב המאמצים לעודד מנהלי קהילות לפרסם תוכן נגיש, אך איננו יכולים להבטיח את נגישות כל התוכן שמועלה על ידי משתמשים.
@@ -87,7 +87,7 @@ export default function AccessibilityPage() {
       {/* 5. Contact */}
       <section className="max-w-4xl mx-auto px-4 pb-16">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-6">5. יצירת קשר בנושא נגישות</h2>
+          <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-6">5. יצירת קשר בנושא נגישות</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
               אם נתקלת בבעיית נגישות כלשהי בפלטפורמה, נשמח מאוד לשמוע על כך כדי שנוכל לתקן ולשפר. ניתן לפנות אלינו דרך{' '}

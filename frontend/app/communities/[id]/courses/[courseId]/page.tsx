@@ -487,7 +487,7 @@ function CourseViewerContent() {
               <span className="flex items-center gap-2"><ClockIcon size={20} />{course.totalDuration} דקות</span>
             </div>
             <div className="flex items-center justify-center gap-4">
-              <button onClick={handleEnroll} disabled={enrolling} className="px-8 py-3 bg-black text-white font-medium rounded-full hover:bg-gray-800 transition disabled:opacity-50 text-lg">{enrolling ? 'נרשם...' : 'הרשמה לקורס (חינם)'}</button>
+              <button onClick={handleEnroll} disabled={enrolling} className="px-8 py-3 bg-black text-white font-semibold rounded-md hover:bg-gray-800 transition disabled:opacity-50 text-lg">{enrolling ? 'נרשם...' : 'הרשמה לקורס (חינם)'}</button>
               <Link href={`/communities/${communityId}/courses`} className="px-6 py-3 text-gray-600 hover:text-gray-900 transition">חזרה לקורסים</Link>
             </div>
           </div>
@@ -502,7 +502,7 @@ function CourseViewerContent() {
       {/* Mobile sidebar toggle */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="lg:hidden flex items-center gap-2 px-4 py-3 bg-white border-b border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+        className="lg:hidden flex items-center gap-2 px-4 py-3 bg-white border-b border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition"
       >
         <LayersIcon className="w-4 h-4" />
         {sidebarOpen ? 'הסתר תוכן עניינים' : 'הצג תוכן עניינים'}
@@ -522,7 +522,7 @@ function CourseViewerContent() {
             {isCourseAuthor && (
               <Link 
                 href={`/communities/${communityId}/courses/${courseId}/edit`} 
-                className="inline-flex items-center gap-2 px-3 py-1.5 bg-black text-white rounded-lg hover:bg-gray-800 transition mb-4"
+                className="inline-flex items-center gap-2 px-3 py-1.5 bg-black text-white rounded-md hover:bg-gray-800 transition mb-4"
                 style={{ fontSize: '16px' }}
               >
                 <EditIcon className="w-4 h-4" />
@@ -540,7 +540,7 @@ function CourseViewerContent() {
                 {course.description.length > 100 && (
                   <button
                     onClick={() => setDescExpanded(!descExpanded)}
-                    className="text-black font-medium hover:underline mt-1"
+                    className="text-black font-semibold hover:underline mt-1"
                     style={{ fontSize: '14px' }}
                   >
                     {descExpanded ? 'הצג פחות' : 'הצג עוד'}
@@ -579,7 +579,7 @@ function CourseViewerContent() {
                           <div 
                             key={lesson.id} 
                             className="flex items-center px-3 sm:px-8"
-                            style={{ marginTop: lessonIndex === 0 ? '0' : '20px' }}
+                            style={{ marginTop: lessonIndex === 0 ? '0' : '8px' }}
                           >
                             <div 
                               className={`flex items-center flex-1 rounded-lg ${isCurrent ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
@@ -625,7 +625,7 @@ function CourseViewerContent() {
             <div className="p-4 border-t border-gray-200">
               <button
                 onClick={() => setShowUnenrollModal(true)}
-                className="w-full py-2 text-base hover:bg-gray-50 rounded-lg transition border"
+                className="w-full py-2 text-base hover:bg-gray-50 rounded-md transition border"
                 style={{ color: 'var(--color-error)', borderColor: 'rgba(179, 38, 30, 0.3)' }}
               >
                 ביטול הרשמה לקורס
@@ -791,19 +791,19 @@ function CourseViewerContent() {
                 if (sortedItems.length === 0) return null;
                 
                 return (
-                  <div className="bg-white border border-[#D4D4D8] overflow-hidden" style={{ borderRadius: '16px', paddingTop: '24px' }}>
+                  <div className="bg-white border border-[#D4D4D8] overflow-hidden" style={{ borderRadius: '16px', paddingTop: '16px' }}>
                     {sortedItems.map((item, index) => (
                       <div key={item.type}>
-                        <div className="px-6">
+                        <div className="px-4">
                           {item.render()}
                         </div>
                         {index < sortedItems.length - 1 && (
-                          <div className="px-6">
+                          <div className="px-4">
                             <div className="h-px bg-[#D4D4D8] my-4" />
                           </div>
                         )}
                         {index === sortedItems.length - 1 && (
-                          <div className="pb-6" />
+                          <div className="pb-4" />
                         )}
                       </div>
                     ))}
@@ -897,7 +897,7 @@ function CourseViewerContent() {
                                   key={option.id}
                                   onClick={() => handleOptionClick(option.id)}
                                   disabled={isSubmitted}
-                                  className={`w-full p-4 rounded-lg border-2 text-right transition flex items-center gap-3 ${
+                                  className={`w-full p-4 rounded-md border-2 text-right transition flex items-center gap-3 ${
                                     isSubmitted
                                       ? showCorrect
                                         ? 'border-[#A7EA7B] bg-white'
@@ -943,7 +943,7 @@ function CourseViewerContent() {
                           {!isSubmitted && selectedAnswers.length > 0 && (
                             <button
                               onClick={handleCheckAnswer}
-                              className="mt-4 px-6 py-2 bg-black text-white rounded-lg font-normal hover:bg-gray-800 transition"
+                              className="mt-4 px-6 py-2 bg-black text-white rounded-md font-semibold hover:bg-gray-800 transition"
                               style={{ fontSize: '16px' }}
                             >
                               בדוק תשובה
@@ -970,7 +970,7 @@ function CourseViewerContent() {
                                     setQuizAnswers(prev => ({ ...prev, [questionId]: [] }));
                                     setQuizSubmitted(prev => ({ ...prev, [questionId]: false }));
                                   }}
-                                  className="px-4 py-1.5 bg-black text-white rounded-lg font-normal hover:bg-gray-800 transition"
+                                  className="px-4 py-1.5 bg-black text-white rounded-md font-semibold hover:bg-gray-800 transition"
                                   style={{ fontSize: '16px' }}
                                 >
                                   נסה שוב
@@ -1095,7 +1095,7 @@ function CourseViewerContent() {
           {lightboxImages.length > 1 && (
             <button
               onClick={(e) => { e.stopPropagation(); prevImage(); }}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 bg-black bg-opacity-50 hover:bg-opacity-70 rounded-full p-3 transition"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 bg-black bg-opacity-50 hover:bg-opacity-70 rounded-lg p-3 transition"
             >
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -1107,7 +1107,7 @@ function CourseViewerContent() {
           {lightboxImages.length > 1 && (
             <button
               onClick={(e) => { e.stopPropagation(); nextImage(); }}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 bg-black bg-opacity-50 hover:bg-opacity-70 rounded-full p-3 transition"
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 bg-black bg-opacity-50 hover:bg-opacity-70 rounded-lg p-3 transition"
             >
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />

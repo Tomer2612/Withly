@@ -875,8 +875,8 @@ export default function EditCoursePage() {
                         className="flex items-center justify-center gap-2 px-4 py-2.5 text-gray-600 border border-gray-300 cursor-pointer hover:bg-gray-50 transition text-base font-normal w-44"
                         style={{ borderRadius: '8px' }}
                       >
-                        <PlusIcon className="w-4 h-4" />
                         <span>העלאת תמונה</span>
+                        <PlusIcon className="w-4 h-4" />
                       </label>
                       {course.imagePreview && (
                         <button
@@ -885,8 +885,8 @@ export default function EditCoursePage() {
                           className="flex items-center justify-center gap-2 px-4 py-2.5 border hover:bg-gray-50 transition text-base font-normal w-44"
                           style={{ borderRadius: '8px', borderColor: 'var(--color-error)', color: 'var(--color-error)' }}
                         >
-                          <TrashIcon className="w-4 h-4" />
                           <span>מחק תמונה נוכחית</span>
+                          <TrashIcon className="w-4 h-4" />
                         </button>
                       )}
                     </div>
@@ -901,6 +901,7 @@ export default function EditCoursePage() {
                     תיאור הקורס <span className="text-gray-400 text-xs font-normal">(אופציונלי)</span>
                   </label>
                   <textarea
+                    dir="rtl"
                     id="course-description"
                     value={course.description}
                     onChange={(e) => {
@@ -954,7 +955,7 @@ export default function EditCoursePage() {
           <div className="space-y-6">
             {/* Course Stats */}
             <div className="bg-white rounded-xl shadow-sm p-6 sticky top-24">
-              <h2 className="font-semibold text-gray-800 mb-4 text-base sm:text-lg">סיכום</h2>
+              <h2 className="font-semibold text-gray-800 mb-4 text-xl sm:text-[28px]">סיכום</h2>
               <div className="space-y-2" style={{ fontSize: '16px' }}>
                 <div className="flex justify-between">
                   <span className="text-gray-500 font-normal">מספר פרקים:</span>

@@ -660,10 +660,10 @@ export default function SettingsPage() {
             key={tab.key}
             type="button"
             onClick={() => { setActiveTab(tab.key); setMessage(''); }}
-            className={`px-4 py-2 text-sm rounded-lg whitespace-nowrap transition ${
+            className={`px-4 py-2 text-sm rounded-md whitespace-nowrap transition ${
               activeTab === tab.key
-                ? 'bg-gray-900 text-white font-medium'
-                : 'text-gray-600 hover:bg-gray-100 font-normal'
+                ? 'bg-gray-900 text-white font-semibold'
+                : 'text-gray-600 hover:bg-gray-100 font-semibold'
             }`}
           >
             {tab.label}
@@ -687,7 +687,7 @@ export default function SettingsPage() {
                 setActiveTab('profile');
                 setMessage('');
               }}
-              className="w-full text-right px-4 py-2.5 rounded-lg font-medium transition"
+              className="w-full text-right px-4 py-2.5 rounded-md font-semibold transition"
               style={{
                 fontSize: '16px',
                 backgroundColor: activeTab === 'profile' ? '#F4F4F5' : 'transparent',
@@ -702,7 +702,7 @@ export default function SettingsPage() {
                 setActiveTab('security');
                 setMessage('');
               }}
-              className="w-full text-right px-4 py-2.5 rounded-lg font-medium transition"
+              className="w-full text-right px-4 py-2.5 rounded-md font-semibold transition"
               style={{
                 fontSize: '16px',
                 backgroundColor: activeTab === 'security' ? '#F4F4F5' : 'transparent',
@@ -717,7 +717,7 @@ export default function SettingsPage() {
                 setActiveTab('notifications');
                 setMessage('');
               }}
-              className="w-full text-right px-4 py-2.5 rounded-lg font-medium transition"
+              className="w-full text-right px-4 py-2.5 rounded-md font-semibold transition"
               style={{
                 fontSize: '16px',
                 backgroundColor: activeTab === 'notifications' ? '#F4F4F5' : 'transparent',
@@ -732,7 +732,7 @@ export default function SettingsPage() {
                 setActiveTab('payment');
                 setMessage('');
               }}
-              className="w-full text-right px-4 py-2.5 rounded-lg font-medium transition"
+              className="w-full text-right px-4 py-2.5 rounded-md font-semibold transition"
               style={{
                 fontSize: '16px',
                 backgroundColor: activeTab === 'payment' ? '#F4F4F5' : 'transparent',
@@ -752,9 +752,9 @@ export default function SettingsPage() {
               <div className="bg-white rounded-xl border p-4 md:p-6 space-y-6" style={{ borderColor: '#E1E1E2' }}>
                 {/* Profile Photo */}
                 <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-8">
-                  <h3 className="text-sm font-medium w-32 flex-shrink-0" style={{ color: '#1D1D20' }}>תמונת פרופיל</h3>
+                  <h3 className="text-[20px] font-semibold md:w-32 md:flex-shrink-0" style={{ color: '#1D1D20' }}>תמונת פרופיל</h3>
                   <div className="flex items-center gap-4">
-                    <div className="relative">
+                    <div className="relative flex-shrink-0">
                       {imagePreview ? (
                         <img
                           src={imagePreview}
@@ -769,7 +769,7 @@ export default function SettingsPage() {
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="absolute bottom-0 right-0 w-7 h-7 bg-black rounded-full flex items-center justify-center hover:opacity-90 transition"
+                        className="absolute bottom-0 right-0 w-7 h-7 bg-black rounded-[6px] flex items-center justify-center hover:opacity-90 transition"
                       >
                         <HiOutlineCamera className="w-4 h-4 text-white" />
                       </button>
@@ -788,8 +788,8 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-8">
-                  <h3 className="text-sm font-medium w-32 flex-shrink-0" style={{ color: '#1D1D20' }}>אימייל</h3>
+                <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-8">
+                  <h3 className="text-[20px] font-semibold md:w-32 md:flex-shrink-0" style={{ color: '#1D1D20' }}>אימייל</h3>
                   <div className="flex-1 relative">
                     <HiOutlineEnvelope className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: '#A1A1AA' }} />
                     <input
@@ -803,8 +803,8 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Full Name */}
-                <div className="flex items-center gap-8">
-                  <h3 className="text-sm font-medium w-32 flex-shrink-0" style={{ color: '#1D1D20' }}>שם מלא</h3>
+                <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-8">
+                  <h3 className="text-[20px] font-semibold md:w-32 md:flex-shrink-0" style={{ color: '#1D1D20' }}>שם מלא</h3>
                   <div className="flex-1 relative">
                     <HiOutlineUser className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: '#A1A1AA' }} />
                     <input
@@ -821,13 +821,14 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Bio */}
-                <div className="flex items-start gap-8">
-                  <div className="w-32 flex-shrink-0">
-                    <h3 className="text-sm font-medium" style={{ color: '#1D1D20' }}>תיאור</h3>
+                <div className="flex flex-col md:flex-row md:items-start gap-2 md:gap-8">
+                  <div className="md:w-32 md:flex-shrink-0">
+                    <h3 className="text-[20px] font-semibold" style={{ color: '#1D1D20' }}>תיאור</h3>
                     <p className="text-sm" style={{ color: '#71717A' }}>ספרו על עצמכם</p>
                   </div>
                   <div className="flex-1 min-w-0 relative">
                     <textarea
+                      dir="rtl"
                       value={bio}
                       onChange={(e) => setBio(e.target.value.slice(0, 300))}
                       placeholder="ספרו על עצמכם"
@@ -841,8 +842,8 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Location */}
-                <div className="flex items-center gap-8">
-                  <h3 className="text-sm font-medium w-32 flex-shrink-0" style={{ color: '#1D1D20' }}>עיר מגורים</h3>
+                <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-8">
+                  <h3 className="text-[20px] font-semibold md:w-32 md:flex-shrink-0" style={{ color: '#1D1D20' }}>עיר מגורים</h3>
                   <div className="flex-1">
                     <FormSelect
                       value={location}
@@ -854,16 +855,16 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Online Status */}
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-medium" style={{ color: '#1D1D20' }}>הסטטוס שלי</h3>
+                    <h3 className="text-[20px] font-semibold" style={{ color: '#1D1D20' }}>הסטטוס שלי</h3>
                     <p className="text-sm" style={{ color: '#71717A' }}>כרגע מוצג כמחובר לכל חברי הקהילות</p>
                   </div>
                   <button
                     type="button"
                     onClick={handleToggleOnlineStatus}
                     disabled={settingOffline}
-                    className="flex items-center gap-2 px-3 py-2 rounded-full border bg-white text-sm font-medium transition"
+                    className="flex items-center gap-2 px-3 py-2 rounded-md border bg-white text-sm font-semibold transition self-start md:self-auto"
                     style={{ borderColor: '#E1E1E2', color: '#3F3F46' }}
                   >
                     <div 
@@ -884,18 +885,18 @@ export default function SettingsPage() {
 
             {/* Security Tab */}
             {activeTab === 'security' && (
-              <div className="bg-white rounded-xl border p-6 space-y-6" style={{ borderColor: '#E1E1E2' }}>
+              <div className="bg-white rounded-md border p-6 space-y-6" style={{ borderColor: '#E1E1E2' }}>
                 {/* Change Password Section */}
                 <div className={userProfile?.isGoogleAccount ? 'opacity-50 pointer-events-none' : ''}>
-                  <h3 className="text-base font-semibold mb-4" style={{ color: '#1D1D20' }}>שינוי סיסמה</h3>
+                  <h3 className="text-[20px] font-semibold mb-4" style={{ color: '#1D1D20' }}>שינוי סיסמה</h3>
                   {userProfile?.isGoogleAccount && (
                     <p className="text-sm mb-4" style={{ color: '#71717A' }}>לא ניתן לשנות סיסמה עבור חשבונות Google</p>
                   )}
                 
                   {/* Current Password */}
-                  <div className="flex items-center gap-8 mb-4">
-                    <div className="w-40 flex-shrink-0">
-                      <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>סיסמה נוכחית</h4>
+                  <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-8 mb-4">
+                    <div className="md:w-40 md:flex-shrink-0">
+                      <h4 className="text-[18px] font-semibold" style={{ color: '#1D1D20' }}>סיסמה נוכחית</h4>
                       <p className="text-sm" style={{ color: '#71717A' }}>יש להזין את הסיסמה הנוכחית</p>
                     </div>
                     <div className="relative flex-1">
@@ -920,9 +921,9 @@ export default function SettingsPage() {
                   </div>
 
                   {/* New Password */}
-                  <div className="flex items-center gap-8 mb-4">
-                    <div className="w-40 flex-shrink-0">
-                      <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>סיסמה חדשה</h4>
+                  <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-8 mb-4">
+                    <div className="md:w-40 md:flex-shrink-0">
+                      <h4 className="text-[18px] font-semibold" style={{ color: '#1D1D20' }}>סיסמה חדשה</h4>
                       <p className="text-sm" style={{ color: '#71717A' }}>יש להזין סיסמה חדשה</p>
                     </div>
                     <div className="relative flex-1">
@@ -947,9 +948,9 @@ export default function SettingsPage() {
                   </div>
 
                   {/* Confirm Password */}
-                  <div className="flex items-center gap-8 mb-4">
-                    <div className="w-40 flex-shrink-0">
-                      <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>אישור סיסמה חדשה</h4>
+                  <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-8 mb-4">
+                    <div className="md:w-40 md:flex-shrink-0">
+                      <h4 className="text-[18px] font-semibold" style={{ color: '#1D1D20' }}>אישור סיסמה חדשה</h4>
                       <p className="text-sm" style={{ color: '#71717A' }}>יש להזין את הסיסמה שוב</p>
                     </div>
                     <div className="relative flex-1">
@@ -979,7 +980,7 @@ export default function SettingsPage() {
                       type="button"
                       onClick={handleChangePassword}
                       disabled={changingPassword || userProfile?.isGoogleAccount}
-                      className="px-6 py-2.5 bg-black text-white rounded-lg font-medium hover:opacity-90 transition disabled:opacity-50 text-sm"
+                      className="px-6 py-2.5 bg-black text-white rounded-md font-semibold hover:opacity-90 transition disabled:opacity-50 text-sm"
                     >
                       {changingPassword ? 'משנה...' : 'שינוי סיסמה'}
                     </button>
@@ -988,9 +989,9 @@ export default function SettingsPage() {
 
                 {/* Delete Account */}
                 <div className="pt-6 border-t" style={{ borderColor: '#E1E1E2' }}>
-                  <div className="flex items-start justify-between">
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                     <div className="flex-1">
-                      <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>מחיקת חשבון</h4>
+                      <h4 className="text-[18px] font-semibold" style={{ color: '#1D1D20' }}>מחיקת חשבון</h4>
                       <p className="text-sm mt-1" style={{ color: '#71717A' }}>
                         מחיקת החשבון היא פעולה בלתי הפיכה. כל הנתונים שלך יימחקו לצמיתות, כולל:
                       </p>
@@ -1003,7 +1004,7 @@ export default function SettingsPage() {
                     <button
                       type="button"
                       onClick={() => setShowDeleteConfirm(true)}
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition text-sm text-white hover:opacity-90 flex-shrink-0"
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-md font-semibold transition text-sm text-white hover:opacity-90 flex-shrink-0 self-start"
                       style={{ backgroundColor: '#B3261E' }}
                     >
                       אני רוצה למחוק את החשבון שלי
@@ -1019,15 +1020,15 @@ export default function SettingsPage() {
               <div className="bg-white rounded-xl border p-6" style={{ borderColor: '#E1E1E2' }}>
                 <div className="space-y-6">
                   {/* Likes */}
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                     <div>
-                      <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>לייקים</h4>
+                      <h4 className="text-[18px] font-semibold" style={{ color: '#1D1D20' }}>לייקים</h4>
                       <p className="text-sm" style={{ color: '#71717A' }}>קבל התראה כשמישהו אוהב את הפוסט שלך</p>
                     </div>
                     <button
                       type="button"
                       onClick={toggleNotifyLikes}
-                      className="flex items-center gap-2 px-3 py-2 rounded-full border bg-white text-sm font-medium transition"
+                      className="flex items-center gap-2 px-3 py-2 rounded-md border bg-white text-sm font-semibold transition self-start md:self-auto"
                       style={{ borderColor: '#E1E1E2', color: '#3F3F46' }}
                     >
                       <div
@@ -1040,15 +1041,15 @@ export default function SettingsPage() {
                   </div>
 
                   {/* Comments */}
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                     <div>
-                      <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>תגובות</h4>
+                      <h4 className="text-[18px] font-semibold" style={{ color: '#1D1D20' }}>תגובות</h4>
                       <p className="text-sm" style={{ color: '#71717A' }}>קבל התראה כשמישהו מגיב על הפוסט שלך</p>
                     </div>
                     <button
                       type="button"
                       onClick={toggleNotifyComments}
-                      className="flex items-center gap-2 px-3 py-2 rounded-full border bg-white text-sm font-medium transition"
+                      className="flex items-center gap-2 px-3 py-2 rounded-md border bg-white text-sm font-semibold transition self-start md:self-auto"
                       style={{ borderColor: '#E1E1E2', color: '#3F3F46' }}
                     >
                       <div
@@ -1061,15 +1062,15 @@ export default function SettingsPage() {
                   </div>
 
                   {/* Mentions */}
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                     <div>
-                      <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>אזכורים</h4>
+                      <h4 className="text-[18px] font-semibold" style={{ color: '#1D1D20' }}>אזכורים</h4>
                       <p className="text-sm" style={{ color: '#71717A' }}>קבל התראה כשמישהו מזכיר אותך בתגובה</p>
                     </div>
                     <button
                       type="button"
                       onClick={toggleNotifyMentions}
-                      className="flex items-center gap-2 px-3 py-2 rounded-full border bg-white text-sm font-medium transition"
+                      className="flex items-center gap-2 px-3 py-2 rounded-md border bg-white text-sm font-semibold transition self-start md:self-auto"
                       style={{ borderColor: '#E1E1E2', color: '#3F3F46' }}
                     >
                       <div
@@ -1082,15 +1083,15 @@ export default function SettingsPage() {
                   </div>
 
                   {/* Community Joins */}
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                     <div>
-                      <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>הצטרפות לקהילה</h4>
+                      <h4 className="text-[18px] font-semibold" style={{ color: '#1D1D20' }}>הצטרפות לקהילה</h4>
                       <p className="text-sm" style={{ color: '#71717A' }}>קבל התראה כשמישהו מצטרף לקהילה שלך</p>
                     </div>
                     <button
                       type="button"
                       onClick={toggleNotifyCommunityJoins}
-                      className="flex items-center gap-2 px-3 py-2 rounded-full border bg-white text-sm font-medium transition"
+                      className="flex items-center gap-2 px-3 py-2 rounded-md border bg-white text-sm font-semibold transition self-start md:self-auto"
                       style={{ borderColor: '#E1E1E2', color: '#3F3F46' }}
                     >
                       <div
@@ -1103,15 +1104,15 @@ export default function SettingsPage() {
                   </div>
 
                   {/* New Followers */}
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                     <div>
-                      <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>עוקבים חדשים</h4>
+                      <h4 className="text-[18px] font-semibold" style={{ color: '#1D1D20' }}>עוקבים חדשים</h4>
                       <p className="text-sm" style={{ color: '#71717A' }}>קבל התראה כשמישהו מתחיל לעקוב אחריך</p>
                     </div>
                     <button
                       type="button"
                       onClick={toggleNotifyFollows}
-                      className="flex items-center gap-2 px-3 py-2 rounded-full border bg-white text-sm font-medium transition"
+                      className="flex items-center gap-2 px-3 py-2 rounded-md border bg-white text-sm font-semibold transition self-start md:self-auto"
                       style={{ borderColor: '#E1E1E2', color: '#3F3F46' }}
                     >
                       <div
@@ -1124,15 +1125,15 @@ export default function SettingsPage() {
                   </div>
 
                   {/* New Posts */}
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                     <div>
-                      <h4 className="text-sm font-medium" style={{ color: '#1D1D20' }}>פוסטים חדשים</h4>
+                      <h4 className="text-[18px] font-semibold" style={{ color: '#1D1D20' }}>פוסטים חדשים</h4>
                       <p className="text-sm" style={{ color: '#71717A' }}>קבל התראה כשמישהו שאתה עוקב אחריו מפרסם</p>
                     </div>
                     <button
                       type="button"
                       onClick={toggleNotifyNewPosts}
-                      className="flex items-center gap-2 px-3 py-2 rounded-full border bg-white text-sm font-medium transition"
+                      className="flex items-center gap-2 px-3 py-2 rounded-md border bg-white text-sm font-semibold transition self-start md:self-auto"
                       style={{ borderColor: '#E1E1E2', color: '#3F3F46' }}
                     >
                       <div
@@ -1158,7 +1159,7 @@ export default function SettingsPage() {
                     separates it from "אמצעי תשלום" (more in the empty state). */}
                 {memberships.some((m) => m.role === 'OWNER') && (
                 <div className={bankAccount ? 'pb-4' : 'pb-8'}>
-                  <h2 className="text-lg font-bold" style={{ color: '#3F3F46' }}>חשבון בנק לקבלת הכנסות</h2>
+                  <h2 className="text-[28px] font-semibold" style={{ color: '#3F3F46' }}>חשבון בנק לקבלת הכנסות</h2>
                   {bankAccount ? (
                     <div className="flex flex-wrap items-center justify-between gap-3 mt-4 p-4 border rounded-xl bg-white" style={{ borderColor: '#E1E1E2' }}>
                       <div className="flex items-center gap-3">
@@ -1177,7 +1178,7 @@ export default function SettingsPage() {
                       <button
                         type="button"
                         onClick={() => setShowBankModal(true)}
-                        className="text-[16px] font-normal bg-white text-black hover:bg-gray-50 transition flex-shrink-0"
+                        className="text-[16px] font-semibold bg-white text-black hover:bg-gray-50 transition flex-shrink-0"
                         style={{ border: '1px solid var(--color-gray-4)', borderRadius: '12px', padding: '0.5rem 1.25rem' }}
                       >
                         עדכון פרטי חשבון
@@ -1189,7 +1190,7 @@ export default function SettingsPage() {
                       <button
                         type="button"
                         onClick={() => setShowBankModal(true)}
-                        className="px-4 py-2 bg-black text-white font-medium hover:opacity-90 transition flex-shrink-0"
+                        className="px-4 py-2 bg-black text-white font-semibold hover:opacity-90 transition flex-shrink-0"
                         style={{ borderRadius: '12px' }}
                       >
                         הגדרת חשבון בנק
@@ -1200,11 +1201,11 @@ export default function SettingsPage() {
                 )}
 
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-bold" style={{ color: '#3F3F46' }}>אמצעי תשלום</h2>
+                  <h2 className="text-[28px] font-semibold" style={{ color: '#3F3F46' }}>אמצעי תשלום</h2>
                   <button
                     type="button"
                     onClick={() => setShowAddCardModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-black text-white font-medium hover:opacity-90 transition"
+                    className="flex items-center gap-2 px-4 py-2 bg-black text-white font-semibold hover:opacity-90 transition"
                     style={{ borderRadius: '12px' }}
                   >
                     הוסף כרטיס
@@ -1401,7 +1402,7 @@ export default function SettingsPage() {
                                 <button
                                   type="button"
                                   onClick={() => setCommunityToLeaveFree(m)}
-                                  className="font-normal underline hover:opacity-70 transition"
+                                  className="font-semibold underline hover:opacity-70 transition"
                                   style={{ fontSize: '16px', color: '#000000' }}
                                 >
                                   עזיבת קהילה
@@ -1411,7 +1412,7 @@ export default function SettingsPage() {
                                 <button
                                   type="button"
                                   onClick={() => setCommunityToLeavePaid(m)}
-                                  className="font-normal underline hover:opacity-70 transition"
+                                  className="font-semibold underline hover:opacity-70 transition"
                                   style={{ fontSize: '16px', color: '#000000' }}
                                 >
                                   ביטול המנוי
@@ -1421,7 +1422,7 @@ export default function SettingsPage() {
                                 <button
                                   type="button"
                                   onClick={() => setCommunityToCancelSub(m)}
-                                  className="font-normal underline hover:opacity-70 transition"
+                                  className="font-semibold underline hover:opacity-70 transition"
                                   style={{ fontSize: '16px', color: '#000000' }}
                                 >
                                   ביטול המנוי
@@ -1463,7 +1464,7 @@ export default function SettingsPage() {
                                       setUndoingId(null);
                                     }
                                   }}
-                                  className="font-normal underline hover:opacity-70 transition disabled:opacity-50"
+                                  className="font-semibold underline hover:opacity-70 transition disabled:opacity-50"
                                   style={{ fontSize: '16px', color: '#000000' }}
                                 >
                                   {undoingId === m.communityId ? 'מבטל...' : 'ביטול השבתה'}
@@ -1473,7 +1474,7 @@ export default function SettingsPage() {
                                 <button
                                   type="button"
                                   onClick={() => setCommunityToRenew(m)}
-                                  className="font-normal underline hover:opacity-70 transition"
+                                  className="font-semibold underline hover:opacity-70 transition"
                                   style={{ fontSize: '16px', color: '#000000' }}
                                 >
                                   חדש מנוי
@@ -1691,7 +1692,7 @@ export default function SettingsPage() {
                   onClick={() => setCardToDelete(null)}
                   disabled={deletingCardId === cardToDelete.id}
                   className="bg-white text-black border hover:bg-gray-50 transition disabled:opacity-50"
-                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '8px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
                 >
                   חזרה
                 </button>
@@ -1734,7 +1735,7 @@ export default function SettingsPage() {
                   }}
                   disabled={deletingCardId === cardToDelete.id}
                   className="bg-error text-white hover:opacity-90 transition disabled:opacity-50"
-                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '8px', padding: '0.375rem 1.25rem' }}
                 >
                   {deletingCardId === cardToDelete.id ? 'מוחק...' : 'הסרת הכרטיס'}
                 </button>
@@ -1770,7 +1771,7 @@ export default function SettingsPage() {
                 <button
                   onClick={() => setCardBlocked(null)}
                   className="bg-black text-white hover:opacity-90 transition"
-                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '8px', padding: '0.375rem 1.25rem' }}
                 >
                   הבנתי
                 </button>
@@ -1830,7 +1831,7 @@ export default function SettingsPage() {
                       setDeleteConfirmText('');
                     }}
                     className="bg-white text-black border hover:bg-gray-50 transition"
-                    style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
+                    style={{ fontSize: '16px', fontWeight: 400, borderRadius: '8px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
                   >
                     ביטול
                   </button>
@@ -1838,7 +1839,7 @@ export default function SettingsPage() {
                     onClick={handleDeleteAccount}
                     disabled={deletingAccount || deleteConfirmText !== 'מחיקת החשבון שלי'}
                     className="bg-error text-white hover:opacity-90 transition disabled:opacity-50"
-                    style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
+                    style={{ fontSize: '16px', fontWeight: 400, borderRadius: '8px', padding: '0.375rem 1.25rem' }}
                   >
                     {deletingAccount ? 'מוחק...' : 'מחיקת החשבון לצמיתות'}
                   </button>

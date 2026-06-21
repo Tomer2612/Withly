@@ -47,10 +47,22 @@ export default function CommunityNavbar({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Prevent body scroll when mobile menu is open
+  // Prevent body scroll when mobile menu is open. Compensate for the
+  // scrollbar width (left side in RTL) so locking doesn't shift the page —
+  // which otherwise makes the fixed overlay look misaligned vs the content.
   useEffect(() => {
-    document.body.style.overflow = mobileMenuOpen ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
+    if (mobileMenuOpen) {
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+      document.body.style.overflow = 'hidden';
+      if (scrollbarWidth > 0) document.body.style.paddingLeft = `${scrollbarWidth}px`;
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.paddingLeft = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.paddingLeft = '';
+    };
   }, [mobileMenuOpen]);
 
   const navLinks = [
@@ -204,7 +216,7 @@ export default function CommunityNavbar({
 
     {/* Mobile nav menu overlay */}
     {mobileMenuOpen && (
-      <div dir="rtl" className="fixed inset-0 top-[72px] z-50 bg-white xl:hidden overflow-y-auto">
+      <div dir="rtl" className="fixed left-0 right-0 bottom-0 top-[72px] z-50 bg-white xl:hidden overflow-y-auto">
         <div className="flex flex-col px-6 py-4 gap-1">
           {/* Search on mobile */}
           {showSearch && (

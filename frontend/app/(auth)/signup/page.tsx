@@ -410,7 +410,7 @@ function SignupContent() {
                 onSubmit={handleSignup}
                 className="w-full flex flex-col gap-4 text-right"
               >
-                <h1 className="text-[21px] text-center mb-2" style={{ fontWeight: 600 }}>מתחילים כאן</h1>
+                <h1 className="text-[32px] md:text-[40px] text-center mb-2" style={{ fontWeight: 600 }}>מתחילים כאן</h1>
 
                 {/* Google Button */}
                 <a
@@ -675,7 +675,7 @@ function SignupContent() {
             <button
               type="submit"
               disabled={isSubmitting || !isPasswordValid || !passwordsMatch || !name.trim() || !isValidEmail(email) || !!emailError}
-              className="bg-black text-white py-3 transition-colors font-medium disabled:cursor-not-allowed"
+              className="bg-black text-white py-3 transition-colors font-semibold disabled:cursor-not-allowed"
               style={{ borderRadius: '12px', backgroundColor: (isSubmitting || !isPasswordValid || !passwordsMatch || !name.trim() || !isValidEmail(email) || !!emailError) ? '#D0D0D4' : 'black' }}
               onMouseEnter={(e) => !(isSubmitting || !isPasswordValid || !passwordsMatch || !name.trim() || !isValidEmail(email) || !!emailError) && (e.currentTarget.style.backgroundColor = '#3F3F46')}
               onMouseLeave={(e) => !(isSubmitting || !isPasswordValid || !passwordsMatch || !name.trim() || !isValidEmail(email) || !!emailError) && (e.currentTarget.style.backgroundColor = 'black')}

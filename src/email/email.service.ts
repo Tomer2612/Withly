@@ -32,7 +32,7 @@ export class EmailService {
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #F4F4F5; padding: 40px 20px;">
           <tr>
             <td align="center">
-              <table role="presentation" width="536" cellpadding="0" cellspacing="0" style="max-width: 536px; background-color: #FFFFFF; border: 1px solid #D0D0D4; border-radius: 12px; overflow: hidden;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 536px; background-color: #FFFFFF; border: 1px solid #D0D0D4; border-radius: 12px; overflow: hidden;">
                 <!-- 1. Thick green accent bar 536x25 -->
                 <tr>
                   <td style="height: 25px; background-color: #A7EA7B; line-height: 0; font-size: 0;">&nbsp;</td>
@@ -59,7 +59,7 @@ export class EmailService {
                 <!-- 7. Thin green divider 440x1 centered -->
                 <tr>
                   <td align="center" style="padding: 0;">
-                    <div style="width: 440px; max-width: 440px; height: 1px; background-color: #A7EA7B;"></div>
+                    <div style="width: 100%; max-width: 440px; height: 1px; background-color: #A7EA7B;"></div>
                   </td>
                 </tr>
                 <!-- 8. Spacing 32px -->
@@ -75,7 +75,7 @@ export class EmailService {
                 <!-- 16. Thin green divider 440x1 centered -->
                 <tr>
                   <td align="center" style="padding: 0;">
-                    <div style="width: 440px; max-width: 440px; height: 1px; background-color: #A7EA7B;"></div>
+                    <div style="width: 100%; max-width: 440px; height: 1px; background-color: #A7EA7B;"></div>
                   </td>
                 </tr>
                 <!-- 17. Spacing 32px -->

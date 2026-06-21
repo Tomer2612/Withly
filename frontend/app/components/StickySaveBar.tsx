@@ -64,7 +64,7 @@ export default function StickySaveBar({
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className="bg-white text-black border hover:bg-gray-50 transition disabled:opacity-50"
+          className="bg-white text-black border hover:bg-gray-50 transition disabled:opacity-50 whitespace-nowrap"
           style={{ ...BTN_BASE, borderColor: 'var(--color-black)' }}
         >
           {cancelLabel}
@@ -73,7 +73,7 @@ export default function StickySaveBar({
           type="button"
           onClick={onSave}
           disabled={saving || saveDisabled}
-          className="bg-black text-white hover:opacity-90 transition disabled:opacity-50"
+          className="bg-black text-white hover:opacity-90 transition disabled:opacity-50 whitespace-nowrap"
           style={BTN_BASE}
         >
           {saving ? savingLabel : saveLabel}

@@ -493,7 +493,7 @@ export default function NotificationBell() {
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute left-0 sm:left-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-96 max-w-[384px] bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden -translate-x-4 sm:translate-x-0" dir="rtl">
+        <div className="fixed sm:absolute top-[64px] sm:top-full left-2 sm:left-0 sm:mt-2 w-[min(320px,calc(100vw-1rem))] sm:w-80 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden" dir="rtl">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
             <h3 className="font-semibold text-gray-900">התראות</h3>
@@ -526,14 +526,14 @@ export default function NotificationBell() {
           </div>
 
           {/* Notifications List */}
-          <div className="max-h-[400px] overflow-y-auto">
+          <div className="max-h-[60vh] overflow-y-auto">
             <div dir="rtl">
             {loading ? (
-              <div className="flex items-center justify-center py-8">
+              <div className="flex items-center justify-center min-h-[260px]">
                 <div className="w-6 h-6 border-2 border-gray-300 border-t-black rounded-full animate-spin" />
               </div>
             ) : groupedNotifications.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
+              <div className="flex flex-col items-center justify-center min-h-[260px] px-4 text-center text-gray-500">
                 <svg className="w-8 h-8 mx-auto mb-2 opacity-30" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path 
                     d="M10.2688 21C10.4443 21.304 10.6968 21.5565 11.0008 21.732C11.3049 21.9075 11.6497 21.9999 12.0008 21.9999C12.3519 21.9999 12.6967 21.9075 13.0008 21.732C13.3048 21.5565 13.5573 21.304 13.7328 21" 

@@ -1128,10 +1128,10 @@ export default function ManageCommunityPage() {
               type="button"
               onClick={() => { if (!tabDisabled) setActiveTab(tab.key); }}
               aria-disabled={tabDisabled}
-              className={`px-4 py-2 text-sm rounded-lg whitespace-nowrap transition ${
+              className={`px-4 py-2 text-sm rounded-md whitespace-nowrap transition ${
                 activeTab === tab.key
-                  ? 'bg-gray-900 text-white font-medium'
-                  : 'text-gray-600 hover:bg-gray-100 font-normal'
+                  ? 'bg-gray-900 text-white font-semibold'
+                  : 'text-gray-600 hover:bg-gray-100 font-semibold'
               } ${tabDisabled ? 'opacity-40 cursor-not-allowed hover:bg-transparent' : ''}`}
             >
               {tab.label}
@@ -1154,7 +1154,7 @@ export default function ManageCommunityPage() {
               type="button"
               onClick={() => { if (!isSuspended) setActiveTab('general'); }}
               aria-disabled={isSuspended}
-              className={`w-full text-right px-4 py-2.5 rounded-lg font-medium transition ${
+              className={`w-full text-right px-4 py-2.5 rounded-md font-semibold transition ${
                 activeTab === 'general'
                   ? 'bg-gray-100 text-gray-900'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
@@ -1167,7 +1167,7 @@ export default function ManageCommunityPage() {
               type="button"
               onClick={() => { if (!isSuspended) setActiveTab('rules'); }}
               aria-disabled={isSuspended}
-              className={`w-full text-right px-4 py-2.5 rounded-lg font-medium transition ${
+              className={`w-full text-right px-4 py-2.5 rounded-md font-semibold transition ${
                 activeTab === 'rules'
                   ? 'bg-gray-100 text-gray-900'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
@@ -1180,7 +1180,7 @@ export default function ManageCommunityPage() {
               type="button"
               onClick={() => { if (!isSuspended) setActiveTab('social'); }}
               aria-disabled={isSuspended}
-              className={`w-full text-right px-4 py-2.5 rounded-lg font-medium transition ${
+              className={`w-full text-right px-4 py-2.5 rounded-md font-semibold transition ${
                 activeTab === 'social'
                   ? 'bg-gray-100 text-gray-900'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
@@ -1193,7 +1193,7 @@ export default function ManageCommunityPage() {
               <button
                 type="button"
                 onClick={() => setActiveTab('payments')}
-                className={`w-full text-right px-4 py-2.5 rounded-lg font-medium transition ${
+                className={`w-full text-right px-4 py-2.5 rounded-md font-semibold transition ${
                   activeTab === 'payments'
                     ? 'bg-gray-100 text-gray-900'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
@@ -1216,7 +1216,7 @@ export default function ManageCommunityPage() {
                 {/* Community Name */}
                 <div className="flex flex-col md:flex-row gap-4 md:gap-8">
                   <div className="md:w-48 flex-shrink-0 text-right">
-                    <h3 className="font-medium text-gray-900 text-base">שם הקהילה</h3>
+                    <h3 className="text-[20px] font-semibold text-gray-900">שם הקהילה</h3>
                     <p className="text-sm text-gray-500 mt-1">השם הכללי שיוצג ברחבי האתר</p>
                   </div>
                   <div className="flex-1">
@@ -1238,7 +1238,7 @@ export default function ManageCommunityPage() {
                 {/* Community URL */}
                 <div className="flex flex-col md:flex-row gap-4 md:gap-8">
                   <div className="md:w-48 flex-shrink-0 text-right">
-                    <h3 className="font-medium text-gray-900 text-base">לינק (URL)</h3>
+                    <h3 className="text-[20px] font-semibold text-gray-900">לינק (URL)</h3>
                     <p className="text-sm text-gray-500 mt-1">הכתובת הציבורית של הקהילה (אותיות באנגלית, מספרים ומקפים בלבד)</p>
                   </div>
                   <div className="flex-1">
@@ -1265,7 +1265,7 @@ export default function ManageCommunityPage() {
                 {/* Logo */}
                 <div className="flex flex-col md:flex-row gap-4 md:gap-8">
                   <div className="md:w-48 flex-shrink-0 text-right">
-                    <h3 className="font-medium text-gray-900 text-base">לוגו / תמונת פרופיל</h3>
+                    <h3 className="text-[20px] font-semibold text-gray-900">לוגו / תמונת פרופיל</h3>
                     <p className="text-sm text-gray-500 mt-1">האייקון שמייצג את הקהילה</p>
                   </div>
                   <div className="flex-1">
@@ -1302,7 +1302,7 @@ export default function ManageCommunityPage() {
                         <button
                           type="button"
                           onClick={() => setLogo(null)}
-                          className="flex items-center justify-center gap-2 px-4 py-2.5 border border-[#B3261E] text-error transition text-base font-normal w-44 hover:opacity-80"
+                          className="flex items-center justify-center gap-2 px-4 py-2.5 border border-[#B3261E] text-error transition text-base font-semibold w-44 hover:opacity-80"
                           style={{ borderRadius: '8px' }}
                         >
                           <TrashIcon className="w-4 h-4" />
@@ -1317,7 +1317,7 @@ export default function ManageCommunityPage() {
                 {/* Category */}
                 <div className="flex flex-col md:flex-row gap-4 md:gap-8">
                   <div className="md:w-48 flex-shrink-0 text-right">
-                    <h3 className="font-medium text-gray-900 text-base">קטגוריה</h3>
+                    <h3 className="text-[20px] font-semibold text-gray-900">קטגוריה</h3>
                     <p className="text-sm text-gray-500 mt-1">עוזר לאיתור וגילוי הקהילה</p>
                   </div>
                   <div className="flex-1">
@@ -1333,11 +1333,12 @@ export default function ManageCommunityPage() {
                 {/* Description */}
                 <div className="flex flex-col md:flex-row gap-4 md:gap-8">
                   <div className="md:w-48 flex-shrink-0 text-right">
-                    <h3 className="font-medium text-gray-900 text-base">תיאור הקהילה</h3>
+                    <h3 className="text-[20px] font-semibold text-gray-900">תיאור הקהילה</h3>
                     <p className="text-sm text-gray-500 mt-1">פירוט על הקהילה, למי היא מתאימה, מטרותיה ותחומי העניין שעוסקים בה</p>
                   </div>
                   <div className="flex-1">
                     <textarea
+                      dir="rtl"
                       placeholder="תארו את הקהילה, מה הם הנושאים המרכזיים, מי יכול להצטרף..."
                       className="w-full p-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black text-right resize-none text-base"
                       rows={6}
@@ -1355,7 +1356,7 @@ export default function ManageCommunityPage() {
                 {/* Community Images */}
                 <div className="flex flex-col md:flex-row gap-4 md:gap-8">
                   <div className="md:w-48 flex-shrink-0 text-right">
-                    <h3 className="font-medium text-gray-900 text-base">תמונות הקהילה</h3>
+                    <h3 className="text-[20px] font-semibold text-gray-900">תמונות הקהילה</h3>
                     <p className="text-sm text-gray-500 mt-1">תמונות שיוצגו בעמוד הקהילה</p>
                   </div>
                   <div className="flex-1">
@@ -1393,14 +1394,14 @@ export default function ManageCommunityPage() {
                               <button
                                 type="button"
                                 onClick={() => setPrimaryImage(index)}
-                                className="font-medium flex items-center justify-center"
-                                style={{ 
-                                  backgroundColor: '#91DCED', 
+                                className="font-semibold flex items-center justify-center"
+                                style={{
+                                  backgroundColor: '#91DCED',
                                   color: '#003233',
                                   fontSize: '12px',
                                   width: '77px',
                                   height: '20px',
-                                  borderRadius: '9999px'
+                                  borderRadius: '8px'
                                 }}
                               >
                                 הפוך לראשית
@@ -1409,14 +1410,14 @@ export default function ManageCommunityPage() {
                             <button
                               type="button"
                               onClick={() => removeImageAtIndex(index)}
-                              className="font-medium flex items-center justify-center"
-                              style={{ 
-                                backgroundColor: '#B3261E', 
+                              className="font-semibold flex items-center justify-center"
+                              style={{
+                                backgroundColor: '#B3261E',
                                 color: 'white',
                                 fontSize: '12px',
                                 width: '67px',
                                 height: '20px',
-                                borderRadius: '9999px'
+                                borderRadius: '8px'
                               }}
                             >
                               הסר תמונה
@@ -1437,7 +1438,7 @@ export default function ManageCommunityPage() {
                   />
                   <label
                     htmlFor="image-upload"
-                    className="flex items-center justify-center gap-2 w-full p-4 border-2 border-dashed rounded-lg transition border-gray-300 cursor-pointer hover:border-gray-400 hover:bg-gray-50"
+                    className="flex items-center justify-center gap-2 w-full p-4 border-2 border-dashed rounded-md transition border-gray-300 cursor-pointer hover:border-gray-400 hover:bg-gray-50"
                   >
                     <ImageIcon size={20} color="#9CA3AF" />
                     <span className="text-gray-600">לחץ להעלאת תמונות (עד 20MB)</span>
@@ -1448,7 +1449,7 @@ export default function ManageCommunityPage() {
                 {/* Gallery Videos */}
                 <div className="flex flex-col md:flex-row gap-4 md:gap-8">
                   <div className="md:w-48 flex-shrink-0 text-right">
-                    <h3 className="font-medium text-gray-900 text-base">סרטונים</h3>
+                    <h3 className="text-[20px] font-semibold text-gray-900">סרטונים</h3>
                     <p className="text-sm text-gray-500 mt-1">סרטונים שיוצגו בעמוד הקהילה</p>
                     <p className="text-xs text-gray-500 mt-1">תומך בסרטונים של YouTube, Vimeo, Dailymotion או העלאת סרטון אישי</p>
                   </div>
@@ -1505,7 +1506,7 @@ export default function ManageCommunityPage() {
                           }
                         }}
                         disabled={!newVideoUrl.trim() || !isValidVideoUrl(newVideoUrl.trim())}
-                        className="px-4 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        className="px-4 py-3 bg-black text-white rounded-md font-semibold hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                       >
                         <span>הוסף</span>
                         <VideoIcon size={16} color="#FFFFFF" />
@@ -1546,7 +1547,7 @@ export default function ManageCommunityPage() {
                       />
                       <label
                         htmlFor="gallery-video-upload"
-                        className="inline-flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition text-sm text-gray-600"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 transition text-sm text-gray-600"
                       >
                         <VideoIcon size={16} color="#6B7280" />
                         העלאת סרטון (עד 100MB)
@@ -1578,7 +1579,7 @@ export default function ManageCommunityPage() {
                 {/* Community Status */}
                 <div className="space-y-3">
                   <div className="text-right">
-                    <h3 className="font-semibold text-black" style={{ fontSize: '18px' }}>מצב הקהילה</h3>
+                    <h3 className="font-semibold text-black" style={{ fontSize: '20px' }}>מצב הקהילה</h3>
                     <p className="mt-1" style={{ fontSize: '14px', color: '#3F3F46', fontWeight: 400 }}>קובע מי יכול לראות את הקהילה ולהצטרף אליה</p>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-3">
@@ -1692,13 +1693,13 @@ export default function ManageCommunityPage() {
                 {/* Show Online Members Toggle */}
                 <div className="flex items-center justify-between gap-6">
                   <div className="flex-1 text-right">
-                    <h3 className="font-medium text-gray-900 text-base">הצגת חברים מחוברים</h3>
+                    <h3 className="text-[20px] font-semibold text-gray-900">הצגת חברים מחוברים</h3>
                     <p className="text-sm text-gray-500 mt-1">הצגת מספר החברים המחוברים כרגע בעמוד הפיד</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setShowOnlineMembers(!showOnlineMembers)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-full border bg-white text-sm font-medium transition"
+                    className="flex items-center gap-2 px-3 py-2 rounded-md border bg-white text-sm font-semibold transition"
                     style={{ borderColor: '#E1E1E2', color: '#3F3F46' }}
                   >
                     <div 
@@ -1717,7 +1718,7 @@ export default function ManageCommunityPage() {
               <div className="bg-white rounded-xl border border-gray-200 p-8 space-y-8">
                 <div className="flex flex-col md:flex-row gap-4 md:gap-8">
                   <div className="md:w-48 flex-shrink-0 text-right">
-                    <h3 className="font-medium text-gray-900 text-base">כללי הקהילה</h3>
+                    <h3 className="text-[20px] font-semibold text-gray-900">כללי הקהילה</h3>
                     <p className="text-sm text-gray-500 mt-1">הכללים שחברי הקהילה יראו בעמוד הפיד. אפשר להוסיף עד 3 כללים</p>
                   </div>
                   <div className="flex-1 space-y-3">
@@ -1763,7 +1764,7 @@ export default function ManageCommunityPage() {
                       type="button"
                       onClick={handleAddRule}
                       disabled={!newRule.trim() || rules.length >= 3}
-                      className="px-5 py-3.5 bg-black text-white rounded-lg font-medium hover:bg-gray-800 disabled:opacity-50 transition flex items-center gap-2 text-base"
+                      className="px-5 py-3.5 bg-black text-white rounded-md font-semibold hover:bg-gray-800 disabled:opacity-50 transition flex items-center gap-2 text-base"
                     >
                       הוסף
                       <PlusIcon size={12} />
@@ -1782,7 +1783,7 @@ export default function ManageCommunityPage() {
               <div className="bg-white rounded-xl border border-gray-200 p-8 space-y-8">
                 <div className="flex flex-col md:flex-row gap-4 md:gap-8">
                   <div className="md:w-48 flex-shrink-0 text-right">
-                    <h3 className="font-medium text-gray-900 text-base">רשתות חברתיות</h3>
+                    <h3 className="text-[20px] font-semibold text-gray-900">רשתות חברתיות</h3>
                     <p className="text-sm text-gray-500 mt-1">קישורים לפרופילים החברתיים שלך</p>
                   </div>
                   <div className="flex-1 space-y-3">
@@ -1893,7 +1894,7 @@ export default function ManageCommunityPage() {
                 <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 space-y-6">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                     <div>
-                      <h3 className="font-medium text-gray-900 text-base">מחיר חודשי</h3>
+                      <h3 className="text-[20px] font-semibold text-gray-900">מחיר חודשי</h3>
                       <p className="text-sm text-gray-500 mt-1">כאן קובעים אם ההצטרפות לקהילה כרוכה בתשלום.</p>
                     </div>
                     <div className="flex-shrink-0">
@@ -1905,7 +1906,7 @@ export default function ManageCommunityPage() {
                             setPrice(0);
                           }}
                           disabled={!!pendingPriceEffectiveAt}
-                          className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-base font-normal border transition disabled:cursor-not-allowed ${
+                          className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-base font-semibold border transition disabled:cursor-not-allowed ${
                             !isPaidCommunity
                               ? 'border-black bg-white text-gray-600'
                               : `border-gray-300 bg-white text-gray-600 ${pendingPriceEffectiveAt ? 'opacity-50' : 'hover:border-gray-400'}`
@@ -1926,7 +1927,7 @@ export default function ManageCommunityPage() {
                             if (price < 10) setPrice(10);
                           }}
                           disabled={!!pendingPriceEffectiveAt}
-                          className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-base font-normal border transition disabled:cursor-not-allowed ${
+                          className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-base font-semibold border transition disabled:cursor-not-allowed ${
                             isPaidCommunity
                               ? 'border-black bg-white text-gray-600'
                               : `border-gray-300 bg-white text-gray-600 ${pendingPriceEffectiveAt ? 'opacity-50' : 'hover:border-gray-400'}`
@@ -1946,7 +1947,7 @@ export default function ManageCommunityPage() {
 
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4 pt-6 border-t border-gray-200">
                     <div className={`flex-shrink-0 ${!isPaidCommunity ? 'opacity-50' : ''}`}>
-                      <h3 className="font-medium text-gray-900 text-base">עלות מנוי חודשי</h3>
+                      <h3 className="text-[20px] font-semibold text-gray-900">עלות מנוי חודשי</h3>
                       <p className="text-sm text-gray-500 mt-1">סכום החיוב החודשי בשקלים לכל חבר קהילה</p>
                     </div>
                     <div className="flex-1">
@@ -2010,7 +2011,7 @@ export default function ManageCommunityPage() {
                           type="button"
                           onClick={() => openPriceChangeIfChanged(isPaidCommunity, price)}
                           disabled={disabled}
-                          className="text-[16px] font-normal bg-white text-black hover:bg-gray-50 transition flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="text-[16px] font-semibold bg-white text-black hover:bg-gray-50 transition flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                           style={{
                             border: '1px solid var(--color-gray-4)',
                             borderRadius: '12px',
@@ -2064,7 +2065,7 @@ export default function ManageCommunityPage() {
                     reality, not the form's paid/free radio. */}
                 {(currentCommunityPrice > 0 || (pendingPrice ?? 0) > 0) && (
                   <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 mt-6">
-                    <h3 className="text-[18px] font-semibold text-black">הכנסות הקהילה</h3>
+                    <h3 className="text-[20px] font-semibold text-black">הכנסות הקהילה</h3>
 
                     <div className="flex flex-wrap gap-4 mt-4">
                       <ComingSoonTooltip tailDirection="up" maxWidth="240px" text="סך החברים בעלי מנוי פעיל בתשלום נכון להיום">
@@ -2155,7 +2156,7 @@ export default function ManageCommunityPage() {
                 {/* Card 2 — owner's Withly subscription */}
                 <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 mt-6">
                   <div className="mb-6">
-                    <h3 className="text-[18px] font-semibold text-black">המנוי שלך ב-Withly</h3>
+                    <h3 className="text-[20px] font-semibold text-black">המנוי שלך ב-Withly</h3>
                     <p
                       className="text-[16px] font-normal mt-1"
                       style={{ color: 'var(--color-gray-7)' }}
@@ -2219,7 +2220,7 @@ export default function ManageCommunityPage() {
                         <button
                           type="button"
                           onClick={() => setShowCardModal(true)}
-                          className="text-[16px] font-normal bg-white text-black hover:bg-gray-50 transition flex-shrink-0"
+                          className="text-[16px] font-semibold bg-white text-black hover:bg-gray-50 transition flex-shrink-0"
                           style={{
                             border: '1px solid var(--color-gray-4)',
                             borderRadius: '12px',
@@ -2244,10 +2245,10 @@ export default function ManageCommunityPage() {
                       <button
                         type="button"
                         onClick={() => setShowCardModal(true)}
-                        className="text-[16px] font-normal bg-white text-black hover:bg-gray-50 transition flex-shrink-0"
+                        className="text-[16px] font-semibold bg-white text-black hover:bg-gray-50 transition flex-shrink-0"
                         style={{
                           border: '1px solid var(--color-gray-4)',
-                          borderRadius: '12px',
+                          borderRadius: '8px',
                           padding: '0.5rem 1.25rem',
                         }}
                       >
@@ -2288,10 +2289,10 @@ export default function ManageCommunityPage() {
                           }
                         }}
                         disabled={undoingCancellation}
-                        className="text-[16px] font-normal bg-white text-black hover:bg-gray-50 transition disabled:opacity-50 flex-shrink-0"
+                        className="text-[16px] font-semibold bg-white text-black hover:bg-gray-50 transition disabled:opacity-50 flex-shrink-0"
                         style={{
                           border: '1px solid var(--color-gray-4)',
-                          borderRadius: '12px',
+                          borderRadius: '8px',
                           padding: '0.5rem 1.25rem',
                         }}
                       >
@@ -2302,7 +2303,7 @@ export default function ManageCommunityPage() {
                     <button
                       type="button"
                       onClick={() => setShowCancelSubscriptionModal(true)}
-                      className="text-[16px] font-normal bg-white text-error hover:bg-red-50 transition"
+                      className="text-[16px] font-semibold bg-white text-error hover:bg-red-50 transition"
                       style={{
                         border: '1px solid var(--color-error)',
                         borderRadius: '12px',
@@ -2409,7 +2410,7 @@ export default function ManageCommunityPage() {
                         setShowPriceChangeConfirmModal(false);
                       }}
                       disabled={announcingPrice}
-                      style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
+                      style={{ fontSize: '16px', fontWeight: 400, borderRadius: '8px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
                       className="bg-white text-black border hover:bg-gray-50 transition disabled:opacity-50"
                     >
                       ביטול
@@ -2427,7 +2428,7 @@ export default function ManageCommunityPage() {
                         }
                       }}
                       disabled={announcingPrice}
-                      style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
+                      style={{ fontSize: '16px', fontWeight: 400, borderRadius: '8px', padding: '0.375rem 1.25rem' }}
                       className="bg-black text-white hover:opacity-90 transition disabled:opacity-50"
                     >
                       {bankAccount ? (announcingPrice ? 'מעדכן...' : 'עדכון המחיר') : 'המשך לפרטי החשבון'}
@@ -2508,7 +2509,7 @@ export default function ManageCommunityPage() {
               <button
                 type="button"
                 onClick={() => setPendingStatus(null)}
-                style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
+                style={{ fontSize: '16px', fontWeight: 400, borderRadius: '8px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
                 className="bg-white text-black border hover:bg-gray-50 transition"
               >
                 ביטול
@@ -2519,7 +2520,7 @@ export default function ManageCommunityPage() {
                   setCommunityStatus(pendingStatus);
                   setPendingStatus(null);
                 }}
-                style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
+                style={{ fontSize: '16px', fontWeight: 400, borderRadius: '8px', padding: '0.375rem 1.25rem' }}
                 className="bg-black text-white hover:opacity-90 transition"
               >
                 {pendingStatus === 'DRAFT' && 'העברה לטיוטה'}

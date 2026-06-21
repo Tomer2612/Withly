@@ -791,7 +791,7 @@ function EventsPageContent() {
                 {/* Right arrow (prev month - RTL) */}
                 <button
                   onClick={() => handleMonthChange('prev')}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition"
+                  className="p-2 hover:bg-gray-100 rounded-md transition"
                 >
                   <ChevronRightIcon className="w-4 h-4" />
                 </button>
@@ -800,7 +800,7 @@ function EventsPageContent() {
                 <div className="relative flex items-center">
                   <button
                     onClick={() => setShowSidebarDatePicker(!showSidebarDatePicker)}
-                    className="flex items-center justify-center gap-2 px-3 py-1 rounded-lg hover:bg-[#E4E4E7] transition"
+                    className="flex items-center justify-center gap-2 px-3 py-1 rounded-md hover:bg-[#E4E4E7] transition"
                     style={{ backgroundColor: '#F4F4F5', border: '1px solid #D0D0D4' }}
                   >
                     <span className="text-base font-medium text-black">
@@ -844,7 +844,7 @@ function EventsPageContent() {
                                 type="button"
                                 onClick={decreaseMonth}
                                 disabled={prevMonthButtonDisabled}
-                                className="p-2 hover:bg-gray-100 rounded disabled:opacity-50"
+                                className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50"
                               >
                                 <ChevronRightIcon className="w-4 h-4" />
                               </button>
@@ -865,7 +865,7 @@ function EventsPageContent() {
                                 type="button"
                                 onClick={increaseMonth}
                                 disabled={nextMonthButtonDisabled}
-                                className="p-2 hover:bg-gray-100 rounded disabled:opacity-50"
+                                className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50"
                               >
                                 <ChevronLeftIcon className="w-4 h-4" />
                               </button>
@@ -880,7 +880,7 @@ function EventsPageContent() {
                 {/* Left arrow (next month - RTL) */}
                 <button
                   onClick={() => handleMonthChange('next')}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition"
+                  className="p-2 hover:bg-gray-100 rounded-md transition"
                 >
                   <ChevronLeftIcon className="w-4 h-4" />
                 </button>
@@ -907,16 +907,16 @@ function EventsPageContent() {
               <div className="bg-white rounded-2xl border border-gray-200 p-4">
                 <div className="flex items-center gap-3 flex-wrap">
                   {/* View Toggle */}
-                  <div className="flex bg-gray-100 rounded-lg p-1 flex-1">
+                  <div className="flex bg-gray-100 rounded-md p-1 flex-1">
                     <button
                       onClick={() => setViewMode('calendar')}
-                      className="flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition bg-white shadow text-black"
+                      className="flex-1 px-3 py-1.5 text-sm font-semibold rounded-md transition bg-white shadow text-black"
                     >
                       לוח שנה
                     </button>
                     <button
                       onClick={() => setViewMode('list')}
-                      className="flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition text-gray-600"
+                      className="flex-1 px-3 py-1.5 text-sm font-semibold rounded-md transition text-gray-600"
                     >
                       רשימה
                     </button>
@@ -928,7 +928,7 @@ function EventsPageContent() {
                         setAddEventDate(null);
                         setShowAddModal(true);
                       }}
-                      className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition whitespace-nowrap"
+                      className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-md hover:bg-gray-800 transition whitespace-nowrap"
                     >
                       <span>הוסף אירוע</span>
                       <PlusIcon size={16} />
@@ -940,7 +940,7 @@ function EventsPageContent() {
               {/* Selected Date Events */}
               <div className="bg-white rounded-2xl border border-gray-200 p-4 h-fit max-h-[calc(100vh-280px)] flex flex-col">
                 {/* Date Title - Simple format */}
-                <h3 className="font-bold text-black mb-4 flex-shrink-0">
+                <h3 className="font-semibold text-black mb-4 flex-shrink-0">
                   {selectedDate 
                     ? formatDate(selectedDate.toISOString())
                     : 'בחירת תאריך'
@@ -982,7 +982,7 @@ function EventsPageContent() {
           /* List View - shows all events */
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-6">
             {/* Events List */}
-            <div className="space-y-4">
+            <div className="space-y-4 order-2 lg:order-1">
               {allEvents.length > 0 ? (
                 allEvents.map(event => (
                     <EventCard
@@ -1008,21 +1008,21 @@ function EventsPageContent() {
             </div>
 
             {/* Sidebar Controls */}
-            <div className="space-y-4">
+            <div className="space-y-4 order-1 lg:order-2">
               {/* View Toggle & Add Event */}
               <div className="bg-white rounded-2xl border border-gray-200 p-4">
                 <div className="flex items-center gap-3 flex-wrap">
                   {/* View Toggle */}
-                  <div className="flex bg-gray-100 rounded-lg p-1 flex-1">
+                  <div className="flex bg-gray-100 rounded-md p-1 flex-1">
                     <button
                       onClick={() => setViewMode('calendar')}
-                      className="flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition text-gray-600"
+                      className="flex-1 px-3 py-1.5 text-sm font-semibold rounded-md transition text-gray-600"
                     >
                       לוח שנה
                     </button>
                     <button
                       onClick={() => setViewMode('list')}
-                      className="flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition bg-white shadow text-black"
+                      className="flex-1 px-3 py-1.5 text-sm font-semibold rounded-md transition bg-white shadow text-black"
                     >
                       רשימה
                     </button>
@@ -1034,7 +1034,7 @@ function EventsPageContent() {
                         setAddEventDate(null);
                         setShowAddModal(true);
                       }}
-                      className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition whitespace-nowrap"
+                      className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-md hover:bg-gray-800 transition whitespace-nowrap"
                     >
                       <span>הוסף אירוע</span>
                       <PlusIcon size={16} />
@@ -1100,14 +1100,14 @@ function EventsPageContent() {
                 <button
                   onClick={() => setDeleteEventId(null)}
                   className="bg-white text-black border hover:bg-gray-50 transition"
-                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '8px', padding: '0.375rem 1.25rem', borderColor: 'var(--color-black)' }}
                 >
                   ביטול
                 </button>
                 <button
                   onClick={() => handleDeleteEvent(deleteEventId)}
                   className="bg-error text-white transition hover:opacity-90"
-                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '12px', padding: '0.375rem 1.25rem' }}
+                  style={{ fontSize: '16px', fontWeight: 400, borderRadius: '8px', padding: '0.375rem 1.25rem' }}
                 >
                   מחיקת האירוע
                 </button>
@@ -1190,7 +1190,7 @@ function EventCard({
         <div className="absolute top-2 left-2 z-10">
           <button
             onClick={() => setShowMenu(!showMenu)}
-            className="p-2 rounded-full hover:bg-gray-100 transition"
+            className="p-2 rounded-lg hover:bg-gray-100 transition"
           >
             <MoreDotsIcon size={12} color="#4B5563" />
           </button>
@@ -1203,7 +1203,7 @@ function EventCard({
                     setShowMenu(false);
                     onEdit?.(event);
                   }}
-                  className="w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 rounded-md"
+                  className="w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 rounded-lg"
                 >
                   <EditIcon size={14} className="flex-shrink-0" />
                   <span>ערוך</span>
@@ -1213,7 +1213,7 @@ function EventCard({
                     setShowMenu(false);
                     onDelete?.(event.id);
                   }}
-                  className="w-full px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 rounded-md"
+                  className="w-full px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 rounded-lg"
                   style={{ color: 'var(--color-error)' }}
                 >
                   <TrashIcon size={14} className="flex-shrink-0" />
@@ -1292,7 +1292,7 @@ function EventCard({
             <button
               onClick={() => onRsvp(event.id, 'GOING')}
               disabled={isLoading}
-              className={`flex-1 flex items-center justify-center py-2 rounded-full transition border ${
+              className={`flex-1 flex items-center justify-center py-2 rounded-md transition border ${
                 event.userRsvp === 'GOING'
                   ? 'bg-black text-white border-black'
                   : 'bg-white text-black border-gray-200 hover:bg-gray-50'
@@ -1304,7 +1304,7 @@ function EventCard({
             <button
               onClick={() => onRsvp(event.id, 'MAYBE')}
               disabled={isLoading}
-              className={`flex-1 flex items-center justify-center py-2 rounded-full transition border ${
+              className={`flex-1 flex items-center justify-center py-2 rounded-md transition border ${
                 event.userRsvp === 'MAYBE'
                   ? 'bg-black text-white border-black'
                   : 'bg-white text-black border-gray-200 hover:bg-gray-50'
@@ -1316,7 +1316,7 @@ function EventCard({
             <button
               onClick={() => onRsvp(event.id, 'NOT_GOING')}
               disabled={isLoading}
-              className={`flex-1 flex items-center justify-center py-2 rounded-full transition border ${
+              className={`flex-1 flex items-center justify-center py-2 rounded-md transition border ${
                 event.userRsvp === 'NOT_GOING'
                   ? 'bg-black text-white border-black'
                   : 'bg-white text-black border-gray-200 hover:bg-gray-50'
@@ -1424,9 +1424,9 @@ function AddEventModal({
   
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" dir="rtl">
-      <div className="bg-white rounded-2xl w-full max-w-xl max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-2xl w-full max-w-xl max-h-[95vh] flex flex-col">
         <div className="flex-shrink-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-          <h2 className="text-xl font-bold text-black">הוסף אירוע</h2>
+          <h2 className="text-[28px] font-semibold text-black">הוסף אירוע</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <CloseIcon size={20} />
           </button>
@@ -1486,7 +1486,7 @@ function AddEventModal({
                             type="button"
                             onClick={decreaseMonth}
                             disabled={prevMonthButtonDisabled}
-                            className="p-2 hover:bg-gray-100 rounded disabled:opacity-50"
+                            className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50"
                           >
                             <ChevronRightIcon className="w-4 h-4" />
                           </button>
@@ -1507,7 +1507,7 @@ function AddEventModal({
                             type="button"
                             onClick={increaseMonth}
                             disabled={nextMonthButtonDisabled}
-                            className="p-2 hover:bg-gray-100 rounded disabled:opacity-50"
+                            className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50"
                           >
                             <ChevronLeftIcon className="w-4 h-4" />
                           </button>
@@ -1576,7 +1576,7 @@ function AddEventModal({
                   setLocationName('Zoom');
                   setLocationUrl('');
                 }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-md border ${
                   locationType === 'online' 
                     ? 'border-black bg-gray-50' 
                     : 'border-gray-200'
@@ -1592,7 +1592,7 @@ function AddEventModal({
                   setLocationName('');
                   setLocationUrl('');
                 }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-md border ${
                   locationType === 'in-person' 
                     ? 'border-black bg-gray-50' 
                     : 'border-gray-200'
@@ -1640,6 +1640,7 @@ function AddEventModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">תיאור</label>
             <textarea
+              dir="rtl"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="בואו להנות מחברה טובה."
@@ -1660,7 +1661,7 @@ function AddEventModal({
                   key={cat.value}
                   type="button"
                   onClick={() => setCategory(cat.value)}
-                  className="px-3 py-2 rounded-full text-sm transition-colors"
+                  className="px-3 py-2 rounded-md text-sm transition-colors"
                   style={{
                     backgroundColor: category === cat.value ? '#A7EA7B' : '#E5E7EB',
                     color: category === cat.value ? '#163300' : '#000000',
@@ -1759,14 +1760,14 @@ function AddEventModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-3 border border-gray-200 rounded-xl text-gray-700 font-medium hover:bg-gray-50"
+              className="flex-1 py-3 border border-gray-200 rounded-md text-gray-700 font-semibold hover:bg-gray-50"
             >
               ביטול
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 py-3 bg-black text-white rounded-xl font-medium hover:bg-gray-800 disabled:opacity-50"
+              className="flex-1 py-3 bg-black text-white rounded-md font-semibold hover:bg-gray-800 disabled:opacity-50"
             >
               {loading ? 'יוצר...' : 'צור אירוע'}
             </button>
@@ -1869,9 +1870,9 @@ function EditEventModal({
   
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" dir="rtl">
-      <div className="bg-white rounded-2xl w-full max-w-xl max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-2xl w-full max-w-xl max-h-[95vh] flex flex-col">
         <div className="flex-shrink-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-          <h2 className="text-xl font-bold text-black">עריכת אירוע</h2>
+          <h2 className="text-[28px] font-semibold text-black">עריכת אירוע</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <CloseIcon size={20} />
           </button>
@@ -1931,7 +1932,7 @@ function EditEventModal({
                             type="button"
                             onClick={decreaseMonth}
                             disabled={prevMonthButtonDisabled}
-                            className="p-2 hover:bg-gray-100 rounded disabled:opacity-50"
+                            className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50"
                           >
                             <ChevronRightIcon className="w-4 h-4" />
                           </button>
@@ -1952,7 +1953,7 @@ function EditEventModal({
                             type="button"
                             onClick={increaseMonth}
                             disabled={nextMonthButtonDisabled}
-                            className="p-2 hover:bg-gray-100 rounded disabled:opacity-50"
+                            className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50"
                           >
                             <ChevronLeftIcon className="w-4 h-4" />
                           </button>
@@ -2021,7 +2022,7 @@ function EditEventModal({
                   setLocationName('Zoom');
                   setLocationUrl('');
                 }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-md border ${
                   locationType === 'online' 
                     ? 'border-black bg-gray-50' 
                     : 'border-gray-200'
@@ -2037,7 +2038,7 @@ function EditEventModal({
                   setLocationName('');
                   setLocationUrl('');
                 }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-md border ${
                   locationType === 'in-person' 
                     ? 'border-black bg-gray-50' 
                     : 'border-gray-200'
@@ -2085,6 +2086,7 @@ function EditEventModal({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">תיאור</label>
             <textarea
+              dir="rtl"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="בואו להנות מחברה טובה."
@@ -2105,7 +2107,7 @@ function EditEventModal({
                   key={cat.value}
                   type="button"
                   onClick={() => setCategory(cat.value)}
-                  className="px-3 py-2 rounded-full text-sm transition-colors"
+                  className="px-3 py-2 rounded-md text-sm transition-colors"
                   style={{
                     backgroundColor: category === cat.value ? '#A7EA7B' : '#E5E7EB',
                     color: category === cat.value ? '#163300' : '#000000',
@@ -2204,14 +2206,14 @@ function EditEventModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-3 border border-gray-200 rounded-xl text-gray-700 font-medium hover:bg-gray-50"
+              className="flex-1 py-3 border border-gray-200 rounded-md text-gray-700 font-semibold hover:bg-gray-50"
             >
               ביטול
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 py-3 bg-black text-white rounded-xl font-medium hover:bg-gray-800 disabled:opacity-50"
+              className="flex-1 py-3 bg-black text-white rounded-md font-semibold hover:bg-gray-800 disabled:opacity-50"
             >
               {loading ? 'מעדכן...' : 'עדכן אירוע'}
             </button>

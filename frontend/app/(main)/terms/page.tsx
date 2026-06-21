@@ -7,7 +7,7 @@ export default function TermsPage() {
     <main className="min-h-screen" dir="rtl" style={{ backgroundColor: '#F4F4F5' }}>
       {/* Hero Section */}
       <section className="text-center py-16 px-4">
-        <h1 className="font-semibold text-black text-3xl md:text-5xl lg:text-[3.5rem]">
+        <h1 className="font-semibold text-black text-3xl md:text-4xl lg:text-[40px]">
           תנאי שימוש
         </h1>
         <p className="text-lg max-w-2xl mx-auto" style={{ color: '#52525B' }}>
@@ -22,7 +22,7 @@ export default function TermsPage() {
       {/*
       <section className="max-w-4xl mx-auto px-4 pb-12">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-4">אודות Withly</h2>
+          <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-4">אודות Withly</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
               <strong>Withly</strong> היא פלטפורמה ישראלית לבניית וניהול קהילות מקוונות, שהוקמה על ידי <strong>שון איסקוב</strong> ו-<strong>תומר שמחון ברעם</strong>. אנחנו מאמינים שכל אחד יכול ליצור קהילה משגשגת סביב התחום שהוא אוהב — בין אם זה גיימינג, בישול, ספורט, לימודים או כל נושא אחר.
@@ -41,7 +41,7 @@ export default function TermsPage() {
       {/* Intro */}
       <section className="max-w-4xl mx-auto px-4 pb-8">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-4">מבוא</h2>
+          <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-4">מבוא</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
               ברוכים הבאים ל-Withly. הפלטפורמה מופעלת על ידי <strong>תומר שמחון ברעם</strong>, עוסק פטור שמספרו <strong>323115600</strong> (להלן: "הפלטפורמה" או "אנחנו"). השימוש בפלטפורמה — לרבות גלישה, פתיחת חשבון, יצירת קהילות, העלאת תוכן, רכישת מנויים והשתתפות בפעילויות — כפוף לתנאי שימוש אלו.
@@ -56,7 +56,7 @@ export default function TermsPage() {
       {/* 1. Registration */}
       <section className="max-w-4xl mx-auto px-4 pb-8">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-6">1. רישום וחשבון משתמש</h2>
+          <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-6">1. רישום וחשבון משתמש</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
               <strong>1.1.</strong> כדי להשתמש בשירותי הפלטפורמה,יש ליצור חשבון ולספק פרטים מדויקים (שם מלא וכתובת דוא"ל).
@@ -77,7 +77,7 @@ export default function TermsPage() {
       {/* 2. User Content */}
       <section className="max-w-4xl mx-auto px-4 pb-8">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-6">2. תוכן גולשים</h2>
+          <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-6">2. תוכן גולשים</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
               <strong>2.1.</strong> הפלטפורמה מאפשרת למשתמשים לפרסם פוסטים, תגובות, קורסים ותכנים נוספים.
@@ -98,7 +98,7 @@ export default function TermsPage() {
       {/* 3. Payments */}
       <section className="max-w-4xl mx-auto px-4 pb-8">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-6">3. תשלומים ומדיניות ביטולים</h2>
+          <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-6">3. תשלומים ומדיניות ביטולים</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
               <strong>3.1.</strong> רכישת מנויים או שירותים בתשלום מבוצעת באמצעות ספק סליקה חיצוני מאובטח (HYP). Withly אינה אוספת או שומרת את פרטי כרטיס האשראי או תעודת הזהות שלך בשרתיה — אנו מקבלים מספק הסליקה אך ורק אסימון (Token) מזהה ואישור עסקה.
@@ -119,7 +119,7 @@ export default function TermsPage() {
       {/* Payments to community creators & taxes */}
       <section className="max-w-4xl mx-auto px-4 pb-8">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-6">4. תשלומים ליוצרי קהילות ומסים</h2>
+          <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-6">4. תשלומים ליוצרי קהילות ומסים</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
               <strong>4.1. גבייה ועמלות:</strong> הפלטפורמה מאפשרת ליוצרי קהילות לגבות תשלום ממנויים עבור הגישה לקהילה. התשלומים נסלקים במרוכז אל חשבון הבנק של Withly. מתוך סך ההכנסות ברוטו, Withly תנכה את עמלת הפלטפורמה שלה (כפי שמוצגת בדשבורד מנהל הקהילה).
@@ -143,7 +143,7 @@ export default function TermsPage() {
       {/* 4. Limitation of Liability */}
       <section className="max-w-4xl mx-auto px-4 pb-8">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-6">5. הגבלת אחריות</h2>
+          <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-6">5. הגבלת אחריות</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
               <strong>5.1.</strong> הפלטפורמה מסופקת כמות שהיא (AS IS). אנו לא מבטיחים שהשירות יהיה חסין מתקלות, שגיאות או הפרעות, או שיעמוד בכל ציפייה ספציפית של המשתמש.
@@ -158,7 +158,7 @@ export default function TermsPage() {
       {/* 5. Copyright Takedown */}
       <section className="max-w-4xl mx-auto px-4 pb-8">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-6">6. הסרת תוכן מפר זכויות יוצרים</h2>
+          <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-6">6. הסרת תוכן מפר זכויות יוצרים</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
               <strong>6.1.</strong> על מנת לדווח על תוכן המפר זכויות יוצרים,שלך או של אחרים, יש לפנות אלינו במייל לכתובת <a href="mailto:support@withly.co.il" className="underline hover:opacity-70" style={{ color: '#003233' }}>support@withly.co.il</a> וכלול בפנייתך:
@@ -186,7 +186,7 @@ export default function TermsPage() {
       {/* 6. Changes & Termination */}
       <section className="max-w-4xl mx-auto px-4 pb-8">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-6">7. שינויים וסיום התקשרות</h2>
+          <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-6">7. שינויים וסיום התקשרות</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
               אנו שומרים לעצמנו את הזכות לעדכן תנאים אלו מעת לעת. שינויים מהותיים יפורסמו בעמוד זה. המשך השימוש בפלטפורמה לאחר העדכון מהווה הסכמה לתנאים החדשים.
@@ -201,7 +201,7 @@ export default function TermsPage() {
       {/* 7. Jurisdiction */}
       <section className="max-w-4xl mx-auto px-4 pb-16">
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
-          <h2 className="text-2xl font-bold text-black mb-6">8. דין וסמכות שיפוט</h2>
+          <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-6">8. דין וסמכות שיפוט</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
               על תנאי שימוש אלו והשימוש בפלטפורמה יחולו דיני מדינת ישראל בלבד. סמכות השיפוט הבלעדית בכל מחלוקת הנוגעת לתנאים אלו או לשימוש בפלטפורמה נתונה לבתי המשפט המוסמכים בעיר תל אביב-יפו.

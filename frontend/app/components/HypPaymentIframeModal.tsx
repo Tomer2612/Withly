@@ -84,7 +84,7 @@ export default function HypPaymentIframeModal({
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" dir="rtl">
       <div className="bg-white rounded-2xl w-full max-w-lg shadow-lg flex flex-col" style={{ maxHeight: '90vh' }}>
         <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: '#E1E1E2' }}>
-          <h2 className="text-lg font-bold" style={{ color: '#3F3F46' }}>
+          <h2 className="text-[28px] font-semibold" style={{ color: '#3F3F46' }}>
             {title ?? 'הוספת כרטיס אשראי'}
           </h2>
           <button

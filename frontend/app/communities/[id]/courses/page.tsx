@@ -267,7 +267,7 @@ export default function CoursesPage() {
           {isOwner && (
             <Link
               href={`/communities/${communityId}/courses/create`}
-              className="flex items-center gap-2 px-3 md:px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition font-medium text-sm md:text-[18px] whitespace-nowrap"
+              className="flex items-center gap-2 px-3 md:px-4 py-2 my-1 md:my-0 bg-black text-white rounded-lg hover:bg-gray-800 transition font-medium text-sm md:text-[18px] whitespace-nowrap"
             >
               יצירת קורס חדש
             </Link>
@@ -384,7 +384,7 @@ export default function CoursesPage() {
                 {/* Course Info - Clickable */}
                 <Link href={`/communities/${communityId}/courses/${course.id}`} className="block p-5 overflow-hidden">
                   {/* Title */}
-                  <h3 className="text-lg font-bold text-gray-900 mb-3" style={{ overflowWrap: 'anywhere' }}>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-3" style={{ overflowWrap: 'anywhere' }}>
                     {course.title}
                   </h3>
 
@@ -445,7 +445,7 @@ export default function CoursesPage() {
                   <button
                     key={page}
                     onClick={() => setCurrentPage(page)}
-                    className={`flex items-center justify-center font-medium text-[16px] transition ${
+                    className={`flex items-center justify-center font-semibold text-[16px] transition ${
                       page === currentPage
                         ? 'bg-[#71717A] text-white'
                         : 'bg-white text-[#71717A] hover:bg-gray-50'

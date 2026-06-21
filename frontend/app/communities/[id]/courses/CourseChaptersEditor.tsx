@@ -134,7 +134,7 @@ export default function CourseChaptersEditor({
   return (
             <div id="chapters-section" className="bg-white rounded-xl shadow-sm p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-bold text-lg text-gray-800">פרקים ושיעורים</h2>
+                <h2 className="font-semibold text-xl sm:text-[28px] text-gray-800">פרקים ושיעורים</h2>
                 <div className="flex items-center gap-2">
                   {activeChapters.length > 0 && (
                     <button
@@ -142,14 +142,14 @@ export default function CourseChaptersEditor({
                       onClick={() => setAllChaptersExpanded(!allChaptersExpanded)}
                       aria-label={allChaptersExpanded ? 'כווץ הכל' : 'פתח הכל'}
                       title={allChaptersExpanded ? 'כווץ הכל' : 'פתח הכל'}
-                      className="p-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition"
+                      className="p-2.5 rounded-md text-gray-700 hover:bg-gray-100 transition"
                     >
                       {allChaptersExpanded ? <ChevronUpIcon size={20} color="#374151" /> : <ChevronDownIcon size={20} color="#374151" />}
                     </button>
                   )}
                   <button
                     onClick={addChapter}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-black text-white rounded-lg hover:bg-gray-800 transition font-normal" style={{ fontSize: '16px' }}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-black text-white rounded-md hover:bg-gray-800 transition font-semibold" style={{ fontSize: '16px' }}
                   >
                     הוסף פרק
                     <PlusIcon size={16} color="white" />
@@ -210,7 +210,7 @@ export default function CourseChaptersEditor({
                         </span>
                         <button
                           onClick={() => toggleChapter(chapterIndex)}
-                          className="p-2 hover:bg-gray-700 rounded transition"
+                          className="p-2 hover:bg-gray-700 rounded-md transition"
                         >
                           {chapter.expanded ? (
                             <ChevronUpIcon size={16} color="white" />
@@ -220,7 +220,7 @@ export default function CourseChaptersEditor({
                         </button>
                         <button
                           onClick={() => removeChapter(chapterIndex)}
-                          className="p-2 hover:bg-gray-700 rounded transition"
+                          className="p-2 hover:bg-gray-700 rounded-md transition"
                         >
                           <TrashIcon size={16} color="white" />
                         </button>
@@ -284,7 +284,7 @@ export default function CourseChaptersEditor({
                                 <div className="mr-auto flex items-center gap-1">
                                   <button
                                     onClick={() => toggleLesson(chapterIndex, lessonIndex)}
-                                    className="p-1.5 hover:bg-gray-100 rounded transition"
+                                    className="p-1.5 hover:bg-gray-100 rounded-md transition"
                                   >
                                     {lesson.expanded !== false ? (
                                       <ChevronUpIcon size={14} color="black" />
@@ -294,7 +294,7 @@ export default function CourseChaptersEditor({
                                   </button>
                                   <button
                                     onClick={() => removeLesson(chapterIndex, lessonIndex)}
-                                    className="p-1.5 hover:bg-gray-100 rounded transition"
+                                    className="p-1.5 hover:bg-gray-100 rounded-md transition"
                                   >
                                     <TrashIcon size={14} color="black" />
                                   </button>
@@ -310,7 +310,7 @@ export default function CourseChaptersEditor({
                                   <button
                                     type="button"
                                     onClick={() => onSelectContentType(chapterIndex, lessonIndex)}
-                                    className="flex-1 py-2 px-3 rounded-lg font-normal transition"
+                                    className="flex-1 py-2 px-3 rounded-md font-semibold transition"
                                     style={{
                                       fontSize: '16px',
                                       backgroundColor: lesson.lessonType === 'content' ? 'black' : '#D0D0D4',
@@ -335,7 +335,7 @@ export default function CourseChaptersEditor({
                                         }]);
                                       }
                                     }}
-                                    className="flex-1 py-2 px-3 rounded-lg font-normal transition"
+                                    className="flex-1 py-2 px-3 rounded-md font-semibold transition"
                                     style={{
                                       fontSize: '16px',
                                       backgroundColor: lesson.lessonType === 'quiz' ? 'black' : '#D0D0D4',
@@ -541,7 +541,7 @@ export default function CourseChaptersEditor({
                                       />
                                       <label
                                         htmlFor={`video-upload-${chapterIndex}-${lessonIndex}`}
-                                        className="inline-flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition text-sm text-gray-600"
+                                        className="inline-flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 transition text-sm text-gray-600"
                                       >
                                         <VideoIcon size={16} color="#6B7280" />
                                         העלאת סרטון (עד 100MB)
@@ -606,7 +606,7 @@ export default function CourseChaptersEditor({
                                             type="button"
                                             onClick={() => handleAddLink(chapterIndex, lessonIndex)}
                                             disabled={!hasDraft}
-                                            className="px-3 py-2 rounded-full text-sm transition"
+                                            className="px-3 py-2 rounded-md text-sm transition"
                                             style={{ backgroundColor: hasDraft ? '#91DCED' : '#c4ebf5', color: hasDraft ? 'black' : '#A1A1AA', fontSize: '14px', cursor: hasDraft ? 'pointer' : 'not-allowed' }}
                                           >
                                             הוסף
@@ -650,14 +650,14 @@ export default function CourseChaptersEditor({
                                                 const newImages = (lesson.images || []).filter((_, i) => i !== imgIndex);
                                                 updateLesson(chapterIndex, lessonIndex, { images: newImages });
                                               }}
-                                              className="font-medium flex items-center justify-center"
+                                              className="font-semibold flex items-center justify-center"
                                               style={{
                                                 backgroundColor: '#B3261E',
                                                 color: 'white',
                                                 fontSize: '12px',
                                                 width: '67px',
                                                 height: '20px',
-                                                borderRadius: '9999px'
+                                                borderRadius: '6px'
                                               }}
                                             >
                                               הסר תמונה
@@ -679,14 +679,14 @@ export default function CourseChaptersEditor({
                                                 const newFiles = (lesson.imageFiles || []).filter((_, i) => i !== imgIndex);
                                                 updateLesson(chapterIndex, lessonIndex, { imageFiles: newFiles });
                                               }}
-                                              className="font-medium flex items-center justify-center"
+                                              className="font-semibold flex items-center justify-center"
                                               style={{
                                                 backgroundColor: '#B3261E',
                                                 color: 'white',
                                                 fontSize: '12px',
                                                 width: '67px',
                                                 height: '20px',
-                                                borderRadius: '9999px'
+                                                borderRadius: '6px'
                                               }}
                                             >
                                               הסר תמונה
@@ -695,7 +695,7 @@ export default function CourseChaptersEditor({
                                         </div>
                                       ))}
                                       {((lesson.images || []).length + (lesson.imageFiles || []).length) < 6 && (
-                                        <label className="flex flex-col items-center justify-center h-24 rounded-lg cursor-pointer hover:bg-gray-50 transition" style={{ border: '1px dashed #D0D0D4' }}>
+                                        <label className="flex flex-col items-center justify-center h-24 rounded-md cursor-pointer hover:bg-gray-50 transition" style={{ border: '1px dashed #D0D0D4' }}>
                                           <ImageIcon size={20} color="#9CA3AF" className="mb-1" />
                                           <span className="text-xs text-gray-500">לחץ להעלאת תמונות (עד 20MB)</span>
                                           <input
@@ -756,6 +756,7 @@ export default function CourseChaptersEditor({
                                       value={lesson.content}
                                       onChange={(e) => updateLesson(chapterIndex, lessonIndex, { content: e.target.value })}
                                       rows={3}
+                                      dir="rtl"
                                       className="w-full p-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-black focus:border-black text-right"
                                       style={{ resize: 'none' }}
                                       placeholder="תוכן טקסט לשיעור..."
@@ -786,7 +787,7 @@ export default function CourseChaptersEditor({
                                           }];
                                           setQuizQuestions(chapterIndex, lessonIndex, newQuiz);
                                         }}
-                                        className="bg-black text-white px-3 py-1 rounded hover:bg-gray-800 flex items-center gap-2"
+                                        className="bg-black text-white px-3 py-1 rounded-md hover:bg-gray-800 flex items-center gap-2"
                                         style={{ fontSize: '14px' }}
                                       >
                                         הוסף שאלה
@@ -833,7 +834,7 @@ export default function CourseChaptersEditor({
                                                   const newQuiz = quizQuestions.filter((_, i) => i !== qIndex);
                                                   setQuizQuestions(chapterIndex, lessonIndex, newQuiz);
                                                 }}
-                                                className="p-1 hover:bg-gray-100 rounded"
+                                                className="p-1 hover:bg-gray-100 rounded-md"
                                               >
                                                 <TrashIcon size={14} color="#7A7A83" />
                                               </button>
@@ -871,7 +872,7 @@ export default function CourseChaptersEditor({
                                                   newQuiz[qIndex] = { ...newQuiz[qIndex], questionType: 'radio', options: newOptions };
                                                   setQuizQuestions(chapterIndex, lessonIndex, newQuiz);
                                                 }}
-                                                className="px-3 py-1 rounded-lg font-normal transition"
+                                                className="px-3 py-1 rounded-md font-semibold transition"
                                                 style={{
                                                   fontSize: '14px',
                                                   backgroundColor: question.questionType === 'radio' ? 'black' : '#D0D0D4',
@@ -897,7 +898,7 @@ export default function CourseChaptersEditor({
                                                   newQuiz[qIndex] = { ...newQuiz[qIndex], questionType: 'checkbox', options: newOptions };
                                                   setQuizQuestions(chapterIndex, lessonIndex, newQuiz);
                                                 }}
-                                                className="px-3 py-1 rounded-lg font-normal transition"
+                                                className="px-3 py-1 rounded-md font-semibold transition"
                                                 style={{
                                                   fontSize: '14px',
                                                   backgroundColor: question.questionType === 'checkbox' ? 'black' : '#D0D0D4',
@@ -956,7 +957,7 @@ export default function CourseChaptersEditor({
                                                         }
                                                         setQuizQuestions(chapterIndex, lessonIndex, newQuiz);
                                                       }}
-                                                      className="w-4 h-4 rounded-full flex items-center justify-center"
+                                                      className="w-4 h-4 rounded-lg flex items-center justify-center"
                                                       style={{
                                                         backgroundColor: option.isCorrect ? '#A7EA7B' : 'transparent',
                                                         border: option.isCorrect ? 'none' : '1px solid black'
@@ -992,7 +993,7 @@ export default function CourseChaptersEditor({
                                                           newQuiz[qIndex].options = question.options.filter((_, i) => i !== oIndex);
                                                           setQuizQuestions(chapterIndex, lessonIndex, newQuiz);
                                                         }}
-                                                        className="p-1 hover:bg-gray-100 rounded"
+                                                        className="p-1 hover:bg-gray-100 rounded-md"
                                                       >
                                                         <CloseIcon size={12} color="#7A7A83" />
                                                       </button>
@@ -1034,7 +1035,7 @@ export default function CourseChaptersEditor({
 
                           <button
                             onClick={() => addLesson(chapterIndex)}
-                            className="w-full py-3 border-2 border-dashed border-gray-200 rounded-lg text-gray-500 hover:border-gray-400 hover:bg-gray-50 transition flex items-center justify-center gap-2"
+                            className="w-full py-3 border-2 border-dashed border-gray-200 rounded-md text-gray-500 hover:border-gray-400 hover:bg-gray-50 transition flex items-center justify-center gap-2"
                           >
                             הוסף שיעור
                             <PlusIcon size={16} color="#6B7280" />
@@ -1050,7 +1051,7 @@ export default function CourseChaptersEditor({
                       the dashed per-chapter "הוסף שיעור" buttons. */}
                   <button
                     onClick={addChapter}
-                    className="w-full py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition flex items-center justify-center gap-2 font-normal"
+                    className="w-full py-3 bg-black text-white rounded-md hover:bg-gray-800 transition flex items-center justify-center gap-2 font-semibold"
                     style={{ fontSize: '16px' }}
                   >
                     הוסף פרק

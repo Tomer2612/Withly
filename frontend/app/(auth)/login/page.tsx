@@ -195,7 +195,7 @@ function LoginContent() {
               onSubmit={handleLogin}
               className="w-full flex flex-col gap-4 text-right"
             >
-                <h1 className="text-[21px] text-center mb-2" style={{ fontWeight: 600 }}>התחברות</h1>
+                <h1 className="text-[32px] md:text-[40px] text-center mb-2" style={{ fontWeight: 600 }}>התחברות</h1>
 
                 {/* Google Button */}
                 <a
@@ -284,7 +284,7 @@ function LoginContent() {
                 <button
                   type="submit"
                   disabled={isSubmitting || !email || !password}
-                  className="bg-black text-white py-3 transition-colors font-medium disabled:cursor-not-allowed"
+                  className="bg-black text-white py-3 transition-colors font-semibold disabled:cursor-not-allowed"
                   style={{ borderRadius: '12px', backgroundColor: (isSubmitting || !email || !password) ? '#D0D0D4' : 'black' }}
                   onMouseEnter={(e) => !(isSubmitting || !email || !password) && (e.currentTarget.style.backgroundColor = '#3F3F46')}
                   onMouseLeave={(e) => !(isSubmitting || !email || !password) && (e.currentTarget.style.backgroundColor = 'black')}
