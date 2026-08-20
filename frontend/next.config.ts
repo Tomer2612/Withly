@@ -68,6 +68,16 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'cdn.withly.co.il',
       },
+      // Fake seed data (server/seed-marketing-communities.js) — stock
+      // cover/gallery/course images and fake user avatars.
+      {
+        protocol: 'https',
+        hostname: 'picsum.photos',
+      },
+      {
+        protocol: 'https',
+        hostname: 'randomuser.me',
+      },
     ],
   },
 };
