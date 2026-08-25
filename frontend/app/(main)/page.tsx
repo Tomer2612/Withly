@@ -11,6 +11,9 @@ import ChevronRightIcon from '../components/icons/ChevronRightIcon';
 import { getImageUrl } from '@/app/lib/imageUrl';
 import { useUser } from '../lib/UserContext';
 
+// "קהילת מייסדים Withly" — always shown first on /communities.
+const PINNED_COMMUNITY_ID = 'cmrxiw7x4001tqaolfj3mr5rt';
+
 const COMMUNITY_TOPICS = [
   'אנימציה',
   'אוכל, בישול ותזונה',
@@ -127,10 +130,14 @@ export default function Home() {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities`);
         if (!res.ok) throw new Error('Failed to fetch');
         const data = await res.json();
-        // Sort by oldest first (ascending by createdAt)
-        const sorted = data.sort((a: Community, b: Community) => 
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        );
+        // Sort by oldest first (ascending by createdAt), except the
+        // official Withly founders community always leads regardless of
+        // its date — the one deliberate exception to date-based ordering.
+        const sorted = data.sort((a: Community, b: Community) => {
+          if (a.id === PINNED_COMMUNITY_ID) return -1;
+          if (b.id === PINNED_COMMUNITY_ID) return 1;
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        });
         setCommunities(sorted);
         setFilteredCommunities(sorted);
       } catch (err) {

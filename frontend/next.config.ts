@@ -68,11 +68,16 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'cdn.withly.co.il',
       },
-      // Fake seed data (server/seed-marketing-communities.js) — stock
-      // cover/gallery/course images and fake user avatars.
+      // Fake seed data (server/seed-marketing-communities.js) — topic-matched
+      // stock cover/gallery/course images and fake user avatars. picsum.photos
+      // stays allowlisted for already-seeded rows that still reference it.
       {
         protocol: 'https',
         hostname: 'picsum.photos',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
       },
       {
         protocol: 'https',
