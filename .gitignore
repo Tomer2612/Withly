@@ -48,7 +48,6 @@ dist/
 
 # Generic build
 build/
-build/Release
 lib-cov/
 
 # Tooling / platforms
@@ -72,8 +71,8 @@ credentials.json
 # -----------------------------
 server/
 
-# Local Claude Code state (per-project agent settings, history)
-.claude/
+# Local Claude Code settings (personal; .claude/settings.json is shared)
+.claude/settings.local.json
 
 # -----------------------------
 # OS / Editor junk
@@ -102,7 +101,6 @@ web_modules/
 
 # Prisma (generated) – adjust to your paths if needed
 generated/
-generated/prisma
 
 # Playwright test artifacts
 test-results/
