@@ -71,8 +71,8 @@ credentials.json
 # -----------------------------
 server/
 
-# Local Claude Code settings (personal; .claude/settings.json is shared)
-.claude/settings.local.json
+# Local Claude Code settings
+.claude
 
 # -----------------------------
 # OS / Editor junk
