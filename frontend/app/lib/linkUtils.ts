@@ -18,7 +18,7 @@ export function isValidWebsiteUrl(value: string): boolean {
 }
 
 // Accepted hosts per platform (subdomains allowed: m.facebook.com, chat.whatsapp.com, ...).
-export const SOCIAL_DOMAINS = {
+const SOCIAL_DOMAINS = {
   youtube: ['youtube.com', 'youtu.be'],
   whatsapp: ['whatsapp.com', 'wa.me'],
   facebook: ['facebook.com', 'fb.com', 'fb.me'],

@@ -2,7 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException, ForbiddenE
 import { Prisma, CommunityStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../common/prisma.service';
-import { canManageCommunity, getEffectiveRole } from '../common/community-roles.helper';
+import { canManageCommunity, getEffectiveRole, type EffectiveRole } from '../common/community-roles.helper';
 import { MANAGERS_ONLY_MEMBER_LIST_COMMUNITY_IDS } from '../common/member-list-visibility';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailService } from '../email/email.service';
@@ -45,6 +45,24 @@ export class CommunitiesService {
     if (community.subscriptionStatus === 'SUSPENDED') {
       throw new ForbiddenException('COMMUNITY_SUSPENDED');
     }
+  }
+
+  // Community content — posts, comments, courses, lessons, events — belongs to
+  // the community's own people: owner, managers and members. Call this on every
+  // content read, and on every write that adds content or an interaction, so
+  // the rule holds at the API and not only in the UI. A removed or banned
+  // member has no membership row, so this is also what makes a removal stick.
+  // Returns the resolved id and the caller's role so callers don't query twice.
+  async assertMember(
+    communityIdOrSlug: string,
+    userId: string,
+  ): Promise<{ communityId: string; role: EffectiveRole }> {
+    const communityId = await this.resolveId(communityIdOrSlug);
+    const role = await getEffectiveRole(this.prisma, communityId, userId);
+    if (!role) {
+      throw new ForbiddenException('NOT_A_COMMUNITY_MEMBER');
+    }
+    return { communityId, role };
   }
 
   async create(
@@ -130,11 +148,11 @@ export class CommunitiesService {
   async findById(idOrSlug: string, viewerUserId?: string) {
     try {
       const include = {
+        // No owner email: this endpoint is public (anonymous visitors too).
         owner: {
           select: {
             id: true,
             name: true,
-            email: true,
             profileImage: true,
           },
         },
@@ -176,9 +194,17 @@ export class CommunitiesService {
         }
       }
 
+      // The owner's card (last 4 + brand) is only for the owner's own Manage
+      // page — strip it for every other viewer of this public endpoint.
+      const viewerIsOwner = !!viewerUserId && community.ownerId === viewerUserId;
+
       // Surface a memberCount field derived from _count, keeping the same
       // wire shape callers expect after the column was dropped.
-      return { ...community, memberCount: community._count.members + 1 };
+      return {
+        ...community,
+        paymentMethod: viewerIsOwner ? community.paymentMethod : null,
+        memberCount: community._count.members + 1,
+      };
     } catch (err) {
       if (err instanceof NotFoundException) {
         throw err;
@@ -2450,9 +2476,11 @@ export class CommunitiesService {
       .slice(0, limit);
 
     const userIds = sortedMembers.map(([id]) => id);
+    // No email here — the leaderboard is visible to every member, and the UI
+    // never shows addresses; returning them let members harvest each other's.
     const users = await this.prisma.user.findMany({
       where: { id: { in: userIds } },
-      select: { id: true, name: true, email: true, profileImage: true },
+      select: { id: true, name: true, profileImage: true },
     });
     const userMap = new Map(users.map(u => [u.id, u]));
 
@@ -2462,7 +2490,6 @@ export class CommunitiesService {
         rank: index + 1,
         userId,
         name: user?.name || 'Unknown',
-        email: user?.email || '',
         profileImage: user?.profileImage || null,
         points,
       };

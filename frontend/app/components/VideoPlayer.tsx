@@ -118,7 +118,6 @@ export default function VideoPlayer({ url, className = '', onEnded }: VideoPlaye
             className="absolute inset-0 cursor-pointer z-10"
             onClick={() => setActivated(true)}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={`https://www.dailymotion.com/thumbnail/video/${videoId}`}
               alt=""

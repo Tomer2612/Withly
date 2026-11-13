@@ -207,7 +207,6 @@ function CommunityAvatar({ logoUrl, fallbackChar }: { logoUrl?: string | null; f
   const SIZE = 40;
   if (logoUrl) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={getImageUrl(logoUrl)}
         alt=""

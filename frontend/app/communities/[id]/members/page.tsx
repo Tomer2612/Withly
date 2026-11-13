@@ -378,7 +378,7 @@ export default function CommunityMembersPage() {
               {searchQuery ? (
                 <>
                   <SearchXIcon className="w-16 h-16 mx-auto mb-4" />
-                  <p className="text-black text-lg">לא נמצאו חברים עבור "{searchQuery}"</p>
+                  <p className="text-black text-lg">לא נמצאו חברים עבור &quot;{searchQuery}&quot;</p>
                 </>
               ) : (
                 <p className="text-gray-500">אין חברים בקהילה זו</p>

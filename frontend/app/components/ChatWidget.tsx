@@ -474,7 +474,6 @@ export default function ChatWidget() {
                         // Plain <img> instead of next/image — at 40px the
                         // optimizer was downsampling and rendering soft.
                         // Matches the crisp NotificationBell avatars.
-                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={getImageUrl(other.profileImage)}
                           alt={other.name}
@@ -541,7 +540,6 @@ export default function ChatWidget() {
               title={chat.recipientName}
             >
               {chat.recipientImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={getImageUrl(chat.recipientImage)}
                   alt={chat.recipientName}
@@ -651,7 +649,6 @@ function ChatWindow({
           className="flex items-center gap-2 hover:opacity-80 transition"
         >
           {chat.recipientImage ? (
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={getImageUrl(chat.recipientImage)}
               alt={chat.recipientName}

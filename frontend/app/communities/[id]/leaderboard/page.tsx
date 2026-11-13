@@ -17,7 +17,6 @@ interface LeaderboardMember {
   rank: number;
   userId: string;
   name: string;
-  email: string;
   profileImage: string | null;
   points: number;
 }
@@ -73,7 +72,7 @@ export default function LeaderboardPage() {
     };
 
     fetchData();
-  }, [communityId, memberListHidden]);
+  }, [communityId, memberListHidden, router]);
 
   const getRankIcon = (rank: number) => {
     switch (rank) {

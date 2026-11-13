@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import { FaYoutube, FaWhatsapp, FaFacebook, FaInstagram, FaLinkedin } from 'react-icons/fa';
 import { getActiveTrialEnd } from '../../../lib/trial';
 import { withProtocol, isValidWebsiteUrl, isValidSocialUrl, type SocialPlatform, CUSTOM_LINK_LABEL_MAX, CUSTOM_LINK_DEFAULT_LABEL } from '../../../lib/linkUtils';
@@ -18,10 +17,8 @@ import CheckIcon from '../../../components/icons/CheckIcon';
 import CloseIcon from '../../../components/icons/CloseIcon';
 import NoFeeIcon from '../../../components/icons/NoFeeIcon';
 import DollarIcon from '../../../components/icons/DollarIcon';
-import CalendarIcon from '../../../components/icons/CalendarIcon';
 import ImageIcon from '../../../components/icons/ImageIcon';
 import VideoIcon from '../../../components/icons/VideoIcon';
-import LockIcon from '../../../components/icons/LockIcon';
 import { HiOutlineCog6Tooth } from 'react-icons/hi2';
 import CreditCardIcon from '../../../components/icons/CreditCardIcon';
 import EditIcon from '../../../components/icons/EditIcon';
@@ -1105,7 +1102,7 @@ export default function ManageCommunityPage() {
         // post-reload look identical (no optimistic divergence).
         await reloadCommunityBaseline();
       }
-    } catch (err: any) {
+    } catch (err) {
       // Suppress the noisy console.error for known business rules — the UI
       // toast is the user-visible signal, no need to red-flag the console.
       const knownErrors: Record<string, string> = {
@@ -1114,11 +1111,12 @@ export default function ManageCommunityPage() {
         PAYMENT_METHOD_REQUIRED:
           'יש להוסיף אמצעי תשלום לפני פרסום הקהילה.',
       };
-      const friendly = knownErrors[err?.message];
+      const errMessage = err instanceof Error ? err.message : '';
+      const friendly = knownErrors[errMessage];
       if (!friendly) {
         console.error('Community update error:', err);
       }
-      setMessage(friendly ?? err.message ?? 'שגיאה בעדכון הקהילה');
+      setMessage(friendly ?? (errMessage || 'שגיאה בעדכון הקהילה'));
       setMessageType('error');
     } finally {
       setLoading(false);

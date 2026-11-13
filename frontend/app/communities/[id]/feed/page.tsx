@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useCallback, useEffect, useState, Suspense } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { FaExternalLinkAlt } from 'react-icons/fa';
@@ -60,7 +60,6 @@ interface Comment {
   createdAt: string;
   user: {
     id: string;
-    email: string;
     name: string;
     profileImage?: string | null;
   };
@@ -80,7 +79,6 @@ interface Post {
   createdAt: string;
   author: {
     id: string;
-    email: string;
     name: string;
     profileImage?: string | null;
   };
@@ -118,7 +116,6 @@ interface TopMember {
   rank: number;
   userId: string;
   name: string;
-  email: string;
   profileImage: string | null;
   points: number;
 }
@@ -250,19 +247,22 @@ function CommunityFeedContent() {
     setLightboxIndex(0);
   };
 
-  const nextImage = () => {
-    setLightboxIndex((prev) => (prev + 1) % lightboxImages.length);
-  };
+  // Memoized on the image count (the only thing they read) so the keyboard
+  // effect below can list them as dependencies without re-binding every render.
+  const imageCount = lightboxImages.length;
+  const nextImage = useCallback(() => {
+    setLightboxIndex((prev) => (prev + 1) % imageCount);
+  }, [imageCount]);
 
-  const prevImage = () => {
-    setLightboxIndex((prev) => (prev - 1 + lightboxImages.length) % lightboxImages.length);
-  };
+  const prevImage = useCallback(() => {
+    setLightboxIndex((prev) => (prev - 1 + imageCount) % imageCount);
+  }, [imageCount]);
 
   // Keyboard navigation for lightbox
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!showLightbox) return;
-      
+
       if (e.key === 'Escape') {
         closeLightbox();
       } else if (e.key === 'ArrowRight') {
@@ -274,7 +274,7 @@ function CommunityFeedContent() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showLightbox, lightboxImages.length]);
+  }, [showLightbox, nextImage, prevImage]);
 
 
   useEffect(() => {
@@ -305,7 +305,8 @@ function CommunityFeedContent() {
 
         const [communityRes, postsRes] = await Promise.all([
           authFetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/posts/community/${communityId}${userId ? `?userId=${userId}` : ''}`),
+          // The server identifies the viewer from the login cookie (members only).
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/posts/community/${communityId}`),
         ]);
 
         if (!communityRes.ok) {
@@ -401,7 +402,7 @@ function CommunityFeedContent() {
           const onlineData = await onlineRes.json();
           setOnlineCount(onlineData.onlineCount);
         }
-      } catch (err) {
+      } catch {
         // Silently ignore
       }
     };
@@ -417,13 +418,13 @@ function CommunityFeedContent() {
     const refreshPosts = async () => {
       try {
         const postsRes = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/posts/community/${communityId}?userId=${userId}`
+          `${process.env.NEXT_PUBLIC_API_URL}/posts/community/${communityId}`
         );
         if (postsRes.ok) {
           const postsData = await postsRes.json();
           setPosts(postsData);
         }
-      } catch (err) {
+      } catch {
         // Silently ignore refresh errors
       }
     };
@@ -476,7 +477,7 @@ function CommunityFeedContent() {
               }
             }));
           }
-        } catch (err) {
+        } catch {
           // Invalid URL or fetch error, use fallback
           try {
             const url = new URL(link);
@@ -499,6 +500,10 @@ function CommunityFeedContent() {
     if (posts.length > 0) {
       fetchLinkPreviews();
     }
+    // Runs when the posts change. `linkPreviews` is only read to skip links
+    // already fetched; listing it would re-run this after every preview
+    // arrives and start overlapping fetches for the links still in flight.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [posts]);
 
   const handleCreatePost = async (e: React.FormEvent) => {
@@ -1250,6 +1255,17 @@ function CommunityFeedContent() {
     }
   };
 
+  // Welcome popup for new community owners (use community.id to avoid slug/id mismatch).
+  // Must stay ABOVE the early return below — hooks have to run on every render.
+  useEffect(() => {
+    if (isOwner && community?.id) {
+      const key = `welcome_shown_${community.id}`;
+      if (!localStorage.getItem(key)) {
+        setShowWelcomePopup(true);
+      }
+    }
+  }, [isOwner, community?.id]);
+
   if (!communityId && !loading) {
     return (
       <main className="min-h-screen bg-gray-100 flex items-center justify-center text-gray-600">
@@ -1266,16 +1282,6 @@ function CommunityFeedContent() {
       </main>
     );
   }
-
-  // Welcome popup for new community owners (use community.id to avoid slug/id mismatch)
-  useEffect(() => {
-    if (isOwner && community?.id) {
-      const key = `welcome_shown_${community.id}`;
-      if (!localStorage.getItem(key)) {
-        setShowWelcomePopup(true);
-      }
-    }
-  }, [isOwner, community?.id]);
 
   const handleCloseWelcome = () => {
     setShowWelcomePopup(false);
@@ -2624,7 +2630,7 @@ function CommunityFeedContent() {
                   {searchQuery.trim() ? (
                     <div className="space-y-2">
                       <SearchXIcon className="w-16 h-16 mx-auto" />
-                      <p className="text-black text-lg">לא נמצאו תוצאות עבור "{searchQuery}"</p>
+                      <p className="text-black text-lg">לא נמצאו תוצאות עבור &quot;{searchQuery}&quot;</p>
                     </div>
                   ) : showSavedOnly ? (
                     <div className="space-y-2">

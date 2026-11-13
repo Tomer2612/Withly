@@ -44,7 +44,6 @@ interface Community {
   owner?: {
     id: string;
     name: string;
-    email: string;
     profileImage?: string | null;
   };
 }
@@ -79,21 +78,24 @@ function CommunityGallery({ primaryImage, galleryImages, galleryVideos, communit
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   
-  // Auto-rotate every 10 seconds (pause on video)
+  // Auto-rotate every 5 seconds (pause on a playing video). The effect reads
+  // two primitives derived from allMedia — which is rebuilt on every render —
+  // so it restarts only when something it actually depends on changes.
+  const mediaCount = allMedia.length;
+  const currentIsVideo = allMedia[currentIndex]?.type === 'video';
   useEffect(() => {
-    if (allMedia.length <= 1) return;
-    
+    if (mediaCount <= 1) return;
+
     // Don't auto-rotate if currently showing a video and it's playing
-    const currentItem = allMedia[currentIndex];
-    if (currentItem?.type === 'video' && isVideoPlaying) return;
-    
+    if (currentIsVideo && isVideoPlaying) return;
+
     const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev === allMedia.length - 1 ? 0 : prev + 1));
+      setCurrentIndex((prev) => (prev === mediaCount - 1 ? 0 : prev + 1));
       setIsVideoPlaying(false);
     }, 5000);
-    
+
     return () => clearInterval(interval);
-  }, [allMedia.length, currentIndex, isVideoPlaying]);
+  }, [mediaCount, currentIndex, currentIsVideo, isVideoPlaying]);
   
   if (allMedia.length === 0) return null;
   
@@ -287,14 +289,13 @@ function CommunityPreviewContent() {
           }
         }
 
-        // Fetch members to count managers
-        if (user) {
-          const membersRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/members`);
-          if (membersRes.ok) {
-            const members = await membersRes.json();
-            const managers = members.filter((m: { role: string }) => m.role === 'OWNER' || m.role === 'MANAGER');
-            setManagerCount(managers.length);
-          }
+        // Count managers (owner + MANAGER roles) via the public /managers
+        // endpoint — /members is members-only, and Preview is mostly seen by
+        // non-members.
+        const managersRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/managers`);
+        if (managersRes.ok) {
+          const managers: unknown[] = await managersRes.json();
+          setManagerCount(managers.length);
         }
       } catch (err) {
         console.error('Error fetching community:', err);

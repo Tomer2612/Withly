@@ -42,7 +42,6 @@ const LOGO_EXTS = ['png', 'svg', 'ico'];
 function BankLogo({ code }: { code: string }) {
   const [stage, setStage] = useState(0);
   if (stage < LOGO_EXTS.length) {
-    // eslint-disable-next-line @next/next/no-img-element
     return <img src={`/banks/${code}.${LOGO_EXTS[stage]}`} alt="" width={22} height={22} className="flex-shrink-0 rounded" onError={() => setStage((s) => s + 1)} />;
   }
   return (

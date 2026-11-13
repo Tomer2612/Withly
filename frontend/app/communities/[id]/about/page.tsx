@@ -42,7 +42,6 @@ interface Community {
   owner?: {
     id: string;
     name: string;
-    email: string;
     profileImage?: string | null;
   };
 }
@@ -83,20 +82,23 @@ function CommunityGallery({ primaryImage, galleryImages, galleryVideos, communit
     setIsVideoPlaying(false);
   };
   
-  // Auto-rotate every 10 seconds (pause on video)
+  // Auto-rotate every 5 seconds (pause on a playing video). The effect reads
+  // two primitives derived from allMedia — which is rebuilt on every render —
+  // so it restarts only when something it actually depends on changes.
+  const mediaCount = allMedia.length;
+  const currentIsVideo = allMedia[currentIndex]?.type === 'video';
   useEffect(() => {
-    if (allMedia.length <= 1) return;
-    
-    const currentItem = allMedia[currentIndex];
-    if (currentItem?.type === 'video' && isVideoPlaying) return;
-    
+    if (mediaCount <= 1) return;
+
+    if (currentIsVideo && isVideoPlaying) return;
+
     const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev === allMedia.length - 1 ? 0 : prev + 1));
+      setCurrentIndex((prev) => (prev === mediaCount - 1 ? 0 : prev + 1));
       setIsVideoPlaying(false);
     }, 5000);
-    
+
     return () => clearInterval(interval);
-  }, [allMedia.length, currentIndex, isVideoPlaying]);
+  }, [mediaCount, currentIndex, currentIsVideo, isVideoPlaying]);
   
   if (allMedia.length === 0) return null;
   
@@ -298,15 +300,16 @@ export default function CommunityAboutPage() {
           }
         }
 
-        // Fetch members to count managers (OWNER + MANAGER roles)
-        if (userEmail) {
-          const membersRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/members`);
-          if (membersRes.ok) {
-            const members = await membersRes.json();
-            const managers = members.filter((m: { role: string }) => m.role === 'OWNER' || m.role === 'MANAGER');
-            setManagerCount(managers.length);
-          }
+        // Count managers (owner + MANAGER roles) via the public /managers
+        // endpoint — /members is members-only (and owner/managers-only in
+        // managers-only communities), so it can't drive a count everyone sees.
+        const managersRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/managers`);
+        if (managersRes.ok) {
+          const managers: unknown[] = await managersRes.json();
+          setManagerCount(managers.length);
+        }
 
+        if (userEmail) {
           // Phase 4 Mission 4.5 — fetch the user's own membership state to
           // decide which leave/cancel UI to show. Non-owners only.
           if (userId && data.ownerId !== userId) {
@@ -324,7 +327,7 @@ export default function CommunityAboutPage() {
     };
 
     fetchCommunity();
-  }, [communityId, router, contextLoading, isMember]);
+  }, [communityId, router, contextLoading, isMember, userEmail, userId]);
 
   // Show loading skeleton instead of "not found" message while loading
   if (!community && loading) {
