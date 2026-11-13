@@ -59,11 +59,30 @@ interface Community {
   nextBillingDate: string | null;
   // Set only by a successful owner charge — null means still in the trial.
   currentPeriodStart: string | null;
-  // Phase 6.3: card display fields read from the bound payment method
-  // (was: denormalized cardLastFour/cardBrand columns on Community,
-  // dropped in commit that ships this interface change).
-  paymentMethod: { cardLastFour: string; cardBrand: string } | null;
+  // The bound card is NOT on this payload (GET /communities/:id is public);
+  // it comes from the owner-only endpoint via fetchOwnerCard() below.
   subscriptionCancelledAt: string | null;
+}
+
+// The card bound to this community (last 4 + brand), from its owner-only,
+// login-required endpoint. Because it's guarded, an expired session gets a
+// 401 that the global fetch interceptor refreshes and retries — it can never
+// come back as a silent "no card". Returns null when the request fails, so
+// callers keep whatever card is already on screen.
+async function fetchOwnerCard(
+  communityId: string,
+): Promise<{ cardLastFour: string | null; cardBrand: string | null } | null> {
+  try {
+    const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/payment-method`);
+    if (!res.ok) return null;
+    const { paymentMethod } = await res.json();
+    return {
+      cardLastFour: paymentMethod?.cardLastFour ?? null,
+      cardBrand: paymentMethod?.cardBrand ?? null,
+    };
+  } catch {
+    return null;
+  }
 }
 
 const addMonths = (d: Date, n: number): Date => {
@@ -486,8 +505,11 @@ export default function ManageCommunityPage() {
         setPendingPriceEffectiveAt(data.pendingPriceEffectiveAt ? new Date(data.pendingPriceEffectiveAt) : null);
         setPriceChangeAnnouncedAt(data.priceChangeAnnouncedAt ? new Date(data.priceChangeAnnouncedAt) : null);
         setCurrentCommunityPrice(typeof data.price === 'number' ? data.price : 0);
-        setCardLastFour(data.paymentMethod?.cardLastFour || null);
-        setCardBrand(data.paymentMethod?.cardBrand || null);
+        const card = await fetchOwnerCard(communityId);
+        if (card) {
+          setCardLastFour(card.cardLastFour);
+          setCardBrand(card.cardBrand);
+        }
         setNextBillingDate(data.nextBillingDate ? new Date(data.nextBillingDate) : null);
         setCurrentPeriodStart(data.currentPeriodStart ? new Date(data.currentPeriodStart) : null);
         setShowOnlineMembers(data.showOnlineMembers !== false);
@@ -815,8 +837,11 @@ export default function ManageCommunityPage() {
       setPendingPriceEffectiveAt(data.pendingPriceEffectiveAt ? new Date(data.pendingPriceEffectiveAt) : null);
       setPriceChangeAnnouncedAt(data.priceChangeAnnouncedAt ? new Date(data.priceChangeAnnouncedAt) : null);
       setCurrentCommunityPrice(typeof data.price === 'number' ? data.price : 0);
-      setCardLastFour(data.paymentMethod?.cardLastFour || null);
-      setCardBrand(data.paymentMethod?.cardBrand || null);
+      const card = await fetchOwnerCard(communityId);
+      if (card) {
+        setCardLastFour(card.cardLastFour);
+        setCardBrand(card.cardBrand);
+      }
       setNextBillingDate(data.nextBillingDate ? new Date(data.nextBillingDate) : null);
       setCurrentPeriodStart(data.currentPeriodStart ? new Date(data.currentPeriodStart) : null);
       setLogo(
@@ -1851,7 +1876,10 @@ export default function ManageCommunityPage() {
                             <Icon className={`absolute right-4 top-1/2 -translate-y-1/2 ${iconClass}`} />
                             <input
                               type="url"
-                              dir="ltr"
+                              // RTL while empty so the Hebrew placeholder keeps its
+                              // word order ("קישור לערוץ YouTube"); LTR once a URL is
+                              // typed so the URL itself isn't reordered.
+                              dir={value ? 'ltr' : 'rtl'}
                               aria-label={placeholder}
                               aria-invalid={invalid}
                               placeholder={placeholder}

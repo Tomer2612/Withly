@@ -250,6 +250,14 @@ export class CommunitiesController {
     return this.communitiesService.getMyMembership(id, userId);
   }
 
+  // Owner-only — the card bound to this community (last 4 + brand) for the
+  // manage-page payments tab. Service enforces ownership.
+  @UseGuards(AuthGuard('jwt'))
+  @Get(':id/payment-method')
+  getOwnerPaymentMethod(@Param('id') id: string, @Req() req) {
+    return this.communitiesService.getOwnerPaymentMethod(id, req.user.userId);
+  }
+
   // Owner-only — drives the "net to you" + "earned to date" figures on the
   // manage-page revenue card. Service enforces ownership.
   @UseGuards(AuthGuard('jwt'))

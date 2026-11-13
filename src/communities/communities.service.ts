@@ -156,13 +156,8 @@ export class CommunitiesService {
             profileImage: true,
           },
         },
-        // Phase 6.3: expose the bound payment method's card display fields
-        // here instead of denormalized cardLastFour/cardBrand columns on
-        // Community (which are being dropped). Frontend reads
-        // community.paymentMethod?.cardLastFour for the manage-page display.
-        paymentMethod: {
-          select: { cardLastFour: true, cardBrand: true },
-        },
+        // The owner's card is NOT included here — this endpoint is public.
+        // The Manage page reads it from getOwnerPaymentMethod() instead.
         _count: { select: { members: true } },
       } as const;
 
@@ -194,17 +189,9 @@ export class CommunitiesService {
         }
       }
 
-      // The owner's card (last 4 + brand) is only for the owner's own Manage
-      // page — strip it for every other viewer of this public endpoint.
-      const viewerIsOwner = !!viewerUserId && community.ownerId === viewerUserId;
-
       // Surface a memberCount field derived from _count, keeping the same
       // wire shape callers expect after the column was dropped.
-      return {
-        ...community,
-        paymentMethod: viewerIsOwner ? community.paymentMethod : null,
-        memberCount: community._count.members + 1,
-      };
+      return { ...community, memberCount: community._count.members + 1 };
     } catch (err) {
       if (err instanceof NotFoundException) {
         throw err;
@@ -2158,6 +2145,32 @@ export class CommunitiesService {
         `Kick refund FAILED, owed: sub=${sub.id} amount=₪${refundAmount} reason=${failureReason}`,
       );
     }
+  }
+
+  // Owner-only: the card bound to this community (last 4 + brand), for the
+  // Manage → payments tab. Deliberately its own endpoint behind the JWT guard
+  // rather than a field on the public community payload:
+  //   - nobody but the owner can ever receive it, and
+  //   - an expired session gets a 401 (which the client refreshes and
+  //     retries) instead of an anonymous response that reads as "no card".
+  // Always returns an object, so the client can parse JSON even when no card
+  // is bound.
+  async getOwnerPaymentMethod(idOrSlug: string, userId: string) {
+    const communityId = await this.resolveId(idOrSlug);
+    const community = await this.prisma.community.findUnique({
+      where: { id: communityId },
+      select: {
+        ownerId: true,
+        paymentMethod: { select: { cardLastFour: true, cardBrand: true } },
+      },
+    });
+    if (!community) {
+      throw new NotFoundException('Community not found');
+    }
+    if (community.ownerId !== userId) {
+      throw new ForbiddenException('Only the community owner can view the payment method');
+    }
+    return { paymentMethod: community.paymentMethod };
   }
 
   // Owner-only earnings summary for the manage-page revenue card. Returns
