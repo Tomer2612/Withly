@@ -292,13 +292,14 @@ export class UsersService {
   }
 
   // Public profile - get user by ID (limited info)
+  // Public, no auth — never include contact details (email). Anyone holding a
+  // user id (every profile link has one) could otherwise collect addresses.
   async getPublicProfile(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
         name: true,
-        email: true,
         profileImage: true,
         coverImage: true,
         bio: true,

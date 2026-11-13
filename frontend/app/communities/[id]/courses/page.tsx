@@ -90,6 +90,9 @@ export default function CoursesPage() {
   useEffect(() => {
     fetchCommunity();
     fetchCourses();
+    // Load once per community. Both loaders are recreated on every render, so
+    // listing them would refetch in a loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [communityId]);
 
   // Set default tab based on user role
@@ -286,7 +289,7 @@ export default function CoursesPage() {
             {searchQuery ? (
               <>
                 <SearchXIcon className="w-16 h-16 mx-auto mb-4" />
-                <p className="text-black text-lg">לא נמצאו קורסים עבור "{searchQuery}"</p>
+                <p className="text-black text-lg">לא נמצאו קורסים עבור &quot;{searchQuery}&quot;</p>
               </>
             ) : (
               <>
@@ -483,7 +486,7 @@ export default function CoursesPage() {
             <div className="text-center">
               <h3 className="font-semibold text-black mb-2" style={{ fontSize: '21px' }}>מחיקת קורס</h3>
               <p className="mb-6" style={{ fontSize: '18px', color: 'var(--color-gray-10)' }}>
-                האם אתה בטוח שברצונך למחוק את הקורס <span className="font-semibold">"{deleteModal.courseTitle}"</span>?
+                האם אתה בטוח שברצונך למחוק את הקורס <span className="font-semibold">&quot;{deleteModal.courseTitle}&quot;</span>?
                 <br />
                 פעולה זו לא ניתנת לביטול.
               </p>

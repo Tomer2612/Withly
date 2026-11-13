@@ -40,13 +40,17 @@ export class PostsController {
     private readonly storageService: StorageService,
   ) {}
 
-  // Get posts by community - must come before :postId routes
+  // Get posts by community - must come before :postId routes.
+  // Members only. The viewer comes from the login cookie; a client-supplied
+  // ?userId= is ignored (it used to let anyone read another user's likes,
+  // saves and poll votes).
+  @UseGuards(AuthGuard('jwt'))
   @Get('community/:communityId')
   getPosts(
     @Param('communityId') communityId: string,
-    @Query('userId') userId?: string
+    @Req() req,
   ) {
-    return this.postsService.findByCommunity(communityId, userId);
+    return this.postsService.findByCommunity(communityId, req.user.userId);
   }
 
   // Create post in community
@@ -61,17 +65,21 @@ export class PostsController {
     @UploadedFiles() files?: Express.Multer.File[]
   ) {
     const userId = req.user.userId;
-    
+
+    // Members only — checked before any upload so a non-member's
+    // attachments never reach storage.
+    await this.postsService.assertCanPost(communityId, userId);
+
     const images: string[] = [];
     const uploadedFiles: FileAttachment[] = [];
     const videos: string[] = [];
-    
+
     if (files && files.length > 0) {
       for (const file of files) {
         const fileType = getFileType(file.mimetype);
         // Decode Hebrew/non-ASCII filenames properly
         const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
-        
+
         if (fileType === 'image' && images.length < 6) {
           const url = await this.storageService.uploadFile(file, 'posts');
           images.push(url);
@@ -281,10 +289,11 @@ export class PostsController {
     return this.postsService.togglePin(postId, userId);
   }
 
-  // Get comments for a post
+  // Get comments for a post — members of the post's community only.
+  @UseGuards(AuthGuard('jwt'))
   @Get(':postId/comments')
-  getComments(@Param('postId') postId: string) {
-    return this.postsService.getComments(postId);
+  getComments(@Param('postId') postId: string, @Req() req) {
+    return this.postsService.getComments(postId, req.user.userId);
   }
 
   // Create a comment

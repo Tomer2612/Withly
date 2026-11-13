@@ -56,7 +56,6 @@ const getVisiblePages = (currentPage: number, totalPages: number): number[] => {
 interface UserProfile {
   id: string;
   name: string;
-  email: string;
   profileImage?: string | null;
   coverImage?: string | null;
   bio?: string | null;
@@ -224,8 +223,8 @@ export default function MemberProfilePage() {
     }
 
     // Use global chat widget
-    if ((window as any).openChatWithUser && profile) {
-      (window as any).openChatWithUser(userId, profile.name, profile.profileImage);
+    if (window.openChatWithUser && profile) {
+      window.openChatWithUser(userId);
     }
   };
 

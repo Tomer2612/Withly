@@ -7,6 +7,7 @@ import SuspendedCommunityModal from '../../components/SuspendedCommunityModal';
 import PriceChangeAnnouncementModal from '../../components/PriceChangeAnnouncementModal';
 import ScheduledSuspensionModal from '../../components/ScheduledSuspensionModal';
 import { useUser } from '../../lib/UserContext';
+import { isMemberListHiddenFor } from '../../lib/memberListVisibility';
 import { CommunityLayoutContext, CommunityLayoutContextType } from './CommunityContext';
 
 interface Community {
@@ -246,6 +247,7 @@ export default function CommunityLayout({ children }: { children: ReactNode }) {
           community={community}
           activePage={getActivePage()}
           isOwner={isOwner}
+          hideMemberTabs={isMemberListHiddenFor(community?.id, isOwnerOrManager)}
           userEmail={userEmail}
           userId={userId}
           userProfile={userProfile}

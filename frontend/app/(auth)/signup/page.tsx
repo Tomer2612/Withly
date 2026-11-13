@@ -134,7 +134,7 @@ function SignupContent() {
           setEmailError('');
         }
       }
-    } catch (error) {
+    } catch {
       // Silently fail
     } finally {
       setEmailChecking(false);
@@ -294,7 +294,7 @@ function SignupContent() {
       } else {
         setMessage('שגיאה בשליחת מייל');
       }
-    } catch (error) {
+    } catch {
       setMessage('שגיאה בשליחת מייל');
     } finally {
       setResending(false);
@@ -387,7 +387,7 @@ function SignupContent() {
                     <CheckmarkIcon className="w-3 h-2.5 text-black" />
                   </div>
                   <p className="text-[16px]" style={{ color: '#3F3F46' }}>
-                    פלטפורמה שמרכזת קורסים, צ'אט וקהילה במקום אחד
+                    פלטפורמה שמרכזת קורסים, צ&apos;אט וקהילה במקום אחד
                   </p>
                 </div>
                 

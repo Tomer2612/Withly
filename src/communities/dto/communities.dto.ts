@@ -1,6 +1,31 @@
-import { IsArray, IsIn, IsOptional, IsString, MaxLength, MinLength, ArrayMaxSize } from 'class-validator';
+import { IsArray, IsIn, IsOptional, IsString, Matches, MaxLength, MinLength, ArrayMaxSize } from 'class-validator';
 
 const URL_MAX = 500;
+// Empty string clears the field; anything else must be an http(s) URL so a
+// `javascript:` value can never land in an href on About/Preview.
+const HTTP_URL_OR_EMPTY = /^(|https?:\/\/\S+)$/i;
+// Social links: empty, or an http(s) URL whose host is one of the platform's
+// domains (or a subdomain, e.g. m.facebook.com / chat.whatsapp.com).
+// Keep the domain lists in sync with SOCIAL_DOMAINS in frontend/app/lib/linkUtils.ts.
+const socialUrlOrEmpty = (domains: string[]) =>
+  new RegExp(
+    `^(|https?:\\/\\/([a-z0-9-]+\\.)*(${domains.map((d) => d.replace(/\./g, '\\.')).join('|')})([/?#]\\S*)?)$`,
+    'i',
+  );
+const YOUTUBE_URL_OR_EMPTY = socialUrlOrEmpty(['youtube.com', 'youtu.be']);
+const WHATSAPP_URL_OR_EMPTY = socialUrlOrEmpty(['whatsapp.com', 'wa.me']);
+const FACEBOOK_URL_OR_EMPTY = socialUrlOrEmpty(['facebook.com', 'fb.com', 'fb.me']);
+const INSTAGRAM_URL_OR_EMPTY = socialUrlOrEmpty(['instagram.com', 'instagr.am']);
+const LINKEDIN_URL_OR_EMPTY = socialUrlOrEmpty(['linkedin.com']);
+
+// Applies the max length + platform check to one social-link field.
+const SocialUrl = (pattern: RegExp, platform: string): PropertyDecorator =>
+  (target, key) => {
+    IsOptional()(target, key);
+    IsString()(target, key);
+    MaxLength(URL_MAX)(target, key);
+    Matches(pattern, { message: `${String(key)} must be a ${platform} link` })(target, key);
+  };
 
 export class CreateCommunityDto {
   @IsString()
@@ -14,10 +39,10 @@ export class CreateCommunityDto {
   description!: string;
 
   @IsOptional() @IsString() @MaxLength(50) topic?: string;
-  @IsOptional() @IsString() @MaxLength(URL_MAX) youtubeUrl?: string;
-  @IsOptional() @IsString() @MaxLength(URL_MAX) whatsappUrl?: string;
-  @IsOptional() @IsString() @MaxLength(URL_MAX) facebookUrl?: string;
-  @IsOptional() @IsString() @MaxLength(URL_MAX) instagramUrl?: string;
+  @SocialUrl(YOUTUBE_URL_OR_EMPTY, 'YouTube') youtubeUrl?: string;
+  @SocialUrl(WHATSAPP_URL_OR_EMPTY, 'WhatsApp') whatsappUrl?: string;
+  @SocialUrl(FACEBOOK_URL_OR_EMPTY, 'Facebook') facebookUrl?: string;
+  @SocialUrl(INSTAGRAM_URL_OR_EMPTY, 'Instagram') instagramUrl?: string;
 }
 
 // Existing-card flows (Phase 3.3+): the user picked a card from their
@@ -67,10 +92,10 @@ export class BeginCheckoutDto {
   description!: string;
 
   @IsOptional() @IsString() @MaxLength(50) topic?: string;
-  @IsOptional() @IsString() @MaxLength(URL_MAX) youtubeUrl?: string;
-  @IsOptional() @IsString() @MaxLength(URL_MAX) whatsappUrl?: string;
-  @IsOptional() @IsString() @MaxLength(URL_MAX) facebookUrl?: string;
-  @IsOptional() @IsString() @MaxLength(URL_MAX) instagramUrl?: string;
+  @SocialUrl(YOUTUBE_URL_OR_EMPTY, 'YouTube') youtubeUrl?: string;
+  @SocialUrl(WHATSAPP_URL_OR_EMPTY, 'WhatsApp') whatsappUrl?: string;
+  @SocialUrl(FACEBOOK_URL_OR_EMPTY, 'Facebook') facebookUrl?: string;
+  @SocialUrl(INSTAGRAM_URL_OR_EMPTY, 'Instagram') instagramUrl?: string;
   // Plan the owner picked on the pricing page (e.g. "starter" | "pro").
   // Resolved server-side to a plan id and stored on the pending row.
   @IsOptional() @IsString() @MaxLength(50) planSlug?: string;
@@ -86,10 +111,15 @@ export class UpdateCommunityDto {
   @IsOptional() @IsString() removeImage?: string;
   @IsOptional() @IsString() removeLogo?: string;
 
-  @IsOptional() @IsString() @MaxLength(URL_MAX) youtubeUrl?: string;
-  @IsOptional() @IsString() @MaxLength(URL_MAX) whatsappUrl?: string;
-  @IsOptional() @IsString() @MaxLength(URL_MAX) facebookUrl?: string;
-  @IsOptional() @IsString() @MaxLength(URL_MAX) instagramUrl?: string;
+  @SocialUrl(YOUTUBE_URL_OR_EMPTY, 'YouTube') youtubeUrl?: string;
+  @SocialUrl(WHATSAPP_URL_OR_EMPTY, 'WhatsApp') whatsappUrl?: string;
+  @SocialUrl(FACEBOOK_URL_OR_EMPTY, 'Facebook') facebookUrl?: string;
+  @SocialUrl(INSTAGRAM_URL_OR_EMPTY, 'Instagram') instagramUrl?: string;
+  @SocialUrl(LINKEDIN_URL_OR_EMPTY, 'LinkedIn') linkedinUrl?: string;
+  @IsOptional() @IsString() @MaxLength(URL_MAX)
+  @Matches(HTTP_URL_OR_EMPTY, { message: 'customLinkUrl must start with http:// or https://' })
+  customLinkUrl?: string;
+  @IsOptional() @IsString() @MaxLength(20) customLinkLabel?: string;
 
   // JSON-encoded arrays — service does JSON.parse
   @IsOptional() @IsString() existingGalleryImages?: string;

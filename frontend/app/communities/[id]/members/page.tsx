@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useCommunityContext } from '../CommunityContext';
 import { authFetch } from '../../../lib/auth';
+import { isMemberListHiddenFor } from '../../../lib/memberListVisibility';
 import SearchXIcon from '../../../components/icons/SearchXIcon';
 import UserRemoveIcon from '../../../components/icons/UserRemoveIcon';
 import CrownIcon from '../../../components/icons/CrownIcon';
@@ -48,14 +49,22 @@ export default function CommunityMembersPage() {
   const [removeModal, setRemoveModal] = useState<{ open: boolean; memberId: string | null; memberName: string }>({ open: false, memberId: null, memberName: '' });
   const [liftBanModal, setLiftBanModal] = useState<{ open: boolean; banId: string | null; memberName: string }>({ open: false, banId: null, memberName: '' });
 
-  const { userEmail, userRole } = useCommunityContext();
+  const { userEmail, userRole, community, isOwnerOrManager } = useCommunityContext();
   const currentUserRole = userRole;
+  // Managers-only member list (one-off per community): regular members are
+  // sent to the feed. The layout renders this page only after community +
+  // role have loaded, so this is already final on mount — no flash.
+  const memberListHidden = isMemberListHiddenFor(community?.id, isOwnerOrManager);
+
+  useEffect(() => {
+    if (memberListHidden) router.replace(`/communities/${communityId}/feed`);
+  }, [memberListHidden, communityId, router]);
   const [showBanned, setShowBanned] = useState(false);
   const [menuOpenMemberId, setMenuOpenMemberId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!communityId) return;
+      if (!communityId || memberListHidden) return;
 
       if (!userEmail) {
         router.push('/login');
@@ -96,7 +105,7 @@ export default function CommunityMembersPage() {
     };
 
     fetchData();
-  }, [communityId, router, userEmail]);
+  }, [communityId, router, userEmail, memberListHidden]);
 
   // Filter members by search
   useEffect(() => {
@@ -223,6 +232,8 @@ export default function CommunityMembersPage() {
       alert('שגיאה בהסרת ההשעיה');
     }
   };
+
+  if (memberListHidden) return null;
 
   return (
     <main className="min-h-screen bg-gray-100 text-right" dir="rtl">

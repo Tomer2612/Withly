@@ -3,6 +3,7 @@ import { Prisma, CommunityStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../common/prisma.service';
 import { canManageCommunity, getEffectiveRole } from '../common/community-roles.helper';
+import { MANAGERS_ONLY_MEMBER_LIST_COMMUNITY_IDS } from '../common/member-list-visibility';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailService } from '../email/email.service';
 import { HypService } from '../payments/hyp.service';
@@ -229,9 +230,15 @@ export class CommunitiesService {
     price?: number | null,
     showOnlineMembers?: boolean,
     status?: string,
+    links?: {
+      linkedinUrl?: string;
+      customLinkUrl?: string;
+      customLinkLabel?: string;
+    },
   ) {
     try {
       const id = await this.resolveId(idOrSlug);
+      const { linkedinUrl, customLinkUrl, customLinkLabel } = links ?? {};
 
       const community = await this.prisma.community.findUnique({
         where: { id },
@@ -259,6 +266,9 @@ export class CommunitiesService {
         whatsappUrl !== undefined ||
         facebookUrl !== undefined ||
         instagramUrl !== undefined ||
+        linkedinUrl !== undefined ||
+        customLinkUrl !== undefined ||
+        customLinkLabel !== undefined ||
         galleryImages !== undefined ||
         galleryVideos !== undefined ||
         showOnlineMembers !== undefined ||
@@ -294,6 +304,15 @@ export class CommunitiesService {
       }
       if (instagramUrl !== undefined) {
         updateData.instagramUrl = instagramUrl || null;
+      }
+      if (linkedinUrl !== undefined) {
+        updateData.linkedinUrl = linkedinUrl || null;
+      }
+      if (customLinkUrl !== undefined) {
+        updateData.customLinkUrl = customLinkUrl || null;
+      }
+      if (customLinkLabel !== undefined) {
+        updateData.customLinkLabel = customLinkLabel.trim() || null;
       }
       if (galleryImages !== undefined) {
         updateData.galleryImages = galleryImages;
@@ -2231,8 +2250,23 @@ export class CommunitiesService {
     return Array.from(communityMap.values());
   }
 
-  async getCommunityMembers(communityIdOrSlug: string) {
+  // The member list and leaderboard are for the community's own people only
+  // (owner, managers, members) — outsiders get 403 even when logged in. A few
+  // communities restrict them further to owner + managers
+  // (MANAGERS_ONLY_MEMBER_LIST_COMMUNITY_IDS).
+  private async assertCanViewMemberList(communityId: string, viewerId: string) {
+    const role = await getEffectiveRole(this.prisma, communityId, viewerId);
+    if (!role) {
+      throw new ForbiddenException('Only community members can view the member list');
+    }
+    if (MANAGERS_ONLY_MEMBER_LIST_COMMUNITY_IDS.has(communityId) && !canManageCommunity(role)) {
+      throw new ForbiddenException('The member list of this community is visible to its managers only');
+    }
+  }
+
+  async getCommunityMembers(communityIdOrSlug: string, viewerId: string) {
     const communityId = await this.resolveId(communityIdOrSlug);
+    await this.assertCanViewMemberList(communityId, viewerId);
 
     // Owner is no longer a community_members row — fold them in from
     // Community.ownerId so the response shape stays the same.
@@ -2314,8 +2348,9 @@ export class CommunitiesService {
   // and gated each row through a memberIds Set; this version delegates the
   // counting to the database via groupBy and applies the same Set filter
   // before scoring).
-  async getTopMembers(communityIdOrSlug: string, limit: number = 3) {
+  async getTopMembers(communityIdOrSlug: string, viewerId: string, limit: number = 3) {
     const communityId = await this.resolveId(communityIdOrSlug);
+    await this.assertCanViewMemberList(communityId, viewerId);
 
     const community = await this.prisma.community.findUnique({
       where: { id: communityId },

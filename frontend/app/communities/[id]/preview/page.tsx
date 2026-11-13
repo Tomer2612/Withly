@@ -5,7 +5,9 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { authFetch } from '../../../lib/auth';
 import { useUser } from '../../../lib/UserContext';
-import { FaYoutube, FaWhatsapp, FaFacebook, FaInstagram } from 'react-icons/fa';
+import { FaYoutube, FaWhatsapp, FaFacebook, FaInstagram, FaLinkedin } from 'react-icons/fa';
+import { CUSTOM_LINK_DEFAULT_LABEL, withProtocol } from '@/app/lib/linkUtils';
+import GlobeIcon from '@/app/components/icons/GlobeIcon';
 import PlayIcon from '../../../components/icons/PlayIcon';
 import VideoPlayer, { VideoThumbnail } from '../../../components/VideoPlayer';
 import CloseIcon from '../../../components/icons/CloseIcon';
@@ -34,6 +36,9 @@ interface Community {
   whatsappUrl?: string | null;
   facebookUrl?: string | null;
   instagramUrl?: string | null;
+  linkedinUrl?: string | null;
+  customLinkUrl?: string | null;
+  customLinkLabel?: string | null;
   galleryImages?: string[];
   galleryVideos?: string[];
   owner?: {
@@ -591,35 +596,56 @@ function CommunityPreviewContent() {
               </div>
 
               {/* Social Links */}
-              {(community.youtubeUrl || community.whatsappUrl || community.facebookUrl || community.instagramUrl) && (
+              {(community.youtubeUrl || community.whatsappUrl || community.facebookUrl || community.instagramUrl || community.linkedinUrl || community.customLinkUrl) && (
                 <div className="p-5">
+                  {(community.youtubeUrl || community.whatsappUrl || community.facebookUrl || community.instagramUrl || community.linkedinUrl) && (
+                  <>
                   <h4 className="text-[18px] font-semibold text-gray-500 mb-3 text-center">עקבו אחרינו</h4>
-                  <div className="flex justify-center gap-3">
+                  <div className="flex flex-wrap justify-center gap-3">
                     {community.youtubeUrl && (
-                      <a href={community.youtubeUrl} target="_blank" rel="noopener noreferrer" 
+                      <a href={withProtocol(community.youtubeUrl)} target="_blank" rel="noopener noreferrer" 
                         className="w-10 h-10 rounded-xl bg-gray-100 hover:bg-gray-900 hover:text-white text-gray-600 flex items-center justify-center transition">
                         <FaYoutube className="w-5 h-5" />
                       </a>
                     )}
                     {community.whatsappUrl && (
-                      <a href={community.whatsappUrl} target="_blank" rel="noopener noreferrer" 
+                      <a href={withProtocol(community.whatsappUrl)} target="_blank" rel="noopener noreferrer" 
                         className="w-10 h-10 rounded-xl bg-gray-100 hover:bg-gray-900 hover:text-white text-gray-600 flex items-center justify-center transition">
                         <FaWhatsapp className="w-5 h-5" />
                       </a>
                     )}
                     {community.facebookUrl && (
-                      <a href={community.facebookUrl} target="_blank" rel="noopener noreferrer" 
+                      <a href={withProtocol(community.facebookUrl)} target="_blank" rel="noopener noreferrer" 
                         className="w-10 h-10 rounded-xl bg-gray-100 hover:bg-gray-900 hover:text-white text-gray-600 flex items-center justify-center transition">
                         <FaFacebook className="w-5 h-5" />
                       </a>
                     )}
                     {community.instagramUrl && (
-                      <a href={community.instagramUrl} target="_blank" rel="noopener noreferrer" 
+                      <a href={withProtocol(community.instagramUrl)} target="_blank" rel="noopener noreferrer" 
                         className="w-10 h-10 rounded-xl bg-gray-100 hover:bg-gray-900 hover:text-white text-gray-600 flex items-center justify-center transition">
                         <FaInstagram className="w-5 h-5" />
                       </a>
                     )}
+                    {community.linkedinUrl && (
+                      <a href={withProtocol(community.linkedinUrl)} target="_blank" rel="noopener noreferrer" title="לינקדאין"
+                        className="w-10 h-10 rounded-xl bg-gray-100 hover:bg-gray-900 hover:text-white text-gray-600 flex items-center justify-center transition">
+                        <FaLinkedin className="w-5 h-5" />
+                      </a>
+                    )}
                   </div>
+                  </>
+                  )}
+                  {community.customLinkUrl && (
+                    <a
+                      href={withProtocol(community.customLinkUrl)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`${(community.youtubeUrl || community.whatsappUrl || community.facebookUrl || community.instagramUrl || community.linkedinUrl) ? 'mt-4' : ''} w-full min-h-[44px] px-4 py-2.5 rounded-lg bg-gray-900 hover:bg-black text-white text-sm font-semibold flex items-center justify-center gap-2 transition`}
+                    >
+                      <GlobeIcon className="w-4 h-4 flex-shrink-0" />
+                      <span className="truncate">{community.customLinkLabel || CUSTOM_LINK_DEFAULT_LABEL}</span>
+                    </a>
+                  )}
                 </div>
               )}
             </div>

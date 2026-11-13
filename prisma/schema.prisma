@@ -234,6 +234,11 @@ model Community {
   instagramUrl            String?
   whatsappUrl             String?
   youtubeUrl              String?
+  linkedinUrl             String?
+  // Owner's own website/custom link, shown as a button on About/Preview.
+  // Label is the button text; falls back to a default when empty.
+  customLinkUrl           String?
+  customLinkLabel         String?
   rules                   String[]
   price                   Float?                      @default(0)
   logo                    String?

@@ -7,13 +7,11 @@ import { compressImage, MAX_IMAGE_SIZE_BYTES } from '../../lib/imageCompression'
 import { useUser } from '../../lib/UserContext';
 import FormSelect from '../../components/FormSelect';
 import { HiOutlineUser, HiOutlineCamera, HiOutlineCog6Tooth, HiOutlineEye, HiOutlineEyeSlash, HiOutlineHeart, HiOutlineChatBubbleOvalLeft, HiOutlineUserPlus, HiOutlineUsers, HiOutlineEnvelope, HiOutlineDocumentText, HiOutlineAtSymbol, HiOutlineCreditCard } from 'react-icons/hi2';
-import CloseIcon from '../../components/icons/CloseIcon';
 import PowerIcon from '../../components/icons/PowerIcon';
 import PowerOffIcon from '../../components/icons/PowerOffIcon';
 import CreditCardIcon from '../../components/icons/CreditCardIcon';
 import TrashIcon from '../../components/icons/TrashIcon';
 import LockIcon from '../../components/icons/LockIcon';
-import CalendarIcon from '../../components/icons/CalendarIcon';
 import LeaveCommunityModal from '../../components/LeaveCommunityModal';
 import CancelPaidMembershipModal from '../../components/CancelPaidMembershipModal';
 import CancelSubscriptionModal from '../../components/CancelSubscriptionModal';
@@ -128,7 +126,6 @@ export default function SettingsPage() {
   // (membership.price = that community's platform fee), so no default-plan
   // lookup is needed here.
   const { user, refresh: refreshUser, setLoggedOut } = useUser();
-  const userId = user?.userId ?? null;
   const userEmail = user?.email ?? null;
   const [activeTab, setActiveTab] = useState<TabType>('profile');
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -451,9 +448,9 @@ export default function SettingsPage() {
       // Re-snapshot to the just-saved values: clears the dirty state (bar hides,
       // beforeunload won't trigger) while still tracking further edits.
       initialFormRef.current = { name, bio, location };
-    } catch (err: any) {
+    } catch (err) {
       console.error('Profile update error:', err);
-      setMessage(err.message || 'שגיאה בעדכון הפרופיל');
+      setMessage((err instanceof Error && err.message) || 'שגיאה בעדכון הפרופיל');
       setMessageType('error');
     } finally {
       setSaving(false);
@@ -481,7 +478,7 @@ export default function SettingsPage() {
       setShowOnline(data.showOnline);
       setMessage(data.showOnline ? 'הסטטוס שונה למחובר' : 'הסטטוס שונה ללא מחובר');
       setMessageType('success');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Toggle online status error:', err);
       setMessage('שגיאה בשינוי סטטוס');
       setMessageType('error');
@@ -507,7 +504,7 @@ export default function SettingsPage() {
       if (!res.ok) {
         throw new Error('Failed to save notification preferences');
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Save notification preference error:', err);
     }
   };
@@ -601,9 +598,9 @@ export default function SettingsPage() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Password change error:', err);
-      setMessage(err.message || 'שגיאה בשינוי הסיסמה');
+      setMessage((err instanceof Error && err.message) || 'שגיאה בשינוי הסיסמה');
       setMessageType('error');
     } finally {
       setChangingPassword(false);
@@ -638,7 +635,7 @@ export default function SettingsPage() {
       setTimeout(() => {
         router.push('/');
       }, 3000);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Delete account error:', err);
       setMessage('שגיאה במחיקת החשבון');
       setMessageType('error');

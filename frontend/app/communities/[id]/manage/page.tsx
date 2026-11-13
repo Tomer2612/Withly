@@ -3,7 +3,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { FaYoutube, FaWhatsapp, FaFacebook, FaInstagram } from 'react-icons/fa';
+import { FaYoutube, FaWhatsapp, FaFacebook, FaInstagram, FaLinkedin } from 'react-icons/fa';
+import { getActiveTrialEnd } from '../../../lib/trial';
+import { withProtocol, isValidWebsiteUrl, isValidSocialUrl, type SocialPlatform, CUSTOM_LINK_LABEL_MAX, CUSTOM_LINK_DEFAULT_LABEL } from '../../../lib/linkUtils';
 import { compressImage, compressImages, MAX_IMAGE_SIZE_BYTES } from '../../../lib/imageCompression';
 import { isValidVideoUrl, getVideoProvider, getProviderLabel, MAX_VIDEO_SIZE_BYTES } from '../../../lib/videoUtils';
 import { useCommunityContext } from '../CommunityContext';
@@ -47,6 +49,9 @@ interface Community {
   whatsappUrl: string | null;
   facebookUrl: string | null;
   instagramUrl: string | null;
+  linkedinUrl: string | null;
+  customLinkUrl: string | null;
+  customLinkLabel: string | null;
   galleryImages: string[];
   galleryVideos: string[];
   rules: string[];
@@ -55,6 +60,8 @@ interface Community {
   // trialStartDate + planTrialLength via a local util pre-Phase-6.3; now
   // read directly from the backend.
   nextBillingDate: string | null;
+  // Set only by a successful owner charge — null means still in the trial.
+  currentPeriodStart: string | null;
   // Phase 6.3: card display fields read from the bound payment method
   // (was: denormalized cardLastFour/cardBrand columns on Community,
   // dropped in commit that ships this interface change).
@@ -71,23 +78,13 @@ const formatHebrewDate = (d: Date): string => d.toLocaleDateString('he-IL');
 // Slash-style d/m/yyyy date format used in the revenue card (no leading zeros).
 const formatSlashDate = (d: Date): string =>
   `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
-// Trial-billing math now takes trialLengthMonths as a param so the plan
-// driver (Plan.trialLengthMonths from /api/plans/default) is the only
-// source of truth — no more module-level constants.
-const getTrialEnd = (trialStart: Date | null, trialLengthMonths: number): Date | null =>
-  trialStart ? addMonths(trialStart, trialLengthMonths) : null;
-const isInTrial = (trialStart: Date | null, trialLengthMonths: number): boolean => {
-  const end = getTrialEnd(trialStart, trialLengthMonths);
-  return !!end && end > new Date();
-};
 // Phase 6.3: local trial-cycle math for "next billing" and "cancellation
 // effective date" was deleted. Authoritative dates come from the backend:
 //   - community.nextBillingDate (cron-managed)
 //   - CancelSubscriptionModal fetches a /cancellation-preview endpoint that
 //     factors in member periods (Phase 5 Mission 3)
-// `getTrialEnd` + `isInTrial` stay since trial-end isn't a stored column
-// (it's trialStartDate + plan.trialLengthMonths) and only the trial
-// disclosure copy reads it.
+// The trial disclosure reads the same nextBillingDate via getActiveTrialEnd
+// (lib/trial.ts), so an extended trial shows the real first-charge date.
 
 interface ImageFile {
   file?: File;
@@ -148,7 +145,30 @@ export default function ManageCommunityPage() {
   const [whatsappUrl, setWhatsappUrl] = useState('');
   const [facebookUrl, setFacebookUrl] = useState('');
   const [instagramUrl, setInstagramUrl] = useState('');
-  
+  const [linkedinUrl, setLinkedinUrl] = useState('');
+  // Owner's website / custom link + its button text
+  const [customLinkUrl, setCustomLinkUrl] = useState('');
+  const [customLinkLabel, setCustomLinkLabel] = useState('');
+
+  // Drives the social-links tab inputs, the save-time validation and the
+  // formData payload — one entry per platform so all five behave identically.
+  const socialFields: {
+    platform: SocialPlatform;
+    field: 'youtubeUrl' | 'whatsappUrl' | 'facebookUrl' | 'instagramUrl' | 'linkedinUrl';
+    label: string;
+    placeholder: string;
+    Icon: typeof FaYoutube;
+    iconClass: string;
+    value: string;
+    setValue: (v: string) => void;
+  }[] = [
+    { platform: 'youtube', field: 'youtubeUrl', label: 'YouTube', placeholder: 'קישור לערוץ YouTube', Icon: FaYoutube, iconClass: 'text-red-500', value: youtubeUrl, setValue: setYoutubeUrl },
+    { platform: 'whatsapp', field: 'whatsappUrl', label: 'WhatsApp', placeholder: 'קישור לקבוצת WhatsApp', Icon: FaWhatsapp, iconClass: 'text-green-500', value: whatsappUrl, setValue: setWhatsappUrl },
+    { platform: 'facebook', field: 'facebookUrl', label: 'Facebook', placeholder: 'קישור לעמוד Facebook', Icon: FaFacebook, iconClass: 'text-blue-600', value: facebookUrl, setValue: setFacebookUrl },
+    { platform: 'instagram', field: 'instagramUrl', label: 'Instagram', placeholder: 'קישור לעמוד Instagram', Icon: FaInstagram, iconClass: 'text-pink-500', value: instagramUrl, setValue: setInstagramUrl },
+    { platform: 'linkedin', field: 'linkedinUrl', label: 'LinkedIn', placeholder: 'קישור לעמוד LinkedIn', Icon: FaLinkedin, iconClass: 'text-[#0A66C2]', value: linkedinUrl, setValue: setLinkedinUrl },
+  ];
+
   // Logo
   const [logo, setLogo] = useState<{ file?: File; preview: string; isExisting: boolean; existingPath?: string } | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -183,6 +203,15 @@ export default function ManageCommunityPage() {
   // Authoritative next-bill date from the cron. Replaces the local
   // getNextBillingDate() math (Phase 6.3).
   const [nextBillingDate, setNextBillingDate] = useState<Date | null>(null);
+  // Null until the owner's first successful charge — drives trial detection.
+  const [currentPeriodStart, setCurrentPeriodStart] = useState<Date | null>(null);
+  // Non-null only while the free trial is running (see lib/trial.ts).
+  const activeTrialEnd = getActiveTrialEnd({
+    trialStartDate,
+    nextBillingDate,
+    currentPeriodStart,
+    trialLengthMonths: planTrialLength,
+  });
   const [cardLastFour, setCardLastFour] = useState<string | null>(null);
   const [cardBrand, setCardBrand] = useState<string | null>(null);
   const [showCardModal, setShowCardModal] = useState(false);
@@ -238,7 +267,7 @@ export default function ManageCommunityPage() {
   ];
 
   // Track initial form values to detect unsaved changes
-  const initialFormRef = useRef<{ name: string; description: string; topic: string; slug: string; rules: string[]; galleryVideos: string[]; youtubeUrl: string; whatsappUrl: string; facebookUrl: string; instagramUrl: string; price: number; isPaidCommunity: boolean; showOnlineMembers: boolean; communityStatus: string } | null>(null);
+  const initialFormRef = useRef<{ name: string; description: string; topic: string; slug: string; rules: string[]; galleryVideos: string[]; youtubeUrl: string; whatsappUrl: string; facebookUrl: string; instagramUrl: string; linkedinUrl: string; customLinkUrl: string; customLinkLabel: string; price: number; isPaidCommunity: boolean; showOnlineMembers: boolean; communityStatus: string } | null>(null);
 
   // Pricing is owned entirely by the Payments tab's contextual button +
   // announcement popup, so it must NOT drive the floating bar (that's the
@@ -260,6 +289,9 @@ export default function ManageCommunityPage() {
       whatsappUrl !== init.whatsappUrl ||
       facebookUrl !== init.facebookUrl ||
       instagramUrl !== init.instagramUrl ||
+      linkedinUrl !== init.linkedinUrl ||
+      customLinkUrl !== init.customLinkUrl ||
+      customLinkLabel !== init.customLinkLabel ||
       showOnlineMembers !== init.showOnlineMembers ||
       communityStatus !== init.communityStatus ||
       images.some(img => !img.isExisting) ||
@@ -438,6 +470,9 @@ export default function ManageCommunityPage() {
         setWhatsappUrl(data.whatsappUrl || '');
         setFacebookUrl(data.facebookUrl || '');
         setInstagramUrl(data.instagramUrl || '');
+        setLinkedinUrl(data.linkedinUrl || '');
+        setCustomLinkUrl(data.customLinkUrl || '');
+        setCustomLinkLabel(data.customLinkLabel || '');
         setRules(data.rules || []);
         setPrice(data.price ?? 10);
         setIsPaidCommunity((data.price ?? 0) > 0);
@@ -457,6 +492,7 @@ export default function ManageCommunityPage() {
         setCardLastFour(data.paymentMethod?.cardLastFour || null);
         setCardBrand(data.paymentMethod?.cardBrand || null);
         setNextBillingDate(data.nextBillingDate ? new Date(data.nextBillingDate) : null);
+        setCurrentPeriodStart(data.currentPeriodStart ? new Date(data.currentPeriodStart) : null);
         setShowOnlineMembers(data.showOnlineMembers !== false);
         setCommunityStatus(data.status || 'DRAFT');
         
@@ -472,6 +508,9 @@ export default function ManageCommunityPage() {
           whatsappUrl: data.whatsappUrl || '',
           facebookUrl: data.facebookUrl || '',
           instagramUrl: data.instagramUrl || '',
+          linkedinUrl: data.linkedinUrl || '',
+          customLinkUrl: data.customLinkUrl || '',
+          customLinkLabel: data.customLinkLabel || '',
           price: data.price ?? 10,
           isPaidCommunity: (data.price ?? 0) > 0,
           showOnlineMembers: data.showOnlineMembers !== false,
@@ -719,6 +758,9 @@ export default function ManageCommunityPage() {
     setWhatsappUrl(init.whatsappUrl);
     setFacebookUrl(init.facebookUrl);
     setInstagramUrl(init.instagramUrl);
+    setLinkedinUrl(init.linkedinUrl);
+    setCustomLinkUrl(init.customLinkUrl);
+    setCustomLinkLabel(init.customLinkLabel);
     // Pricing is intentionally NOT reverted here — it's owned by the
     // Payments popup's own ביטול, not the floating bar.
     setShowOnlineMembers(init.showOnlineMembers);
@@ -755,6 +797,9 @@ export default function ManageCommunityPage() {
       setWhatsappUrl(data.whatsappUrl || '');
       setFacebookUrl(data.facebookUrl || '');
       setInstagramUrl(data.instagramUrl || '');
+      setLinkedinUrl(data.linkedinUrl || '');
+      setCustomLinkUrl(data.customLinkUrl || '');
+      setCustomLinkLabel(data.customLinkLabel || '');
       setRules(data.rules || []);
       setPrice(data.price ?? 10);
       setIsPaidCommunity((data.price ?? 0) > 0);
@@ -776,6 +821,7 @@ export default function ManageCommunityPage() {
       setCardLastFour(data.paymentMethod?.cardLastFour || null);
       setCardBrand(data.paymentMethod?.cardBrand || null);
       setNextBillingDate(data.nextBillingDate ? new Date(data.nextBillingDate) : null);
+      setCurrentPeriodStart(data.currentPeriodStart ? new Date(data.currentPeriodStart) : null);
       setLogo(
         data.logo
           ? { preview: getImageUrl(data.logo), isExisting: true, existingPath: data.logo }
@@ -804,6 +850,9 @@ export default function ManageCommunityPage() {
         whatsappUrl: data.whatsappUrl || '',
         facebookUrl: data.facebookUrl || '',
         instagramUrl: data.instagramUrl || '',
+        linkedinUrl: data.linkedinUrl || '',
+        customLinkUrl: data.customLinkUrl || '',
+        customLinkLabel: data.customLinkLabel || '',
         price: data.price ?? 10,
         isPaidCommunity: (data.price ?? 0) > 0,
         showOnlineMembers: data.showOnlineMembers !== false,
@@ -914,6 +963,16 @@ export default function ManageCommunityPage() {
     // (openPriceChangeIfChanged → popup → announce-price). handleUpdateCommunity
     // never initiates a price change — so there's no interception here, and an
     // uncommitted pricing edit can't hijack a save from another tab.
+    // Social + custom links are validated server-side too (400 on bad
+    // values), so block here and surface the inline error on the tab.
+    if (
+      socialFields.some((f) => !isValidSocialUrl(f.value, f.platform)) ||
+      !isValidWebsiteUrl(customLinkUrl)
+    ) {
+      setActiveTab('social');
+      return;
+    }
+
     const skipPriceFieldThisSave = skipPriceRef.current;
     skipPriceRef.current = false;
 
@@ -938,10 +997,9 @@ export default function ManageCommunityPage() {
       }
       
       // Social links
-      formData.append('youtubeUrl', youtubeUrl);
-      formData.append('whatsappUrl', whatsappUrl);
-      formData.append('facebookUrl', facebookUrl);
-      formData.append('instagramUrl', instagramUrl);
+      socialFields.forEach((f) => formData.append(f.field, withProtocol(f.value)));
+      formData.append('customLinkUrl', withProtocol(customLinkUrl));
+      formData.append('customLinkLabel', customLinkLabel.trim());
       
       // Price — skip when an announcement is pending so we don't overwrite
       // the grandfathered current price. The pending price flips into place
@@ -1787,81 +1845,81 @@ export default function ManageCommunityPage() {
                     <p className="text-sm text-gray-500 mt-1">קישורים לפרופילים החברתיים שלך</p>
                   </div>
                   <div className="flex-1 space-y-3">
+                    {socialFields.map(({ platform, label, placeholder, Icon, iconClass, value, setValue }) => {
+                      const invalid = !isValidSocialUrl(value, platform);
+                      return (
+                        <div key={platform}>
+                          <div className="relative">
+                            <Icon className={`absolute right-4 top-1/2 -translate-y-1/2 ${iconClass}`} />
+                            <input
+                              type="url"
+                              dir="ltr"
+                              aria-label={placeholder}
+                              aria-invalid={invalid}
+                              placeholder={placeholder}
+                              className={`w-full p-3.5 pr-12 border rounded-lg focus:outline-none text-right text-base placeholder:text-right ${
+                                invalid
+                                  ? 'border-[#B3261E] focus:ring-2 focus:ring-[#B3261E] focus:border-black'
+                                  : 'border-gray-300 focus:ring-2 focus:ring-black focus:border-black'
+                              }`}
+                              value={value}
+                              onChange={(e) => setValue(e.target.value)}
+                            />
+                          </div>
+                          {invalid && (
+                            <p className="text-xs text-[#B3261E] mt-1 text-right">הקישור צריך להיות מ-{label}</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="border-t border-gray-200" />
+
+                {/* Custom website link — shown as a button on About/Preview */}
+                <div className="flex flex-col md:flex-row gap-4 md:gap-8">
+                  <div className="md:w-48 flex-shrink-0 text-right">
+                    <h3 className="text-[20px] font-semibold text-gray-900">קישור לאתר שלך</h3>
+                    <p className="text-sm text-gray-500 mt-1">כפתור שיופיע בעמוד הקהילה ויוביל לאתר חיצוני</p>
+                  </div>
+                  <div className="flex-1 space-y-3">
                     <div>
+                      <label htmlFor="customLinkUrl" className="block text-sm font-medium text-gray-700 mb-1.5 text-right">כתובת האתר</label>
                       <div className="relative">
-                        <FaYoutube className="absolute right-4 top-1/2 -translate-y-1/2 text-red-500" />
+                        <GlobeIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                         <input
+                          id="customLinkUrl"
                           type="url"
-                          placeholder="קישור לערוץ YouTube"
-                          className={`w-full p-3.5 pr-12 border rounded-lg focus:outline-none text-right text-base ${
-                            youtubeUrl && !youtubeUrl.includes('youtube.com') && !youtubeUrl.includes('youtu.be')
+                          dir="ltr"
+                          placeholder="https://example.co.il"
+                          className={`w-full p-3.5 pr-12 border rounded-lg focus:outline-none text-right text-base placeholder:text-right ${
+                            !isValidWebsiteUrl(customLinkUrl)
                               ? 'border-[#B3261E] focus:ring-2 focus:ring-[#B3261E] focus:border-black'
                               : 'border-gray-300 focus:ring-2 focus:ring-black focus:border-black'
                           }`}
-                          value={youtubeUrl}
-                          onChange={(e) => setYoutubeUrl(e.target.value)}
+                          value={customLinkUrl}
+                          onChange={(e) => setCustomLinkUrl(e.target.value)}
                         />
                       </div>
-                      {youtubeUrl && !youtubeUrl.includes('youtube.com') && !youtubeUrl.includes('youtu.be') && (
-                        <p className="text-xs text-[#B3261E] mt-1 text-right">הקישור צריך להיות מ-YouTube</p>
+                      {!isValidWebsiteUrl(customLinkUrl) && (
+                        <p className="text-xs text-[#B3261E] mt-1 text-right">יש להזין כתובת אתר תקינה</p>
                       )}
                     </div>
                     <div>
-                      <div className="relative">
-                        <FaWhatsapp className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500" />
-                        <input
-                          type="url"
-                          placeholder="קישור לקבוצת WhatsApp"
-                          className={`w-full p-3.5 pr-12 border rounded-lg focus:outline-none text-right text-base ${
-                            whatsappUrl && !whatsappUrl.includes('whatsapp.com') && !whatsappUrl.includes('wa.me') && !whatsappUrl.includes('chat.whatsapp')
-                              ? 'border-[#B3261E] focus:ring-2 focus:ring-[#B3261E] focus:border-black'
-                              : 'border-gray-300 focus:ring-2 focus:ring-black focus:border-black'
-                          }`}
-                          value={whatsappUrl}
-                          onChange={(e) => setWhatsappUrl(e.target.value)}
-                        />
-                      </div>
-                      {whatsappUrl && !whatsappUrl.includes('whatsapp.com') && !whatsappUrl.includes('wa.me') && !whatsappUrl.includes('chat.whatsapp') && (
-                        <p className="text-xs text-[#B3261E] mt-1 text-right">הקישור צריך להיות מ-WhatsApp</p>
-                      )}
-                    </div>
-                    <div>
-                      <div className="relative">
-                        <FaFacebook className="absolute right-4 top-1/2 -translate-y-1/2 text-blue-600" />
-                        <input
-                          type="url"
-                          placeholder="קישור לעמוד Facebook"
-                          className={`w-full p-3.5 pr-12 border rounded-lg focus:outline-none text-right text-base ${
-                            facebookUrl && !facebookUrl.includes('facebook.com') && !facebookUrl.includes('fb.com') && !facebookUrl.includes('fb.me')
-                              ? 'border-[#B3261E] focus:ring-2 focus:ring-[#B3261E] focus:border-black'
-                              : 'border-gray-300 focus:ring-2 focus:ring-black focus:border-black'
-                          }`}
-                          value={facebookUrl}
-                          onChange={(e) => setFacebookUrl(e.target.value)}
-                        />
-                      </div>
-                      {facebookUrl && !facebookUrl.includes('facebook.com') && !facebookUrl.includes('fb.com') && !facebookUrl.includes('fb.me') && (
-                        <p className="text-xs text-[#B3261E] mt-1 text-right">הקישור צריך להיות מ-Facebook</p>
-                      )}
-                    </div>
-                    <div>
-                      <div className="relative">
-                        <FaInstagram className="absolute right-4 top-1/2 -translate-y-1/2 text-pink-500" />
-                        <input
-                          type="url"
-                          placeholder="קישור לעמוד Instagram"
-                          className={`w-full p-3.5 pr-12 border rounded-lg focus:outline-none text-right text-base ${
-                            instagramUrl && !instagramUrl.includes('instagram.com') && !instagramUrl.includes('instagr.am')
-                              ? 'border-[#B3261E] focus:ring-2 focus:ring-[#B3261E] focus:border-black'
-                              : 'border-gray-300 focus:ring-2 focus:ring-black focus:border-black'
-                          }`}
-                          value={instagramUrl}
-                          onChange={(e) => setInstagramUrl(e.target.value)}
-                        />
-                      </div>
-                      {instagramUrl && !instagramUrl.includes('instagram.com') && !instagramUrl.includes('instagr.am') && (
-                        <p className="text-xs text-[#B3261E] mt-1 text-right">הקישור צריך להיות מ-Instagram</p>
-                      )}
+                      <label htmlFor="customLinkLabel" className="block text-sm font-medium text-gray-700 mb-1.5 text-right">טקסט הקישור</label>
+                      <input
+                        id="customLinkLabel"
+                        type="text"
+                        maxLength={CUSTOM_LINK_LABEL_MAX}
+                        placeholder="לדוגמה: לאתר שלנו"
+                        className="w-full p-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black text-right text-base"
+                        value={customLinkLabel}
+                        onChange={(e) => setCustomLinkLabel(e.target.value)}
+                      />
+                      <p className="text-xs text-gray-500 mt-1 text-right">
+                        ברירת מחדל: {CUSTOM_LINK_DEFAULT_LABEL} · {customLinkLabel.length}/{CUSTOM_LINK_LABEL_MAX}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -2186,11 +2244,13 @@ export default function ManageCommunityPage() {
                         עמלת עסקאות: {commissionRateLabel}%
                       </span>
                     </div>
-                    {isInTrial(trialStartDate, planTrialLength) ? (
+                    {activeTrialEnd ? (
                       // During the free trial: no "next billing" line — the trial
                       // copy below already states when the first charge lands.
+                      // No fixed duration in the copy: an extended trial isn't
+                      // the plan's default length.
                       <p className="text-[16px] font-normal text-black mt-3 leading-relaxed">
-                        {`תקופת הניסיון שלך (חודש) מסתיימת ב-${formatHebrewDate(getTrialEnd(trialStartDate, planTrialLength)!)}. החל מאותו תאריך יחויב אמצעי התשלום שלך ב-₪${planMonthlyPrice} לחודש.`}
+                        {`תקופת הניסיון שלך מסתיימת ב-${formatHebrewDate(activeTrialEnd)}. החל מאותו תאריך יחויב אמצעי התשלום שלך ב-₪${planMonthlyPrice} לחודש.`}
                       </p>
                     ) : (
                       <p className="text-[16px] font-normal text-black mt-2">

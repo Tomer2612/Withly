@@ -24,7 +24,7 @@ export default function AccessibilityPage() {
         <div className="bg-white rounded-2xl shadow-sm p-8" style={{ border: '1px solid #E1E1E2' }}>
           <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-4">מבוא</h2>
           <p className="leading-relaxed" style={{ color: '#52525B' }}>
-            הפלטפורמה מופעלת על ידי <strong>תומר שמחון ברעם</strong>, עוסק פטור שמספרו <strong>323115600</strong>. ב-Withly אנו רואים חשיבות במתן שירות שוויוני ונגיש לכלל המשתמשים, ופועלים להנגיש את הפלטפורמה הדיגיטלית שלנו בהתאם לתקנות שוויון זכויות לאנשים עם מוגבלות (התאמות נגישות לשירות), התשע"ג-2013.
+            הפלטפורמה מופעלת על ידי <strong>תומר שמחון ברעם</strong>, עוסק פטור שמספרו <strong>323115600</strong>. ב-Withly אנו רואים חשיבות במתן שירות שוויוני ונגיש לכלל המשתמשים, ופועלים להנגיש את הפלטפורמה הדיגיטלית שלנו בהתאם לתקנות שוויון זכויות לאנשים עם מוגבלות (התאמות נגישות לשירות), התשע&quot;ג-2013.
           </p>
         </div>
       </section>
@@ -35,7 +35,7 @@ export default function AccessibilityPage() {
           <h2 className="text-[24px] md:text-[28px] font-semibold text-black mb-6">1. נגישות דיגיטלית</h2>
           <div className="space-y-4 leading-relaxed" style={{ color: '#52525B' }}>
             <p>
-              אנו שואפים שהפלטפורמה שלנו תעמוד בדרישות התקן הישראלי לנגישות באינטרנט (ת"י 5568) ברמה AA, ובהנחיות WCAG 2.1 ברמה AA.
+              אנו שואפים שהפלטפורמה שלנו תעמוד בדרישות התקן הישראלי לנגישות באינטרנט (ת&quot;י 5568) ברמה AA, ובהנחיות WCAG 2.1 ברמה AA.
             </p>
             <ul className="list-disc list-inside space-y-2 mr-4">
               <li>הפלטפורמה מותאמת לניווט באמצעות המקלדת.</li>
@@ -94,11 +94,11 @@ export default function AccessibilityPage() {
               <Link href="/contact" className="underline hover:opacity-70" style={{ color: '#003233' }}>
                 עמוד צרו קשר
               </Link>
-              {' '}או ישירות בדוא"ל.
+              {' '}או ישירות בדוא&quot;ל.
             </p>
             <p>
               <strong>איש קשר בנושא נגישות:</strong> תומר שמחון ברעם<br />
-              <strong>דוא"ל לתמיכה ונגישות:</strong>{' '}
+              <strong>דוא&quot;ל לתמיכה ונגישות:</strong>{' '}
               <a href="mailto:support@withly.co.il" className="underline hover:opacity-70" style={{ color: '#003233' }}>
                 support@withly.co.il
               </a>

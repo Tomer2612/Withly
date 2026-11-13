@@ -70,11 +70,11 @@ export class CoursesService {
     });
   }
 
-  // Get all courses for a community
-  async getCoursesByCommunity(communityIdOrSlug: string, userId?: string) {
-    // Resolve slug to actual community ID
-    const communityId = await this.communitiesService.resolveId(communityIdOrSlug);
-    
+  // Get all courses for a community — members only.
+  async getCoursesByCommunity(communityIdOrSlug: string, userId: string) {
+    // Members only (also resolves a slug to the real community id).
+    const { communityId } = await this.communitiesService.assertMember(communityIdOrSlug, userId);
+
     // Build where clause - if user is logged in, show their unpublished courses too
     const whereClause: Prisma.CourseWhereInput = {
       communityId,
@@ -180,8 +180,9 @@ export class CoursesService {
     });
   }
 
-  // Get course details with chapters and lessons
-  async getCourseById(courseId: string, userId?: string) {
+  // Get course details with chapters and lessons — members of the course's
+  // community only (this returns the full lesson content and quizzes).
+  async getCourseById(courseId: string, userId: string) {
     const course = await this.prisma.course.findUnique({
       where: { id: courseId },
       include: {
@@ -222,6 +223,8 @@ export class CoursesService {
     if (!course) {
       throw new NotFoundException(ERROR_MESSAGES.COURSE_NOT_FOUND);
     }
+
+    await this.communitiesService.assertMember(course.communityId, userId);
 
     // Get user's enrollment and lesson progress if logged in
     let enrollment: {
@@ -286,6 +289,7 @@ export class CoursesService {
       throw new NotFoundException(ERROR_MESSAGES.COURSE_NOT_FOUND);
     }
 
+    await this.communitiesService.assertMember(course.communityId, userId);
     await this.communitiesService.assertActive(course.communityId);
 
     // Use upsert with try-catch to handle race conditions
@@ -365,6 +369,7 @@ export class CoursesService {
       throw new NotFoundException(ERROR_MESSAGES.LESSON_NOT_FOUND);
     }
 
+    await this.communitiesService.assertMember(lesson.chapter.course.communityId, userId);
     await this.communitiesService.assertActive(lesson.chapter.course.communityId);
 
     // Create or update lesson progress
@@ -915,14 +920,15 @@ export class CoursesService {
   }
 
   // Get lesson by ID
-  async getLessonById(lessonId: string, userId?: string) {
+  // Members of the lesson's community only (this is the lesson content itself).
+  async getLessonById(lessonId: string, userId: string) {
     const lesson = await this.prisma.lesson.findUnique({
       where: { id: lessonId },
       include: {
         chapter: {
           include: {
             course: {
-              select: { id: true, title: true, authorId: true },
+              select: { id: true, title: true, authorId: true, communityId: true },
             },
           },
         },
@@ -932,6 +938,8 @@ export class CoursesService {
     if (!lesson) {
       throw new NotFoundException(ERROR_MESSAGES.LESSON_NOT_FOUND);
     }
+
+    await this.communitiesService.assertMember(lesson.chapter.course.communityId, userId);
 
     let progress: {
       id: string;

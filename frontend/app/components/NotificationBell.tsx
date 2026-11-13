@@ -312,6 +312,10 @@ export default function NotificationBell() {
     if (isOpen) {
       fetchNotifications();
     }
+    // Fetch once each time the dropdown opens. fetchNotifications is
+    // recreated on every render, so listing it would refetch on every render
+    // while the dropdown is open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   // Close dropdown when clicking outside

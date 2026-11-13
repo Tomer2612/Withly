@@ -17,11 +17,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { EventsService } from './events.service';
 import { RsvpStatus } from '@prisma/client';
-import { PrismaService } from '../common/prisma.service';
 import { StorageService } from '../common/storage.service';
-import { getUserIdFromRequest } from '../common/jwt.helper';
 import { imageFileFilter } from '../common/upload-filters';
-import { canManageCommunity, getEffectiveRole } from '../common/community-roles.helper';
 import { CreateEventDto, UpdateEventDto, RsvpEventDto } from './dto/events.dto';
 
 const storage = memoryStorage();
@@ -30,7 +27,6 @@ const storage = memoryStorage();
 export class EventsController {
   constructor(
     private readonly eventsService: EventsService,
-    private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
   ) {}
 
@@ -72,28 +68,32 @@ export class EventsController {
     });
   }
 
+  // All event reads are for the community's members only. The service also
+  // hides attendeeType='managers' events from regular members.
+
   // Get all events for community
+  @UseGuards(AuthGuard('jwt'))
   @Get('community/:communityId')
   async findByCommunity(
     @Param('communityId') communityId: string,
     @Req() req,
   ) {
-    const userId = req.user?.userId;
-    return this.eventsService.findByCommunity(communityId, userId);
+    return this.eventsService.findByCommunity(communityId, req.user.userId);
   }
 
   // Get upcoming events for community (for sidebar widget)
+  @UseGuards(AuthGuard('jwt'))
   @Get('community/:communityId/upcoming')
   async findUpcoming(
     @Param('communityId') communityId: string,
     @Query('limit') limit: string,
     @Req() req,
   ) {
-    const userId = req.user?.userId;
-    return this.eventsService.findUpcoming(communityId, Math.min(limit ? parseInt(limit) : 5, 50), userId);
+    return this.eventsService.findUpcoming(communityId, req.user.userId, Math.min(limit ? parseInt(limit) : 5, 50));
   }
 
   // Get events for specific month (for calendar view)
+  @UseGuards(AuthGuard('jwt'))
   @Get('community/:communityId/calendar')
   async getEventsForMonth(
     @Param('communityId') communityId: string,
@@ -101,29 +101,19 @@ export class EventsController {
     @Query('month') month: string,
     @Req() req,
   ) {
-    // Optional auth: get userId if a valid cookie is present, otherwise undefined.
-    const userId = getUserIdFromRequest(req);
-
-    // Check if user is manager (or owner)
-    let isManager = false;
-    if (userId) {
-      isManager = canManageCommunity(await getEffectiveRole(this.prisma, communityId, userId));
-    }
-    
     return this.eventsService.getEventsForMonth(
       communityId,
       parseInt(year),
       parseInt(month),
-      userId,
-      isManager,
+      req.user.userId,
     );
   }
 
   // Get single event
+  @UseGuards(AuthGuard('jwt'))
   @Get(':eventId')
   async findOne(@Param('eventId') eventId: string, @Req() req) {
-    const userId = req.user?.userId;
-    return this.eventsService.findOne(eventId, userId);
+    return this.eventsService.findOne(eventId, req.user.userId);
   }
 
   // Update event
@@ -214,12 +204,14 @@ export class EventsController {
     return this.eventsService.removeRsvp(eventId, userId);
   }
 
-  // Get event attendees
+  // Get event attendees — members of the event's community only.
+  @UseGuards(AuthGuard('jwt'))
   @Get(':eventId/attendees')
   async getAttendees(
     @Param('eventId') eventId: string,
+    @Req() req,
     @Query('status') status?: RsvpStatus,
   ) {
-    return this.eventsService.getAttendees(eventId, status);
+    return this.eventsService.getAttendees(eventId, req.user.userId, status);
   }
 }

@@ -66,6 +66,9 @@ export default function RouteProgress() {
         clearTimeout(reset);
       };
     }
+    // Must run ONLY when the route changes. Listing `loading` would run this
+    // the moment a link is clicked and finish the bar before navigation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, searchParams]);
 
   if (!loading && progress === 0) return null;

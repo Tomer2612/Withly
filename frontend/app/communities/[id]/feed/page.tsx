@@ -10,6 +10,7 @@ import ImageIcon from '../../../components/icons/ImageIcon';
 import LinkIcon from '../../../components/icons/LinkIcon';
 import { useCommunityContext } from '../CommunityContext';
 import { authFetch } from '../../../lib/auth';
+import { isMemberListHiddenFor } from '../../../lib/memberListVisibility';
 import FilterDropdown from '../../../components/FilterDropdown';
 import SearchXIcon from '../../../components/icons/SearchXIcon';
 import ClipboardCheckIcon from '../../../components/icons/ClipboardCheckIcon';
@@ -194,7 +195,10 @@ function CommunityFeedContent() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   
   // Get searchQuery and user data from layout context
-  const { searchQuery, userEmail, userId, userProfile, isOwner, isManager, isMember: contextIsMember, loading: contextLoading } = useCommunityContext();
+  const { searchQuery, userEmail, userId, userProfile, isOwner, isManager, isMember: contextIsMember, loading: contextLoading, community: layoutCommunity } = useCommunityContext();
+  // Managers-only member list (one-off per community): regular members don't
+  // get the "top members" widget (the API would 403 anyway). Final on mount.
+  const memberListHidden = isMemberListHiddenFor(layoutCommunity?.id, isOwner || isManager);
   
   // Comments state
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
@@ -329,7 +333,7 @@ function CommunityFeedContent() {
         }
 
         // Fetch top members
-        if (userEmail) {
+        if (userEmail && !memberListHidden) {
           try {
             const topMembersRes = await fetch(
               `${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}/top-members`,
@@ -2795,6 +2799,7 @@ function CommunityFeedContent() {
             </div>
 
             {/* חברי קהילה מובילים */}
+            {!memberListHidden && (
             <div className="bg-gray-100 border border-gray-400 rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-4">
                 <TrophyIcon className="w-4 h-4 flex-shrink-0 text-black" />
@@ -2849,6 +2854,7 @@ function CommunityFeedContent() {
                 )}
               </div>
             </div>
+            )}
           </div>
           </div>
         </div>

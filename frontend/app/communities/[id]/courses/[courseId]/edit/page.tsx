@@ -78,6 +78,40 @@ interface CourseForm {
   isPublished: boolean;
 }
 
+// The parts of GET /courses/:id this editor reads when loading a course.
+interface ApiQuizOption {
+  id: string;
+  text: string;
+  isCorrect: boolean;
+  order?: number | null;
+}
+interface ApiQuizQuestion {
+  id: string;
+  question: string;
+  questionType: 'radio' | 'checkbox';
+  order?: number | null;
+  options: ApiQuizOption[];
+}
+interface ApiLesson {
+  id: string;
+  title: string;
+  content?: string | null;
+  videoUrl?: string | null;
+  duration: number;
+  order: number;
+  lessonType?: 'content' | 'quiz' | null;
+  images?: string[] | null;
+  files?: { name: string; url: string }[] | null;
+  links?: string[] | null;
+  quiz?: { questions: ApiQuizQuestion[] } | null;
+}
+interface ApiChapter {
+  id: string;
+  title: string;
+  order: number;
+  lessons: ApiLesson[];
+}
+
 export default function EditCoursePage() {
   const params = useParams();
   const router = useRouter();
@@ -152,6 +186,10 @@ export default function EditCoursePage() {
     })();
 
     fetchCourse();
+    // Load when the course, community or user changes. fetchCourse is
+    // recreated on every render, so listing it would refetch in a loop and
+    // overwrite the form while it is being edited.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, router, communityId, user]);
 
   const fetchCourse = async () => {
@@ -167,12 +205,12 @@ export default function EditCoursePage() {
           newImage: null,
           imagePreview: data.image ? getImageUrl(data.image) : null,
           isPublished: data.isPublished,
-          chapters: data.chapters.map((c: any) => ({
+          chapters: data.chapters.map((c: ApiChapter) => ({
             id: c.id,
             title: c.title,
             order: c.order,
             expanded: false,
-            lessons: c.lessons.map((l: any) => ({
+            lessons: c.lessons.map((l: ApiLesson) => ({
               id: l.id,
               title: l.title,
               content: l.content || '',
@@ -185,12 +223,12 @@ export default function EditCoursePage() {
               files: l.files || [],
               links: l.links || [],
               quiz: l.quiz ? {
-                questions: l.quiz.questions.map((q: any, qIndex: number) => ({
+                questions: l.quiz.questions.map((q: ApiQuizQuestion, qIndex: number) => ({
                   id: q.id,
                   question: q.question,
                   questionType: q.questionType,
                   order: q.order ?? qIndex,
-                  options: q.options.map((opt: any, optIndex: number) => ({
+                  options: q.options.map((opt: ApiQuizOption, optIndex: number) => ({
                     id: opt.id,
                     text: opt.text,
                     isCorrect: opt.isCorrect,

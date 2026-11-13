@@ -111,7 +111,7 @@ export default function ChatWidget() {
   useEffect(() => {
     const toggle = () => {
       if (!isLoggedIn) {
-        (window as any).chatWidgetOpenIntent = true;
+        window.chatWidgetOpenIntent = true;
         return;
       }
 
@@ -125,20 +125,20 @@ export default function ChatWidget() {
     };
 
     // 1. Assign to window so MessagesBell can call it directly
-    (window as any).toggleChatWidget = toggle;
+    window.toggleChatWidget = toggle;
 
     // Check for pending intent (race condition fix)
-    if ((window as any).chatWidgetOpenIntent && isLoggedIn) {
+    if (window.chatWidgetOpenIntent && isLoggedIn) {
       showConversationsRef.current = true;
       setShowConversationsRef.current(true);
       fetchConversationsRef.current();
-      (window as any).chatWidgetOpenIntent = false;
+      window.chatWidgetOpenIntent = false;
     }
 
     return () => {
       // Cleanup on unmount
-      if ((window as any).toggleChatWidget === toggle) {
-        delete (window as any).toggleChatWidget;
+      if (window.toggleChatWidget === toggle) {
+        delete window.toggleChatWidget;
       }
     };
   }, [isLoggedIn]);
@@ -327,9 +327,9 @@ export default function ChatWidget() {
 
   // Expose startChatWithUser globally
   useEffect(() => {
-    (window as any).openChatWithUser = startChatWithUser;
+    window.openChatWithUser = startChatWithUser;
     return () => {
-      delete (window as any).openChatWithUser;
+      delete window.openChatWithUser;
     };
   }, [startChatWithUser]);
 
@@ -908,10 +908,10 @@ export function MessagesBell() {
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (typeof (window as any).toggleChatWidget === 'function') {
-      (window as any).toggleChatWidget();
+    if (typeof window.toggleChatWidget === 'function') {
+      window.toggleChatWidget();
     } else {
-      (window as any).chatWidgetOpenIntent = true;
+      window.chatWidgetOpenIntent = true;
     }
   };
 

@@ -130,13 +130,15 @@ export default function Home() {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities`);
         if (!res.ok) throw new Error('Failed to fetch');
         const data = await res.json();
-        // Sort by oldest first (ascending by createdAt), except the
-        // official Withly founders community always leads regardless of
-        // its date — the one deliberate exception to date-based ordering.
+        // Sort by member count (largest first); ties go to the newest
+        // community. The official Withly founders community always leads
+        // regardless — the one deliberate exception to this ordering.
         const sorted = data.sort((a: Community, b: Community) => {
           if (a.id === PINNED_COMMUNITY_ID) return -1;
           if (b.id === PINNED_COMMUNITY_ID) return 1;
-          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          const byMembers = (b.memberCount ?? 0) - (a.memberCount ?? 0);
+          if (byMembers !== 0) return byMembers;
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         });
         setCommunities(sorted);
         setFilteredCommunities(sorted);

@@ -117,8 +117,8 @@ function DateInput({
   }, [value]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value;
-    
+    const val = e.target.value;
+
     // Remove non-digits except slashes
     let digitsOnly = val.replace(/[^\d]/g, '');
     
@@ -235,7 +235,7 @@ function TimePicker({
   }, [isOpen, value]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value;
+    const val = e.target.value;
 
     // Remove non-digits except colon
     let digitsOnly = val.replace(/[^\d]/g, '');
@@ -459,6 +459,10 @@ function EventsPageContent() {
 
     setLoading(true);
     Promise.all([fetchData(), fetchAllEventsInitial()]).finally(() => setLoading(false));
+    // Initial load only: runs when the community changes. Month navigation
+    // fetches on its own (handleMonthChange), so `currentDate` must not
+    // retrigger this and reload both lists.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [communityId]);
 
   const fetchEventsForMonth = async (year: number, month: number) => {

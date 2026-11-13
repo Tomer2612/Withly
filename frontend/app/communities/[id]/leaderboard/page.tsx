@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { FaStar } from 'react-icons/fa';
 import { useCommunityContext } from '../CommunityContext';
 import { authFetch } from '../../../lib/auth';
+import { isMemberListHiddenFor } from '../../../lib/memberListVisibility';
 import TrophyIcon from '../../../components/icons/TrophyIcon';
 import AwardIcon from '../../../components/icons/AwardIcon';
 import UsersIcon from '../../../components/icons/UsersIcon';
@@ -25,14 +26,22 @@ export default function LeaderboardPage() {
   const router = useRouter();
   const params = useParams();
   const communityId = params.id as string;
-  const { userId } = useCommunityContext();
+  const { userId, community, isOwnerOrManager } = useCommunityContext();
+  // Managers-only member list (one-off per community) also hides the
+  // leaderboard: regular members are sent to the feed. Final on mount — the
+  // layout renders pages only after community + role have loaded.
+  const memberListHidden = isMemberListHiddenFor(community?.id, isOwnerOrManager);
 
   const [members, setMembers] = useState<LeaderboardMember[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (memberListHidden) router.replace(`/communities/${communityId}/feed`);
+  }, [memberListHidden, communityId, router]);
+
+  useEffect(() => {
     const fetchData = async () => {
-      if (!communityId) return;
+      if (!communityId || memberListHidden) return;
 
       try {
         // Fetch community details
@@ -64,7 +73,7 @@ export default function LeaderboardPage() {
     };
 
     fetchData();
-  }, [communityId]);
+  }, [communityId, memberListHidden]);
 
   const getRankIcon = (rank: number) => {
     switch (rank) {
@@ -91,6 +100,8 @@ export default function LeaderboardPage() {
         return 'bg-white border-gray-200';
     }
   };
+
+  if (memberListHidden) return null;
 
   return (
     <main className="min-h-screen bg-gray-100 text-right" dir="rtl">

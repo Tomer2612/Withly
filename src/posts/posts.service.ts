@@ -24,8 +24,8 @@ export class PostsService {
     videos?: string[]
   ) {
     try {
-      // Resolve slug to actual community ID
-      const communityId = await this.communitiesService.resolveId(communityIdOrSlug);
+      // Members only (also resolves a slug to the real community id).
+      const { communityId } = await this.communitiesService.assertMember(communityIdOrSlug, authorId);
 
       await this.communitiesService.assertActive(communityId);
 
@@ -43,7 +43,7 @@ export class PostsService {
         },
         include: {
           author: {
-            select: { id: true, email: true, name: true, profileImage: true },
+            select: { id: true, name: true, profileImage: true },
           },
           _count: {
             select: { likes: true, comments: true, savedBy: true },
@@ -62,10 +62,19 @@ export class PostsService {
     }
   }
 
-  async findByCommunity(communityIdOrSlug: string, userId?: string) {
-    // Resolve slug to actual community ID
-    const communityId = await this.communitiesService.resolveId(communityIdOrSlug);
-    
+  // Called by the controller BEFORE it uploads a new post's attachments, so a
+  // non-member's files never reach storage. create() re-checks on its own.
+  async assertCanPost(communityIdOrSlug: string, userId: string): Promise<void> {
+    await this.communitiesService.assertMember(communityIdOrSlug, userId);
+  }
+
+  // `userId` is the authenticated viewer (from the login cookie, never from a
+  // client-supplied parameter): it gates access and drives isLiked / isSaved /
+  // the viewer's own poll vote.
+  async findByCommunity(communityIdOrSlug: string, userId: string) {
+    // Members only (also resolves a slug to the real community id).
+    const { communityId } = await this.communitiesService.assertMember(communityIdOrSlug, userId);
+
     const posts = await this.prisma.post.findMany({
       where: { communityId },
       orderBy: [
@@ -75,7 +84,7 @@ export class PostsService {
       ],
       include: {
         author: {
-          select: { id: true, email: true, name: true, profileImage: true },
+          select: { id: true, name: true, profileImage: true },
         },
         _count: {
           select: { likes: true, comments: true, savedBy: true },
@@ -178,6 +187,8 @@ export class PostsService {
       throw new ForbiddenException('You can only edit your own posts');
     }
 
+    // A removed member must not be able to rewrite posts they left behind.
+    await this.communitiesService.assertMember(post.communityId, userId);
     await this.communitiesService.assertActive(post.communityId);
 
     const updateData: Prisma.PostUpdateInput = { content, title };
@@ -297,7 +308,7 @@ export class PostsService {
       data: updateData,
       include: {
         author: {
-          select: { id: true, email: true, name: true, profileImage: true },
+          select: { id: true, name: true, profileImage: true },
         },
         poll: {
           include: {
@@ -348,6 +359,7 @@ export class PostsService {
       if (!post) {
         throw new NotFoundException('Post not found');
       }
+      await this.communitiesService.assertMember(post.communityId, userId);
       await this.communitiesService.assertActive(post.communityId);
 
       const existingLike = await this.prisma.like.findFirst({
@@ -390,14 +402,23 @@ export class PostsService {
     }
   }
 
-  // Get comments for a post
-  async getComments(postId: string) {
+  // Get comments for a post — members of the post's community only.
+  async getComments(postId: string, userId: string) {
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+      select: { communityId: true },
+    });
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+    await this.communitiesService.assertMember(post.communityId, userId);
+
     return this.prisma.comment.findMany({
       where: { postId },
       orderBy: { createdAt: 'asc' },
       include: {
         user: {
-          select: { id: true, email: true, name: true, profileImage: true },
+          select: { id: true, name: true, profileImage: true },
         },
       },
     });
@@ -412,13 +433,14 @@ export class PostsService {
     if (!post) {
       throw new NotFoundException('Post not found');
     }
+    await this.communitiesService.assertMember(post.communityId, userId);
     await this.communitiesService.assertActive(post.communityId);
 
     const comment = await this.prisma.comment.create({
       data: { postId, userId, content },
       include: {
         user: {
-          select: { id: true, email: true, name: true, profileImage: true },
+          select: { id: true, name: true, profileImage: true },
         },
         post: {
           select: { authorId: true, communityId: true },
@@ -467,6 +489,8 @@ export class PostsService {
       throw new ForbiddenException('You can only edit your own comments');
     }
 
+    // A removed member must not be able to rewrite comments they left behind.
+    await this.communitiesService.assertMember(comment.post.communityId, userId);
     await this.communitiesService.assertActive(comment.post.communityId);
 
     return this.prisma.comment.update({
@@ -474,7 +498,7 @@ export class PostsService {
       data: { content },
       include: {
         user: {
-          select: { id: true, email: true, name: true, profileImage: true },
+          select: { id: true, name: true, profileImage: true },
         },
       },
     });
@@ -490,6 +514,7 @@ export class PostsService {
       if (!post) {
         throw new NotFoundException('Post not found');
       }
+      await this.communitiesService.assertMember(post.communityId, userId);
       await this.communitiesService.assertActive(post.communityId);
 
       const existingSave = await this.prisma.savedPost.findFirst({
@@ -553,7 +578,7 @@ export class PostsService {
       },
       include: {
         author: {
-          select: { id: true, email: true, name: true, profileImage: true },
+          select: { id: true, name: true, profileImage: true },
         },
         _count: {
           select: { likes: true, comments: true, savedBy: true },
@@ -660,6 +685,7 @@ export class PostsService {
       throw new ForbiddenException('Poll must have at least 2 options');
     }
 
+    await this.communitiesService.assertMember(post.communityId, userId);
     await this.communitiesService.assertActive(post.communityId);
 
     // Create poll with options
@@ -710,6 +736,7 @@ export class PostsService {
       throw new NotFoundException('Poll not found');
     }
 
+    await this.communitiesService.assertMember(poll.post.communityId, userId);
     await this.communitiesService.assertActive(poll.post.communityId);
 
     // Check if poll has expired

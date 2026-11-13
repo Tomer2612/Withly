@@ -15,6 +15,8 @@ interface CommunityNavbarProps {
   activePage: 'feed' | 'courses' | 'members' | 'events' | 'leaderboard' | 'about' | 'manage';
   /** Only owners get the management tab (managers no longer see it). */
   isOwner: boolean;
+  /** Hide the members + leaderboard tabs (managers-only member list). */
+  hideMemberTabs?: boolean;
   userEmail: string | null;
   userId: string | null;
   userProfile: { name?: string; profileImage?: string | null } | null;
@@ -29,6 +31,7 @@ export default function CommunityNavbar({
   community,
   activePage,
   isOwner,
+  hideMemberTabs = false,
   userEmail,
   userId,
   userProfile,
@@ -73,7 +76,7 @@ export default function CommunityNavbar({
     { key: 'leaderboard', label: 'לוח תוצאות', href: `/communities/${communityId}/leaderboard` },
     { key: 'about', label: 'אודות', href: `/communities/${communityId}/about` },
     ...(isOwner ? [{ key: 'manage', label: 'ניהול קהילה', href: `/communities/${communityId}/manage` }] : []),
-  ];
+  ].filter((link) => !(hideMemberTabs && (link.key === 'members' || link.key === 'leaderboard')));
 
   return (
     <>

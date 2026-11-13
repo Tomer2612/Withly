@@ -194,6 +194,11 @@ export class CommunitiesController {
       price,
       body.showOnlineMembers !== undefined ? body.showOnlineMembers === 'true' : undefined,
       body.status,
+      {
+        linkedinUrl: body.linkedinUrl,
+        customLinkUrl: body.customLinkUrl,
+        customLinkLabel: body.customLinkLabel,
+      },
     );
   }
 
@@ -307,8 +312,8 @@ export class CommunitiesController {
 
   @UseGuards(AuthGuard('jwt'))
   @Get(':id/members')
-  getCommunityMembers(@Param('id') id: string) {
-    return this.communitiesService.getCommunityMembers(id);
+  getCommunityMembers(@Param('id') id: string, @Req() req) {
+    return this.communitiesService.getCommunityMembers(id, req.user.userId);
   }
 
   @UseGuards(AuthGuard('jwt'))
@@ -344,9 +349,9 @@ export class CommunitiesController {
 
   @UseGuards(AuthGuard('jwt'))
   @Get(':id/top-members')
-  getTopMembers(@Param('id') id: string, @Query('limit') limit?: string) {
+  getTopMembers(@Param('id') id: string, @Req() req, @Query('limit') limit?: string) {
     const memberLimit = limit ? parseInt(limit, 10) : 3;
-    return this.communitiesService.getTopMembers(id, Math.min(memberLimit, 100));
+    return this.communitiesService.getTopMembers(id, req.user.userId, Math.min(memberLimit, 100));
   }
 
   @Get(':id/rules')

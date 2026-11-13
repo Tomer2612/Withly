@@ -19,7 +19,6 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { CoursesService } from './courses.service';
 import { StorageService } from '../common/storage.service';
-import { getUserIdFromRequest } from '../common/jwt.helper';
 import { imageFileFilter, videoFileFilter } from '../common/upload-filters';
 import {
   CreateCourseDto,
@@ -61,14 +60,14 @@ export class CoursesController {
     });
   }
 
-  // Get courses for a community
+  // Get courses for a community — members only.
+  @UseGuards(AuthGuard('jwt'))
   @Get('community/:communityId')
   async getCoursesByCommunity(
     @Param('communityId') communityId: string,
     @Req() req,
   ) {
-    const userId = getUserIdFromRequest(req);
-    return this.coursesService.getCoursesByCommunity(communityId, userId);
+    return this.coursesService.getCoursesByCommunity(communityId, req.user.userId);
   }
 
   // Get user's enrolled courses
@@ -78,14 +77,14 @@ export class CoursesController {
     return this.coursesService.getUserCourses(req.user.userId);
   }
 
-  // Get course by ID
+  // Get course by ID — members of the course's community only.
+  @UseGuards(AuthGuard('jwt'))
   @Get(':courseId')
   async getCourseById(
     @Param('courseId') courseId: string,
     @Req() req,
   ) {
-    const userId = getUserIdFromRequest(req);
-    return this.coursesService.getCourseById(courseId, userId);
+    return this.coursesService.getCourseById(courseId, req.user.userId);
   }
 
   // Enroll in a course
@@ -215,14 +214,14 @@ export class CoursesController {
     return { url };
   }
 
-  // Get lesson by ID
+  // Get lesson by ID — members of the lesson's community only.
+  @UseGuards(AuthGuard('jwt'))
   @Get('lessons/:lessonId')
   async getLessonById(
     @Param('lessonId') lessonId: string,
     @Req() req,
   ) {
-    const userId = getUserIdFromRequest(req);
-    return this.coursesService.getLessonById(lessonId, userId);
+    return this.coursesService.getLessonById(lessonId, req.user.userId);
   }
 
   // Update lesson

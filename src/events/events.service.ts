@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { PrismaService } from '../common/prisma.service';
 import { Prisma, RsvpStatus } from '@prisma/client';
 import { CommunitiesService } from '../communities/communities.service';
-import { canManageCommunity, getEffectiveRole } from '../common/community-roles.helper';
+import { canManageCommunity, getEffectiveRole, type EffectiveRole } from '../common/community-roles.helper';
 
 @Injectable()
 export class EventsService {
@@ -107,12 +107,35 @@ export class EventsService {
     });
   }
 
-  async findByCommunity(communityIdOrSlug: string, userId?: string) {
-    // Resolve slug to actual community ID
-    const communityId = await this.communitiesService.resolveId(communityIdOrSlug);
-    
+  // Events marked attendeeType='managers' are for the owner and managers;
+  // regular members only ever see 'all' events. One place for that rule so
+  // every read (list, upcoming, calendar, single event, attendees) agrees.
+  private visibleTo(role: EffectiveRole): Prisma.EventWhereInput {
+    return canManageCommunity(role) ? {} : { attendeeType: 'all' };
+  }
+
+  // Loads an event for a viewer, enforcing membership and the managers-only
+  // rule. A managers-only event looks like "not found" to a regular member.
+  private async getEventForViewer(eventId: string, userId: string) {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+    });
+    if (!event) {
+      throw new NotFoundException('Event not found');
+    }
+    const { role } = await this.communitiesService.assertMember(event.communityId, userId);
+    if (event.attendeeType !== 'all' && !canManageCommunity(role)) {
+      throw new NotFoundException('Event not found');
+    }
+    return event;
+  }
+
+  async findByCommunity(communityIdOrSlug: string, userId: string) {
+    // Members only (also resolves a slug to the real community id).
+    const { communityId, role } = await this.communitiesService.assertMember(communityIdOrSlug, userId);
+
     const events = await this.prisma.event.findMany({
-      where: { communityId },
+      where: { communityId, ...this.visibleTo(role) },
       orderBy: { date: 'asc' },
       include: {
         _count: {
@@ -138,15 +161,16 @@ export class EventsService {
     }));
   }
 
-  async findUpcoming(communityIdOrSlug: string, limit: number = 5, userId?: string) {
-    // Resolve slug to actual community ID
-    const communityId = await this.communitiesService.resolveId(communityIdOrSlug);
+  async findUpcoming(communityIdOrSlug: string, userId: string, limit: number = 5) {
+    // Members only (also resolves a slug to the real community id).
+    const { communityId, role } = await this.communitiesService.assertMember(communityIdOrSlug, userId);
     const now = new Date();
-    
+
     const events = await this.prisma.event.findMany({
-      where: { 
+      where: {
         communityId,
         date: { gte: now },
+        ...this.visibleTo(role),
       },
       orderBy: { date: 'asc' },
       take: limit,
@@ -169,7 +193,10 @@ export class EventsService {
     }));
   }
 
-  async findOne(eventId: string, userId?: string) {
+  async findOne(eventId: string, userId: string) {
+    // Membership + managers-only check first, before loading the RSVP list.
+    await this.getEventForViewer(eventId, userId);
+
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
       include: {
@@ -274,13 +301,8 @@ export class EventsService {
   }
 
   async rsvp(eventId: string, userId: string, status: RsvpStatus) {
-    const event = await this.prisma.event.findUnique({
-      where: { id: eventId },
-    });
-
-    if (!event) {
-      throw new NotFoundException('Event not found');
-    }
+    // Members only, and a managers-only event can't be RSVPed by a regular member.
+    const event = await this.getEventForViewer(eventId, userId);
 
     await this.communitiesService.assertActive(event.communityId);
 
@@ -333,7 +355,9 @@ export class EventsService {
     return { success: true, rsvpCounts };
   }
 
-  async getAttendees(eventId: string, status?: RsvpStatus) {
+  async getAttendees(eventId: string, userId: string, status?: RsvpStatus) {
+    await this.getEventForViewer(eventId, userId);
+
     const where: Prisma.EventRsvpWhereInput = { eventId };
     if (status) {
       where.status = status;
@@ -346,11 +370,11 @@ export class EventsService {
       },
     });
 
-    // Get user details for each RSVP
+    // Get user details for each RSVP. No email — this endpoint is public.
     const userIds = rsvps.map(r => r.userId);
     const users = await this.prisma.user.findMany({
       where: { id: { in: userIds } },
-      select: { id: true, name: true, email: true, profileImage: true },
+      select: { id: true, name: true, profileImage: true },
     });
 
     return rsvps.map(rsvp => ({
@@ -369,26 +393,22 @@ export class EventsService {
     return { going, maybe, notGoing };
   }
 
-  async getEventsForMonth(communityIdOrSlug: string, year: number, month: number, userId?: string, isManager?: boolean) {
-    // Resolve slug to actual community ID
-    const communityId = await this.communitiesService.resolveId(communityIdOrSlug);
-    
+  async getEventsForMonth(communityIdOrSlug: string, year: number, month: number, userId: string) {
+    // Members only (also resolves a slug to the real community id).
+    const { communityId, role } = await this.communitiesService.assertMember(communityIdOrSlug, userId);
+
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0, 23, 59, 59);
 
-    // Build where clause
+    // Managers see all events, members see only 'all' events.
     const whereClause: Prisma.EventWhereInput = {
       communityId,
       date: {
         gte: startDate,
         lte: endDate,
       },
+      ...this.visibleTo(role),
     };
-
-    // Filter by attendeeType - managers see all, members see only 'all' events
-    if (!isManager) {
-      whereClause.attendeeType = 'all';
-    }
 
     const events = await this.prisma.event.findMany({
       where: whereClause,

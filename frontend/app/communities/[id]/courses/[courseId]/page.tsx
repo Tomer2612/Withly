@@ -120,6 +120,9 @@ function CourseViewerContent() {
 
   useEffect(() => {
     fetchCourse();
+    // Load once per course. fetchCourse is recreated on every render, so
+    // listing it would refetch in a loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId]);
 
   useEffect(() => {
@@ -146,6 +149,11 @@ function CourseViewerContent() {
         }
       }
     }
+    // Picks the lesson to show when the course (re)loads, the ?lesson= param
+    // changes, or the user resolves. The helpers it calls are recreated on
+    // every render, so listing them would re-run it — and reset the current
+    // lesson — on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [course, lessonIdFromUrl, userId]);
 
 
@@ -176,6 +184,10 @@ function CourseViewerContent() {
         handleCompleteLesson(currentLesson.id);
       }
     }
+    // handleCompleteLesson is recreated on every render; listing it would give
+    // this callback a new identity each render and restart the periodic
+    // auto-complete check that depends on it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentLesson, course, lessonStartTime, hasVideoEnded, hasScrolledToBottom, contentNeedsScroll, clickedLinks, viewedImages]);
 
   // Handle video end
@@ -225,6 +237,10 @@ function CourseViewerContent() {
         }
       }
     }, 500);
+    // Must run ONLY when the user moves to a different lesson. `course`
+    // refetches after every completed lesson; depending on it would wipe the
+    // in-progress quiz answers and restart the lesson timer each time.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentLesson?.id]);
 
   // Handle content scroll
@@ -253,19 +269,22 @@ function CourseViewerContent() {
     setLightboxIndex(0);
   };
 
-  const nextImage = () => {
-    setLightboxIndex((prev) => (prev + 1) % lightboxImages.length);
-  };
+  // Memoized on the image count (the only thing they read) so the keyboard
+  // effect below can list them as dependencies without re-binding every render.
+  const imageCount = lightboxImages.length;
+  const nextImage = useCallback(() => {
+    setLightboxIndex((prev) => (prev + 1) % imageCount);
+  }, [imageCount]);
 
-  const prevImage = () => {
-    setLightboxIndex((prev) => (prev - 1 + lightboxImages.length) % lightboxImages.length);
-  };
+  const prevImage = useCallback(() => {
+    setLightboxIndex((prev) => (prev - 1 + imageCount) % imageCount);
+  }, [imageCount]);
 
   // Keyboard navigation for lightbox
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!showLightbox) return;
-      
+
       if (e.key === 'Escape') {
         closeLightbox();
       } else if (e.key === 'ArrowRight') {
@@ -277,7 +296,7 @@ function CourseViewerContent() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showLightbox, lightboxImages.length]);
+  }, [showLightbox, nextImage, prevImage]);
 
   // Check periodically if auto-complete conditions are met
   useEffect(() => {
@@ -1004,7 +1023,7 @@ function CourseViewerContent() {
             <div className="text-center">
               <h3 className="font-semibold text-black mb-2" style={{ fontSize: '21px' }}>מחיקת קורס</h3>
               <p className="mb-6" style={{ fontSize: '18px', color: 'var(--color-gray-10)' }}>
-                האם אתה בטוח שברצונך למחוק את הקורס <span className="font-semibold">"{course?.title}"</span>?
+                האם אתה בטוח שברצונך למחוק את הקורס <span className="font-semibold">&quot;{course?.title}&quot;</span>?
                 <br />
                 <span style={{ color: 'var(--color-error)' }}>פעולה זו לא ניתנת לביטול.</span>
               </p>
@@ -1043,7 +1062,7 @@ function CourseViewerContent() {
             <div className="text-center">
               <h3 className="font-semibold text-black mb-2" style={{ fontSize: '21px' }}>ביטול הרשמה לקורס</h3>
               <p className="mb-6" style={{ fontSize: '18px', color: 'var(--color-gray-10)' }}>
-                האם אתה בטוח שברצונך לבטל את ההרשמה לקורס <span className="font-semibold">"{course?.title}"</span>?
+                האם אתה בטוח שברצונך לבטל את ההרשמה לקורס <span className="font-semibold">&quot;{course?.title}&quot;</span>?
                 <br />
                 <span style={{ color: 'var(--color-error)' }}>ההתקדמות שלך בקורס תימחק.</span>
               </p>

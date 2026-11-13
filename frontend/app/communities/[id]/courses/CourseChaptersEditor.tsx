@@ -91,11 +91,15 @@ interface CourseChaptersEditorProps {
   allChaptersExpanded: boolean;
   setAllChaptersExpanded: (expanded: boolean) => void;
   addChapter: () => void;
-  updateChapter: (chapterIndex: number, updates: any) => void;
+  // updateChapter / updateLesson are declared as METHODS on purpose. Method
+  // parameters are checked bivariantly, so each host page can pass its own
+  // updater typed with its richer ChapterForm / LessonForm, while the calls
+  // made inside this editor are still checked against the fields it knows.
+  updateChapter(chapterIndex: number, updates: Partial<EditorChapter>): void;
   removeChapter: (chapterIndex: number) => void;
   toggleChapter: (chapterIndex: number) => void;
   addLesson: (chapterIndex: number) => void;
-  updateLesson: (chapterIndex: number, lessonIndex: number, updates: any) => void;
+  updateLesson(chapterIndex: number, lessonIndex: number, updates: Partial<EditorLesson>): void;
   removeLesson: (chapterIndex: number, lessonIndex: number) => void;
   toggleLesson: (chapterIndex: number, lessonIndex: number) => void;
   handleAddLink: (chapterIndex: number, lessonIndex: number) => void;
@@ -798,7 +802,7 @@ export default function CourseChaptersEditor({
                                     <div className="space-y-4">
                                       {quizQuestions.length === 0 && (
                                         <div className="text-center py-6 text-gray-500" style={{ fontSize: '14px' }}>
-                                          אין שאלות בבוחן. לחץ על "הוסף שאלה" כדי להתחיל.
+                                          אין שאלות בבוחן. לחץ על &quot;הוסף שאלה&quot; כדי להתחיל.
                                         </div>
                                       )}
                                       {quizQuestions.map((question, qIndex) => (

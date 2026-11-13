@@ -19,6 +19,12 @@ const eslintConfig = [
       }],
       "prefer-const": "warn",
       "react/no-unescaped-entities": "warn",
+      // Plain <img> is deliberate here. Nearly every image is user-uploaded
+      // (avatars, covers, post and gallery images, lesson images) served from
+      // the R2 CDN with unknown dimensions, and next/image would run each one
+      // through the optimizer on the app server. Revisit per image if a
+      // specific one needs optimizing.
+      "@next/next/no-img-element": "off",
     }
   }
 ];
