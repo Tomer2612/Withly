@@ -23,8 +23,6 @@
         "public/**"
       ],
       "ignoreDependencies": [
-        "eslint",
-        "eslint-config-next",
         "@types/react-datepicker"
       ]
     }

@@ -23,10 +23,6 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  eslint: {
-    // Disable ESLint during builds - we'll run it separately
-    ignoreDuringBuilds: true,
-  },
   images: {
     remotePatterns: [
       {

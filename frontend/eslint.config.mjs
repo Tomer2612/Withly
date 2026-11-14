@@ -1,21 +1,18 @@
-﻿import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+﻿import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+export default defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  // `next lint` skipped these by itself; plain `eslint .` needs telling.
+  // public/ holds the static /info landing page export (not our code).
+  globalIgnores([".next/**", "out/**", "build/**", "public/**", "next-env.d.ts"]),
   {
     rules: {
-      "@typescript-eslint/no-unused-vars": ["warn", { 
+      "@typescript-eslint/no-unused-vars": ["warn", {
         argsIgnorePattern: "^_",
-        varsIgnorePattern: "^_" 
+        varsIgnorePattern: "^_"
       }],
       "prefer-const": "warn",
       "react/no-unescaped-entities": "warn",
@@ -25,8 +22,12 @@ const eslintConfig = [
       // through the optimizer on the app server. Revisit per image if a
       // specific one needs optimizing.
       "@next/next/no-img-element": "off",
+      // New in eslint-config-next 16 (React Compiler-era hook rules). They
+      // flag existing, working code in ~27 files; warnings until that code is
+      // reworked deliberately, file by file, rather than inside the upgrade.
+      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/refs": "warn",
+      "react-hooks/immutability": "warn",
     }
   }
-];
-
-export default eslintConfig;
+]);

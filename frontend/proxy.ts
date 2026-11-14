@@ -28,16 +28,17 @@ const publicExceptions = [
   '/preview', // /communities/[id]/preview is public
 ];
 
-export function middleware(request: NextRequest) {
+// Next 16 calls this "proxy" (it was "middleware" up to Next 15).
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Read the httpOnly access cookie set by the backend on login/refresh.
-  // Middleware runs server-side so it CAN read httpOnly cookies — that's
+  // The proxy runs server-side so it CAN read httpOnly cookies — that's
   // why this works without client-side mirroring.
   const token = request.cookies.get('access_token')?.value;
 
   // Validate token expiry by decoding the JWT payload (no signature check
-  // here — the backend verifies on every request; middleware only gates
+  // here — the backend verifies on every request; the proxy only gates
   // routing and treats a syntactically-broken or expired token as absent).
   let isTokenValid = false;
   if (token) {
@@ -56,7 +57,7 @@ export function middleware(request: NextRequest) {
 
   // The access cookie lives 15 minutes, but the session (refresh cookie,
   // 30 days) outlives it — and the refresh cookie is path-restricted, so it
-  // never reaches this middleware. The backend sets a secret-free hint cookie
+  // never reaches this proxy. The backend sets a secret-free hint cookie
   // alongside the refresh cookie; when it's present, let protected pages load
   // and the client's fetch interceptor will refresh on the first API call.
   // Routing only — the backend still verifies every request.
@@ -109,7 +110,7 @@ export function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-// Configure which paths middleware runs on
+// Configure which paths the proxy runs on
 export const config = {
   matcher: [
     /*
