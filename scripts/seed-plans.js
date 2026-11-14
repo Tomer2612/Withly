@@ -13,8 +13,13 @@
  * Run on the server (DATABASE_URL from .env):
  *   node scripts/seed-plans.js
  */
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+// Same database setup as the app: loads .env, connects through the Postgres
+// adapter (Prisma 7), TLS for remote hosts like RDS. Needs a backend build
+// (dist/), which every deploy runs.
+require('dotenv/config');
+require('reflect-metadata');
+const { PrismaService } = require('../dist/common/prisma.service');
+const prisma = new PrismaService();
 
 async function main() {
   // Retire anything that isn't one of our two plans so the pricing page

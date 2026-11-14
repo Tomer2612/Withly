@@ -9,8 +9,13 @@
  * refunds) − Σ OwnerPayout.amount (PENDING + PAID). The ledger is the source
  * of truth; this is read-only.
  */
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+// Same database setup as the app: loads .env, connects through the Postgres
+// adapter (Prisma 7), TLS for remote hosts like RDS. Needs a backend build
+// (dist/), which every deploy runs.
+require('dotenv/config');
+require('reflect-metadata');
+const { PrismaService } = require('../dist/common/prisma.service');
+const prisma = new PrismaService();
 
 const csv = (cells) => cells.map((c) => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',');
 

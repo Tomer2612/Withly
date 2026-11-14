@@ -9,8 +9,13 @@
  * Run AFTER the transfers are actually sent. Each row is status=PAID,
  * method=MANUAL_BANK_TRANSFER. Switching to MASAV later reuses the same table.
  */
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+// Same database setup as the app: loads .env, connects through the Postgres
+// adapter (Prisma 7), TLS for remote hosts like RDS. Needs a backend build
+// (dist/), which every deploy runs.
+require('dotenv/config');
+require('reflect-metadata');
+const { PrismaService } = require('../dist/common/prisma.service');
+const prisma = new PrismaService();
 
 async function outstandingFor(ownerId) {
   const [net, paid] = await Promise.all([
