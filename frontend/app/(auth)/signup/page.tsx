@@ -319,7 +319,7 @@ function SignupContent() {
               </p>
               <p className="font-semibold text-black" style={{ fontSize: '18px', marginTop: '12px' }}>{email}</p>
               <p className="text-black" style={{ fontSize: '18px', marginTop: '12px' }}>
-                אנא בדוק את תיבת הדואר שלך ולחץ על הקישור לאימות.
+                לאימות החשבון, יש לפתוח את הקישור שנשלח לתיבת הדואר.
               </p>
               
               <div className="w-full" style={{ borderTop: '1px solid #D0D0D4', marginTop: '24px', paddingTop: '24px' }}>

@@ -23,8 +23,16 @@ import { useUser } from '../../../../lib/UserContext';
 interface QuizOption {
   id: string;
   text: string;
-  isCorrect: boolean;
+  // Only sent for quizzes the learner already completed (and to course
+  // editors). Otherwise answers are checked by the server.
+  isCorrect?: boolean;
   order: number;
+}
+
+// Server verdict for one question (POST /courses/lessons/:id/quiz/check).
+interface QuizResult {
+  correct: boolean;
+  correctOptionIds: string[];
 }
 
 interface QuizQuestion {
@@ -114,6 +122,10 @@ function CourseViewerContent() {
   // Quiz state
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string[]>>({});
   const [quizSubmitted, setQuizSubmitted] = useState<Record<string, boolean>>({});
+  // Server verdicts, keyed by question id (ids are unique across lessons, so
+  // these survive moving between lessons).
+  const [quizResults, setQuizResults] = useState<Record<string, QuizResult>>({});
+  const [checkingQuestionId, setCheckingQuestionId] = useState<string | null>(null);
   const [descExpanded, setDescExpanded] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -206,8 +218,15 @@ function CourseViewerContent() {
         const answers: Record<string, string[]> = {};
         const submitted: Record<string, boolean> = {};
         for (const q of currentLesson.quiz.questions) {
-          answers[q.id] = q.options.filter(o => o.isCorrect).map(o => o.id);
-          submitted[q.id] = true;
+          // The answer key comes with lessons completed before this page
+          // loaded; one completed just now has the server's verdict instead.
+          const key = q.options.some(o => o.isCorrect)
+            ? q.options.filter(o => o.isCorrect).map(o => o.id)
+            : quizResults[q.id]?.correctOptionIds;
+          if (key && key.length > 0) {
+            answers[q.id] = key;
+            submitted[q.id] = true;
+          }
         }
         setQuizAnswers(answers);
         setQuizSubmitted(submitted);
@@ -851,39 +870,69 @@ function CourseViewerContent() {
                       }
                     };
                     
-                    const handleCheckAnswer = () => {
-                      setQuizSubmitted(prev => {
-                        const newSubmitted = { ...prev, [questionId]: true };
-                        
-                        // Check if this answer is correct
-                        const thisAnswerCorrect = selectedAnswers.length === correctOptionIds.length && 
-                          selectedAnswers.every(id => correctOptionIds.includes(id));
-                        
-                        // If correct, check if all questions are now answered correctly
-                        if (thisAnswerCorrect && currentLesson?.quiz) {
-                          const allQuestionsCorrect = currentLesson.quiz.questions.every(q => {
-                            if (q.id === questionId) return thisAnswerCorrect;
-                            const qCorrectIds = q.options.filter(o => o.isCorrect).map(o => o.id);
-                            const qAnswers = quizAnswers[q.id] || [];
-                            const isQSubmitted = newSubmitted[q.id];
-                            return isQSubmitted && qAnswers.length === qCorrectIds.length && 
-                              qAnswers.every(id => qCorrectIds.includes(id));
-                          });
-                          
-                          // Auto-complete quiz if all correct
-                          if (allQuestionsCorrect && !course?.lessonProgress[currentLesson.id]) {
-                            setTimeout(() => handleCompleteLesson(currentLesson.id), 500);
-                          }
-                        }
-                        
-                        return newSubmitted;
-                      });
+                    // A question's verdict: the server's, or — when this page
+                    // has the answer key (completed lesson / course editor) —
+                    // graded locally exactly as before.
+                    const verdictFor = (q: QuizQuestion, answers: string[]): QuizResult | null => {
+                      const fromServer = quizResults[q.id];
+                      if (fromServer) return fromServer;
+                      if (!q.options.some(o => o.isCorrect !== undefined)) return null;
+                      const keyIds = q.options.filter(o => o.isCorrect).map(o => o.id);
+                      const correct = answers.length === keyIds.length && answers.every(id => keyIds.includes(id));
+                      return { correct, correctOptionIds: correct ? keyIds : [] };
                     };
-                    
-                    const correctOptionIds = question.options.filter(o => o.isCorrect).map(o => o.id);
-                    const isCorrect = isSubmitted && 
-                      selectedAnswers.length === correctOptionIds.length && 
-                      selectedAnswers.every(id => correctOptionIds.includes(id));
+
+                    const handleCheckAnswer = async () => {
+                      if (!currentLesson?.quiz || checkingQuestionId) return;
+                      const lessonQuiz = currentLesson.quiz;
+                      let result: QuizResult | null;
+                      if (question.options.some(o => o.isCorrect !== undefined)) {
+                        // This page has the answer key — grade locally.
+                        result = verdictFor(question, selectedAnswers);
+                      } else {
+                        // Learners don't have the key: ask the server.
+                        setCheckingQuestionId(questionId);
+                        try {
+                          const res = await fetch(
+                            `${process.env.NEXT_PUBLIC_API_URL}/courses/lessons/${currentLesson.id}/quiz/check`,
+                            {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ questionId, optionIds: selectedAnswers }),
+                            },
+                          );
+                          if (!res.ok) return; // leave the question open to try again
+                          result = (await res.json()) as QuizResult;
+                        } catch {
+                          return;
+                        } finally {
+                          setCheckingQuestionId(null);
+                        }
+                      }
+                      if (!result) return;
+                      const verdict = result;
+                      setQuizResults(prev => ({ ...prev, [questionId]: verdict }));
+                      const newSubmitted = { ...quizSubmitted, [questionId]: true };
+                      setQuizSubmitted(newSubmitted);
+
+                      // If correct, check whether every question is now answered correctly
+                      if (verdict.correct) {
+                        const allQuestionsCorrect = lessonQuiz.questions.every(q => {
+                          if (q.id === questionId) return true;
+                          if (!newSubmitted[q.id]) return false;
+                          return verdictFor(q, quizAnswers[q.id] || [])?.correct === true;
+                        });
+
+                        // Auto-complete quiz if all correct
+                        if (allQuestionsCorrect && !course?.lessonProgress[currentLesson.id]) {
+                          setTimeout(() => handleCompleteLesson(currentLesson.id), 500);
+                        }
+                      }
+                    };
+
+                    const verdict = isSubmitted ? verdictFor(question, selectedAnswers) : null;
+                    const isCorrect = !!verdict?.correct;
+                    const correctOptionIds = verdict?.correctOptionIds ?? [];
                     
                     return (
                       <div key={questionId}>
@@ -907,7 +956,7 @@ function CourseViewerContent() {
                             {question.options.map((option) => {
                               const isSelected = selectedAnswers.includes(option.id);
                               // Show green only when user got the answer correct
-                              const showCorrect = isSubmitted && isCorrect && option.isCorrect;
+                              const showCorrect = isSubmitted && isCorrect && correctOptionIds.includes(option.id);
                               // Show red for all selected options when answer is wrong
                               const showWrong = isSubmitted && !isCorrect && isSelected;
                               
@@ -962,7 +1011,8 @@ function CourseViewerContent() {
                           {!isSubmitted && selectedAnswers.length > 0 && (
                             <button
                               onClick={handleCheckAnswer}
-                              className="mt-4 px-6 py-2 bg-black text-white rounded-md font-semibold hover:bg-gray-800 transition"
+                              disabled={checkingQuestionId === questionId}
+                              className="mt-4 px-6 py-2 bg-black text-white rounded-md font-semibold hover:bg-gray-800 transition disabled:opacity-60"
                               style={{ fontSize: '16px' }}
                             >
                               בדוק תשובה
@@ -988,6 +1038,11 @@ function CourseViewerContent() {
                                   onClick={() => {
                                     setQuizAnswers(prev => ({ ...prev, [questionId]: [] }));
                                     setQuizSubmitted(prev => ({ ...prev, [questionId]: false }));
+                                    setQuizResults(prev => {
+                                      const next = { ...prev };
+                                      delete next[questionId];
+                                      return next;
+                                    });
                                   }}
                                   className="px-4 py-1.5 bg-black text-white rounded-md font-semibold hover:bg-gray-800 transition"
                                   style={{ fontSize: '16px' }}

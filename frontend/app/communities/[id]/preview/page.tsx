@@ -824,7 +824,9 @@ function CommunityPreviewContent() {
           j5="J2"
           showAmount
           bof
-          orderPrefix={`tokenize-memberJoin-${communityId}`}
+          // Real id, not the URL slug — a hyphenated slug breaks the order
+          // format and the paid join never completed (see payments.controller).
+          orderPrefix={`tokenize-memberJoin-${community.id}`}
           clientName={user.name || user.email}
           email={user.email}
           userId={user.userId}

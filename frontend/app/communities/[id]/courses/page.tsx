@@ -309,7 +309,7 @@ export default function CoursesPage() {
                     : activeTab === 'in-progress'
                       ? 'הירשם לקורס מלשונית "כל הקורסים"'
                       : activeTab === 'my-courses'
-                        ? 'לחץ על "יצירת קורס חדש" כדי להתחיל'
+                        ? 'להתחלה, ניתן ללחוץ על "יצירת קורס חדש"'
                         : 'צור את הקורס הראשון שלך'
                   }
                 </p>

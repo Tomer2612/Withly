@@ -7,8 +7,14 @@ import SuspendedCommunityModal from '../../components/SuspendedCommunityModal';
 import PriceChangeAnnouncementModal from '../../components/PriceChangeAnnouncementModal';
 import ScheduledSuspensionModal from '../../components/ScheduledSuspensionModal';
 import { useUser } from '../../lib/UserContext';
-import { isMemberListHiddenFor } from '../../lib/memberListVisibility';
 import { CommunityLayoutContext, CommunityLayoutContextType } from './CommunityContext';
+
+// One-off: communities whose member list + leaderboard only the owner and
+// managers see. UI-only copy of MANAGERS_ONLY_MEMBER_LIST_COMMUNITY_IDS in
+// src/communities/communities.service.ts, which enforces it. Keep in sync.
+const MANAGERS_ONLY_MEMBER_LIST_COMMUNITY_IDS: ReadonlySet<string> = new Set([
+  'cmweppisw0019qakssddfj6wm', // ai-forstudents
+]);
 
 interface Community {
   id: string;
@@ -163,6 +169,12 @@ export default function CommunityLayout({ children }: { children: ReactNode }) {
   const isOwner = userRole === 'OWNER' || (userId !== null && community?.ownerId === userId);
   const isManager = userRole === 'MANAGER';
   const isOwnerOrManager = isOwner || isManager;
+  // Managers-only member list (one-off): regular members of these communities
+  // don't see the member list or leaderboard. The backend enforces it
+  // (MANAGERS_ONLY_MEMBER_LIST_COMMUNITY_IDS in communities.service.ts — keep
+  // the two lists in sync); this only hides the tabs, pages and widget.
+  const memberListHidden =
+    !!community?.id && MANAGERS_ONLY_MEMBER_LIST_COMMUNITY_IDS.has(community.id) && !isOwnerOrManager;
 
   // Suspended-community gating. Owner can still navigate manage routes (so
   // they can hit the Payments tab and renew); everyone else gets the popup
@@ -233,6 +245,8 @@ export default function CommunityLayout({ children }: { children: ReactNode }) {
     isManager,
     isOwnerOrManager,
     isMember,
+    memberJoinedAt,
+    memberListHidden,
     loading: loading && !initialDataLoaded,
     refreshCommunity: () => fetchCommunity(true),
     searchQuery,
@@ -247,7 +261,7 @@ export default function CommunityLayout({ children }: { children: ReactNode }) {
           community={community}
           activePage={getActivePage()}
           isOwner={isOwner}
-          hideMemberTabs={isMemberListHiddenFor(community?.id, isOwnerOrManager)}
+          hideMemberTabs={memberListHidden}
           userEmail={userEmail}
           userId={userId}
           userProfile={userProfile}

@@ -30,6 +30,11 @@ export interface CommunityLayoutContextType {
   isManager: boolean;
   isOwnerOrManager: boolean;
   isMember: boolean | null;
+  // When the viewer joined (null for the owner / non-members).
+  memberJoinedAt: string | null;
+  // True when this viewer must not see the member list / leaderboard
+  // (managers-only one-off, decided in layout.tsx).
+  memberListHidden: boolean;
   loading: boolean;
   refreshCommunity: () => Promise<void>;
   // Search state managed by layout

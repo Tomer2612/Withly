@@ -794,7 +794,7 @@ export default function CourseChaptersEditor({
                                         className="bg-black text-white px-3 py-1 rounded-md hover:bg-gray-800 flex items-center gap-2"
                                         style={{ fontSize: '14px' }}
                                       >
-                                        הוסף שאלה
+                                        הוספת שאלה
                                         <PlusIcon size={12} color="white" />
                                       </button>
                                     </div>
@@ -802,7 +802,7 @@ export default function CourseChaptersEditor({
                                     <div className="space-y-4">
                                       {quizQuestions.length === 0 && (
                                         <div className="text-center py-6 text-gray-500" style={{ fontSize: '14px' }}>
-                                          אין שאלות בבוחן. לחץ על &quot;הוסף שאלה&quot; כדי להתחיל.
+                                          אין שאלות בבוחן. להתחלה, ניתן ללחוץ על &quot;הוספת שאלה&quot;.
                                         </div>
                                       )}
                                       {quizQuestions.map((question, qIndex) => (

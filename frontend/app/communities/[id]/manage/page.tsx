@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { FaYoutube, FaWhatsapp, FaFacebook, FaInstagram, FaLinkedin } from 'react-icons/fa';
-import { getActiveTrialEnd } from '../../../lib/trial';
 import { withProtocol, isValidWebsiteUrl, isValidSocialUrl, type SocialPlatform, CUSTOM_LINK_LABEL_MAX, CUSTOM_LINK_DEFAULT_LABEL } from '../../../lib/linkUtils';
 import { compressImage, compressImages, MAX_IMAGE_SIZE_BYTES } from '../../../lib/imageCompression';
 import { isValidVideoUrl, getVideoProvider, getProviderLabel, MAX_VIDEO_SIZE_BYTES } from '../../../lib/videoUtils';
@@ -99,8 +98,25 @@ const formatSlashDate = (d: Date): string =>
 //   - community.nextBillingDate (cron-managed)
 //   - CancelSubscriptionModal fetches a /cancellation-preview endpoint that
 //     factors in member periods (Phase 5 Mission 3)
-// The trial disclosure reads the same nextBillingDate via getActiveTrialEnd
-// (lib/trial.ts), so an extended trial shows the real first-charge date.
+
+// Owner free-trial end date for the payments-tab disclosure. The trial is the
+// stretch before the owner's FIRST successful charge; until then the charge
+// date is community.nextBillingDate — the column the billing cron reads — so a
+// trial extended by moving nextBillingDate out shows the real date.
+// "Never charged" = currentPeriodStart is null (only a successful owner charge
+// sets it). Legacy rows without nextBillingDate fall back to
+// trialStartDate + plan trial length. Returns null once the trial is over
+// (the page then shows the regular "next billing" line).
+const getActiveTrialEnd = (c: {
+  trialStartDate: Date | null;
+  nextBillingDate: Date | null;
+  currentPeriodStart: Date | null;
+  trialLengthMonths: number;
+}): Date | null => {
+  if (c.currentPeriodStart) return null;
+  const end = c.nextBillingDate ?? (c.trialStartDate ? addMonths(c.trialStartDate, c.trialLengthMonths) : null);
+  return end && end > new Date() ? end : null;
+};
 
 interface ImageFile {
   file?: File;
@@ -155,6 +171,8 @@ export default function ManageCommunityPage() {
   // Slug
   const [slug, setSlug] = useState('');
   const [slugError, setSlugError] = useState('');
+  // True right after a pasted web address was turned into a slug (shows a note).
+  const [slugAdjustedFromUrl, setSlugAdjustedFromUrl] = useState(false);
   
   // Social links
   const [youtubeUrl, setYoutubeUrl] = useState('');
@@ -221,7 +239,7 @@ export default function ManageCommunityPage() {
   const [nextBillingDate, setNextBillingDate] = useState<Date | null>(null);
   // Null until the owner's first successful charge — drives trial detection.
   const [currentPeriodStart, setCurrentPeriodStart] = useState<Date | null>(null);
-  // Non-null only while the free trial is running (see lib/trial.ts).
+  // Non-null only while the free trial is running (see getActiveTrialEnd).
   const activeTrialEnd = getActiveTrialEnd({
     trialStartDate,
     nextBillingDate,
@@ -985,11 +1003,17 @@ export default function ManageCommunityPage() {
     // (openPriceChangeIfChanged → popup → announce-price). handleUpdateCommunity
     // never initiates a price change — so there's no interception here, and an
     // uncommitted pricing edit can't hijack a save from another tab.
-    // Social + custom links are validated server-side too (400 on bad
-    // values), so block here and surface the inline error on the tab.
+    // Only link fields the owner actually changed are sent (and so validated,
+    // here and by the server). A link saved before validation existed may not
+    // pass today's rules; while it's left untouched it must not block saving
+    // anything else on the page. It still shows its red hint on the tab.
+    const savedLinks = initialFormRef.current;
+    const changedSocialFields = socialFields.filter((f) => !savedLinks || f.value !== savedLinks[f.field]);
+    const customLinkChanged = !savedLinks || customLinkUrl !== savedLinks.customLinkUrl;
+    const customLabelChanged = !savedLinks || customLinkLabel !== savedLinks.customLinkLabel;
     if (
-      socialFields.some((f) => !isValidSocialUrl(f.value, f.platform)) ||
-      !isValidWebsiteUrl(customLinkUrl)
+      changedSocialFields.some((f) => !isValidSocialUrl(f.value, f.platform)) ||
+      (customLinkChanged && !isValidWebsiteUrl(customLinkUrl))
     ) {
       setActiveTab('social');
       return;
@@ -1019,9 +1043,11 @@ export default function ManageCommunityPage() {
       }
       
       // Social links
-      socialFields.forEach((f) => formData.append(f.field, withProtocol(f.value)));
-      formData.append('customLinkUrl', withProtocol(customLinkUrl));
-      formData.append('customLinkLabel', customLinkLabel.trim());
+      // Changed fields only (see the check above). An omitted field is left
+      // as it is by the backend.
+      changedSocialFields.forEach((f) => formData.append(f.field, withProtocol(f.value)));
+      if (customLinkChanged) formData.append('customLinkUrl', withProtocol(customLinkUrl));
+      if (customLabelChanged) formData.append('customLinkLabel', customLinkLabel.trim());
       
       // Price — skip when an announcement is pending so we don't overwrite
       // the grandfathered current price. The pending price flips into place
@@ -1150,10 +1176,22 @@ export default function ManageCommunityPage() {
 
   // Slug handlers
   const handleSlugChange = (value: string) => {
-    // Only allow lowercase letters, numbers, and hyphens
-    const sanitized = value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    let raw = value.toLowerCase();
+    // A pasted web address (e.g. "https://www.ai-forstudents.com/about") used
+    // to have its disallowed characters deleted, giving
+    // "httpswwwai-forstudentscom". Use the site's name instead.
+    const trimmed = raw.trim();
+    const looksLikeUrl = /^(https?:\/\/|www\.)/.test(trimmed) || /^[a-z0-9-]+(\.[a-z0-9-]+)+(\/|$)/.test(trimmed);
+    if (looksLikeUrl) {
+      const host = trimmed.replace(/^https?:\/\//, '').split(/[/?#]/)[0].replace(/^www\./, '');
+      raw = host.split('.')[0] ?? '';
+    }
+    // Only lowercase letters, numbers and hyphens; spaces, dots and
+    // underscores become hyphens rather than disappearing.
+    const sanitized = raw.replace(/[\s._]+/g, '-').replace(/[^a-z0-9-]/g, '').slice(0, 50);
     setSlug(sanitized);
     setSlugError('');
+    setSlugAdjustedFromUrl(looksLikeUrl);
   };
 
   // Rules handlers
@@ -1333,12 +1371,16 @@ export default function ManageCommunityPage() {
                           className="flex-1 p-3.5 text-left text-gray-900 text-base bg-white focus:outline-none min-w-0"
                           value={slug}
                           onChange={(e) => handleSlugChange(e.target.value)}
-                          maxLength={50}
                         />
                       </div>
                     </div>
                     {slugError && (
                       <p className="text-error mt-2" dir="rtl" style={{ fontSize: '14px' }}>{slugError}</p>
+                    )}
+                    {!slugError && slugAdjustedFromUrl && (
+                      <p className="mt-2 text-gray-500" dir="rtl" style={{ fontSize: '14px' }}>
+                        הכתובת הותאמה לפי שם האתר שהודבק
+                      </p>
                     )}
                   </div>
                 </div>
@@ -2436,7 +2478,10 @@ export default function ManageCommunityPage() {
           <UpdateCardModal
             isOpen={showCardModal}
             onClose={() => setShowCardModal(false)}
-            communityId={communityId}
+            // The real id, not the URL value: on slug URLs that's the slug,
+            // and a hyphenated slug breaks the payment order format
+            // (tokenize-community-<id>-<userId>-<ts>), so the card never bound.
+            communityId={community?.id ?? communityId}
             wasSuspended={isSuspended}
             amount={planMonthlyPrice}
           />

@@ -10,7 +10,12 @@ import ImageIcon from '../../../components/icons/ImageIcon';
 import LinkIcon from '../../../components/icons/LinkIcon';
 import { useCommunityContext } from '../CommunityContext';
 import { authFetch } from '../../../lib/auth';
-import { isMemberListHiddenFor } from '../../../lib/memberListVisibility';
+import { withProtocol, CUSTOM_LINK_DEFAULT_LABEL } from '../../../lib/linkUtils';
+import GlobeIcon from '../../../components/icons/GlobeIcon';
+
+// New-member welcome popup (owner's website link) is shown to members who
+// joined within this many days.
+const NEW_MEMBER_WINDOW_DAYS = 14;
 import FilterDropdown from '../../../components/FilterDropdown';
 import SearchXIcon from '../../../components/icons/SearchXIcon';
 import ClipboardCheckIcon from '../../../components/icons/ClipboardCheckIcon';
@@ -49,6 +54,9 @@ interface Community {
   memberCount?: number | null;
   rules?: string[];
   showOnlineMembers?: boolean;
+  // Owner's website link, shown to new members in a one-time welcome popup.
+  customLinkUrl?: string | null;
+  customLinkLabel?: string | null;
   status?: string;
   subscriptionStatus?: 'ACTIVE' | 'SUSPENDED';
   subscriptionCancelledAt?: string | null;
@@ -192,10 +200,9 @@ function CommunityFeedContent() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   
   // Get searchQuery and user data from layout context
-  const { searchQuery, userEmail, userId, userProfile, isOwner, isManager, isMember: contextIsMember, loading: contextLoading, community: layoutCommunity } = useCommunityContext();
-  // Managers-only member list (one-off per community): regular members don't
-  // get the "top members" widget (the API would 403 anyway). Final on mount.
-  const memberListHidden = isMemberListHiddenFor(layoutCommunity?.id, isOwner || isManager);
+  // memberListHidden (managers-only one-off): regular members don't get the
+  // "top members" widget (the API would 403 anyway). Final on mount.
+  const { searchQuery, userEmail, userId, userProfile, isOwner, isManager, isMember: contextIsMember, loading: contextLoading, memberJoinedAt, memberListHidden } = useCommunityContext();
   
   // Comments state
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
@@ -234,6 +241,7 @@ function CommunityFeedContent() {
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [showLightbox, setShowLightbox] = useState(false);
   const [showWelcomePopup, setShowWelcomePopup] = useState(false);
+  const [showMemberWelcome, setShowMemberWelcome] = useState(false);
 
   const openLightbox = (images: string[], startIndex: number = 0) => {
     setLightboxImages(images);
@@ -1266,6 +1274,31 @@ function CommunityFeedContent() {
     }
   }, [isOwner, community?.id]);
 
+  // One-time welcome for NEW members that points them to the owner's website
+  // link (set in Manage → קישור לאתר שלך). Only members who joined in the last
+  // NEW_MEMBER_WINDOW_DAYS see it — otherwise every existing member would get
+  // it on their next visit — and only when the community has a link.
+  // Also above the early return (hooks rule).
+  const memberWelcomeKey = community?.id && userId ? `member_welcome_shown_${community.id}_${userId}` : null;
+  useEffect(() => {
+    if (isOwner || !contextIsMember || !memberWelcomeKey || !community?.customLinkUrl || !memberJoinedAt) return;
+    const joinedMs = new Date(memberJoinedAt).getTime();
+    if (!Number.isFinite(joinedMs) || Date.now() - joinedMs > NEW_MEMBER_WINDOW_DAYS * 24 * 60 * 60 * 1000) return;
+    try {
+      if (!localStorage.getItem(memberWelcomeKey)) setShowMemberWelcome(true);
+    } catch {
+      // Storage blocked (private mode etc.) — skip the popup rather than
+      // showing it on every visit.
+    }
+  }, [isOwner, contextIsMember, memberWelcomeKey, community?.customLinkUrl, memberJoinedAt]);
+
+  const closeMemberWelcome = () => {
+    setShowMemberWelcome(false);
+    if (memberWelcomeKey) {
+      try { localStorage.setItem(memberWelcomeKey, 'true'); } catch { /* see above */ }
+    }
+  };
+
   if (!communityId && !loading) {
     return (
       <main className="min-h-screen bg-gray-100 flex items-center justify-center text-gray-600">
@@ -1276,7 +1309,7 @@ function CommunityFeedContent() {
             className="inline-flex flex-row-reverse items-center gap-2 bg-black text-white px-6 py-3 rounded-md"
           >
             <span className="inline-flex items-center justify-center text-xl leading-none">+</span>
-            צרו קהילה חדשה
+            יצירת קהילה חדשה
           </Link>
         </div>
       </main>
@@ -2750,7 +2783,7 @@ function CommunityFeedContent() {
                 <p style={{ fontSize: '16px' }} className="text-gray-800 text-center py-2">
                   {(isOwner || isManager) ? (
                     <Link href={`/communities/${communityId}/manage?tab=rules`} className="text-gray-800 underline hover:opacity-80">
-                      הוסיפו כללים לקהילה
+                      הוספת כללים לקהילה
                     </Link>
                   ) : (
                     <span className="underline">לא הוגדרו כללים לקהילה זו</span>
@@ -3017,6 +3050,63 @@ function CommunityFeedContent() {
             >
               בואו נתחיל!
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Welcome popup for new members: points to the owner's website link */}
+      {showMemberWelcome && community?.customLinkUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onClick={closeMemberWelcome}>
+          <div
+            className="bg-white rounded-2xl shadow-xl relative text-center w-full flex flex-col items-center"
+            style={{ maxWidth: '500px', padding: 'clamp(20px, 5vw, 32px)' }}
+            dir="rtl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="member-welcome-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={closeMemberWelcome}
+              className="absolute top-3 left-3 p-2 hover:opacity-70 transition-opacity"
+              style={{ color: '#1D1D20' }}
+              aria-label="סגירה"
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+            <div className="flex justify-center mb-4">
+              <div className="w-11 h-11 rounded-full flex items-center justify-center" style={{ backgroundColor: '#D0F9C9' }}>
+                <GlobeIcon className="w-5 h-5 text-black" />
+              </div>
+            </div>
+            <h2 id="member-welcome-title" className="font-semibold mb-3 break-words" style={{ fontSize: '21px', color: '#000000' }}>
+              ברוכים הבאים ל-{community.name}
+            </h2>
+            <p className="mb-5" style={{ fontSize: '18px', lineHeight: '1.6', color: '#1D1D20' }}>
+              לקהילה יש גם אתר עם מידע נוסף. הקישור זמין בכל עת גם בעמוד האודות.
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row gap-3 w-full sm:w-auto">
+              <button
+                onClick={closeMemberWelcome}
+                className="min-h-[44px] px-6 rounded-md border border-gray-300 text-gray-900 hover:bg-gray-50 transition w-full sm:w-auto"
+                style={{ fontSize: '1rem' }}
+              >
+                מעבר לקהילה
+              </button>
+              <a
+                href={withProtocol(community.customLinkUrl)}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={closeMemberWelcome}
+                className="min-h-[44px] px-6 rounded-md inline-flex items-center justify-center gap-2 hover:opacity-90 transition w-full sm:w-auto"
+                style={{ backgroundColor: '#A7EA7B', color: '#163300', fontSize: '1rem' }}
+              >
+                <GlobeIcon className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">{community.customLinkLabel || CUSTOM_LINK_DEFAULT_LABEL}</span>
+              </a>
+            </div>
           </div>
         </div>
       )}
