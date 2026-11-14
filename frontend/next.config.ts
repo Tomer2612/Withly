@@ -4,6 +4,12 @@ import path from "path";
 const nextConfig: NextConfig = {
   reactStrictMode: false, // Disable to prevent double WebSocket connections in dev
   outputFileTracingRoot: path.join(__dirname),
+  experimental: {
+    // Turbopack saves a build cache to .next/ by default (~2 min on the
+    // server), but every deploy runs `rm -rf .next` first, so it is never
+    // reused. Skip writing it.
+    turbopackFileSystemCacheForBuild: false,
+  },
   async rewrites() {
     return [
       {
