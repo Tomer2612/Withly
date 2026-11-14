@@ -3,13 +3,13 @@ import type { Response } from 'express';
 export const ACCESS_TOKEN_COOKIE = 'access_token';
 export const REFRESH_TOKEN_COOKIE = 'refresh_token';
 // Holds no secret — only "this browser has a refresh session". The frontend
-// middleware runs on page URLs, where it can't see the refresh cookie
+// proxy (frontend/proxy.ts) runs on page URLs, where it can't see the refresh cookie
 // (path-restricted to /auth), so once the 15-minute access cookie expired it
 // treated a signed-in user as logged out and bounced them to /preview or
 // /login. With this hint it lets the page load; the first API call 401s, the
 // client interceptor refreshes, and the request is retried. Never used for
 // authorization — the backend still verifies the JWT on every request.
-// Name must match SESSION_HINT_COOKIE in frontend/middleware.ts.
+// Name must match SESSION_HINT_COOKIE in frontend/proxy.ts.
 const SESSION_HINT_COOKIE = 'signed_in';
 
 // Short-lived access cookie + long-lived refresh cookie. When the access
@@ -49,7 +49,7 @@ export function setRefreshCookie(res: Response, token: string) {
     path: REFRESH_COOKIE_PATH,
   });
   // Same lifetime as the refresh session it describes, but site-wide so the
-  // frontend middleware can see it (see SESSION_HINT_COOKIE above).
+  // frontend proxy can see it (see SESSION_HINT_COOKIE above).
   res.cookie(SESSION_HINT_COOKIE, '1', {
     httpOnly: true,
     secure: isProd,
