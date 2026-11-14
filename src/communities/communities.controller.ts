@@ -1,5 +1,8 @@
-import { Controller, Get, Post, Body, UseGuards, Req, Param, Put, Patch, Delete, Query, UseInterceptors, UploadedFile, UploadedFiles, Headers } from '@nestjs/common';
-import { FileInterceptor, FilesInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
+import { BadRequestException, Controller, Get, Post, Body, UseGuards, Req, Param, Put, Patch, Delete, Query, UseInterceptors, UploadedFiles } from '@nestjs/common';
+import type { Request } from 'express';
+import type { AuthenticatedRequest } from '../common/authenticated-request';
+import { parseStringArray } from '../common/parse-json';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { Throttle } from '@nestjs/throttler';
 import { CommunitiesService } from './communities.service';
@@ -7,11 +10,10 @@ import { AuthGuard } from '@nestjs/passport';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from '../common/storage.service';
 import { getUserIdFromRequest } from '../common/jwt.helper';
-import { imageFileFilter, imageOrVideoFileFilter } from '../common/upload-filters';
+import { imageOrVideoFileFilter } from '../common/upload-filters';
 import {
   BeginCheckoutDto,
   BindExistingCardDto,
-  CreateCommunityDto,
   FinalizeWithExistingCardDto,
   JoinPaidWithExistingCardDto,
   UpdateCommunityDto,
@@ -32,39 +34,6 @@ export class CommunitiesController {
     private readonly storageService: StorageService,
   ) {}
 
-  @UseGuards(AuthGuard('jwt'))
-  @Post()
-  @UseInterceptors(FileFieldsInterceptor([
-    { name: 'image', maxCount: 1 },
-    { name: 'logo', maxCount: 1 },
-    { name: 'galleryImages', maxCount: 10 },
-  ], { storage, fileFilter: imageFileFilter }))
-  async create(
-    @Req() req,
-    @Body() body: CreateCommunityDto,
-    @UploadedFiles() files?: { image?: Express.Multer.File[]; logo?: Express.Multer.File[]; galleryImages?: Express.Multer.File[] },
-  ) {
-    const userId = req.user.userId;
-    const { name, description, topic, youtubeUrl, whatsappUrl, facebookUrl, instagramUrl } = body;
-    const imagePath = files?.image?.[0] ? await this.storageService.uploadFile(files.image[0], 'communities') : null;
-    const logoPath = files?.logo?.[0] ? await this.storageService.uploadFile(files.logo[0], 'communities') : null;
-    const galleryPaths = files?.galleryImages ? await this.storageService.uploadFiles(files.galleryImages, 'communities') : [];
-
-    return this.communitiesService.create(
-      name, 
-      description, 
-      userId, 
-      imagePath,
-      logoPath,
-      topic,
-      youtubeUrl,
-      whatsappUrl,
-      facebookUrl,
-      instagramUrl,
-      galleryPaths,
-    );
-  }
-
   // Phase 3.3 — pricing checkout staging. Replaces the old "create DRAFT
   // community before tokenize" path. Frontend POSTs the community details
   // here, gets back a pendingId, then opens the HYP tokenize iframe with
@@ -73,7 +42,7 @@ export class CommunitiesController {
   // atomic Community creation + payment-method bind + pending row delete.
   @UseGuards(AuthGuard('jwt'))
   @Post('begin-checkout')
-  beginCheckout(@Req() req, @Body() body: BeginCheckoutDto) {
+  beginCheckout(@Req() req: AuthenticatedRequest, @Body() body: BeginCheckoutDto) {
     const userId = req.user.userId;
     return this.communitiesService.beginCheckout(userId, body);
   }
@@ -83,7 +52,7 @@ export class CommunitiesController {
   // row. Returns null when nothing is pending.
   @UseGuards(AuthGuard('jwt'))
   @Get('my-pending')
-  getMyPending(@Req() req) {
+  getMyPending(@Req() req: AuthenticatedRequest) {
     const userId = req.user.userId;
     return this.communitiesService.getPendingForUser(userId);
   }
@@ -95,7 +64,7 @@ export class CommunitiesController {
   @UseGuards(AuthGuard('jwt'))
   @Post('finalize-with-existing-card')
   finalizeWithExistingCard(
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Body() body: FinalizeWithExistingCardDto,
   ) {
     const userId = req.user.userId;
@@ -120,7 +89,7 @@ export class CommunitiesController {
   @Get(':id')
   findOne(
     @Param('id') id: string,
-    @Req() req,
+    @Req() req: Request,
   ) {
     const viewerUserId = getUserIdFromRequest(req);
     return this.communitiesService.findById(id, viewerUserId);
@@ -136,7 +105,7 @@ export class CommunitiesController {
   ], { storage, fileFilter: imageOrVideoFileFilter, limits: { fileSize: MAX_VIDEO_SIZE } }))
   async update(
     @Param('id') id: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Body() body: UpdateCommunityDto,
     @UploadedFiles() files?: { image?: Express.Multer.File[]; logo?: Express.Multer.File[]; galleryImages?: Express.Multer.File[]; galleryVideoFiles?: Express.Multer.File[] },
   ) {
@@ -167,13 +136,18 @@ export class CommunitiesController {
     }
     
     const newGalleryPaths = files?.galleryImages ? await this.storageService.uploadFiles(files.galleryImages, 'communities') : [];
-    const existingGallery = body.existingGalleryImages ? JSON.parse(body.existingGalleryImages) : [];
-    const galleryImages = [...existingGallery, ...newGalleryPaths];
-    
+    // These lists REPLACE the stored gallery, so a malformed value must be
+    // rejected — treating it as empty would wipe the gallery.
+    const existingGallery = parseStringArray(body.existingGalleryImages);
+    const existingVideoUrls = parseStringArray(body.existingGalleryVideos);
+    if ((body.existingGalleryImages && !existingGallery) || (body.existingGalleryVideos && !existingVideoUrls)) {
+      throw new BadRequestException('INVALID_GALLERY_LIST');
+    }
+    const galleryImages = [...(existingGallery ?? []), ...newGalleryPaths];
+
     // Handle gallery videos: merge existing URLs + newly uploaded MP4s
-    const existingVideoUrls = body.existingGalleryVideos ? JSON.parse(body.existingGalleryVideos) : [];
     const uploadedVideoPaths = files?.galleryVideoFiles ? await this.storageService.uploadFiles(files.galleryVideoFiles, 'communities') : [];
-    const galleryVideos = [...existingVideoUrls, ...uploadedVideoPaths];
+    const galleryVideos = [...(existingVideoUrls ?? []), ...uploadedVideoPaths];
     
     const price = body.price !== undefined ? parseFloat(body.price) : undefined;
     
@@ -205,7 +179,7 @@ export class CommunitiesController {
   @UseGuards(AuthGuard('jwt'))
   @Post(':id/join')
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 joins per minute
-  async join(@Param('id') id: string, @Req() req) {
+  async join(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     const userId = req.user.userId;
     const result = await this.communitiesService.joinCommunity(id, userId);
     
@@ -228,14 +202,14 @@ export class CommunitiesController {
 
   @UseGuards(AuthGuard('jwt'))
   @Post(':id/leave')
-  leave(@Param('id') id: string, @Req() req) {
+  leave(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     const userId = req.user.userId;
     return this.communitiesService.leaveCommunity(id, userId);
   }
 
   @UseGuards(AuthGuard('jwt'))
   @Get(':id/membership')
-  checkMembership(@Param('id') id: string, @Req() req) {
+  checkMembership(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     const userId = req.user.userId;
     return this.communitiesService.checkMembership(id, userId);
   }
@@ -245,7 +219,7 @@ export class CommunitiesController {
   // (free or already-cancelled).
   @UseGuards(AuthGuard('jwt'))
   @Get(':id/my-membership')
-  getMyMembership(@Param('id') id: string, @Req() req) {
+  getMyMembership(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     const userId = req.user.userId;
     return this.communitiesService.getMyMembership(id, userId);
   }
@@ -254,7 +228,7 @@ export class CommunitiesController {
   // manage-page payments tab. Service enforces ownership.
   @UseGuards(AuthGuard('jwt'))
   @Get(':id/payment-method')
-  getOwnerPaymentMethod(@Param('id') id: string, @Req() req) {
+  getOwnerPaymentMethod(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     return this.communitiesService.getOwnerPaymentMethod(id, req.user.userId);
   }
 
@@ -262,14 +236,14 @@ export class CommunitiesController {
   // manage-page revenue card. Service enforces ownership.
   @UseGuards(AuthGuard('jwt'))
   @Get(':id/earnings')
-  getEarnings(@Param('id') id: string, @Req() req) {
+  getEarnings(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     const userId = req.user.userId;
     return this.communitiesService.getCommunityEarnings(id, userId);
   }
 
   @UseGuards(AuthGuard('jwt'))
   @Post(':id/cancel-paid-membership')
-  cancelPaidMembership(@Param('id') id: string, @Req() req) {
+  cancelPaidMembership(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     const userId = req.user.userId;
     return this.communitiesService.cancelPaidMembership(id, userId);
   }
@@ -280,7 +254,7 @@ export class CommunitiesController {
     @Param('id') id: string,
     @Param('memberId') memberId: string,
     @Body() body: UpdateMemberRoleDto,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     const userId = req.user.userId;
     return this.communitiesService.updateMemberRole(id, memberId, body.role, userId);
@@ -291,7 +265,7 @@ export class CommunitiesController {
   async removeMember(
     @Param('id') id: string,
     @Param('memberId') memberId: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     const userId = req.user.userId;
     const result = await this.communitiesService.removeMember(id, memberId, userId);
@@ -306,34 +280,34 @@ export class CommunitiesController {
 
   @UseGuards(AuthGuard('jwt'))
   @Get('user/memberships')
-  getUserMemberships(@Req() req) {
+  getUserMemberships(@Req() req: AuthenticatedRequest) {
     const userId = req.user.userId;
     return this.communitiesService.getUserMemberships(userId);
   }
 
   @UseGuards(AuthGuard('jwt'))
   @Get('user/my-communities')
-  getUserCommunitiesWithDetails(@Req() req) {
+  getUserCommunitiesWithDetails(@Req() req: AuthenticatedRequest) {
     const userId = req.user.userId;
     return this.communitiesService.getUserCommunitiesWithDetails(userId);
   }
 
   @UseGuards(AuthGuard('jwt'))
   @Get(':id/members')
-  getCommunityMembers(@Param('id') id: string, @Req() req) {
+  getCommunityMembers(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     return this.communitiesService.getCommunityMembers(id, req.user.userId);
   }
 
   @UseGuards(AuthGuard('jwt'))
   @Get(':id/banned')
-  getBannedUsers(@Param('id') id: string, @Req() req) {
+  getBannedUsers(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     const userId = req.user.userId;
     return this.communitiesService.getBannedUsers(id, userId);
   }
 
   @UseGuards(AuthGuard('jwt'))
   @Delete(':id/banned/:banId')
-  async liftBan(@Param('id') id: string, @Param('banId') banId: string, @Req() req) {
+  async liftBan(@Param('id') id: string, @Param('banId') banId: string, @Req() req: AuthenticatedRequest) {
     const userId = req.user.userId;
     const result = await this.communitiesService.liftBan(id, banId, userId);
     // Notify the unbanned user. Fire-and-forget.
@@ -357,7 +331,7 @@ export class CommunitiesController {
 
   @UseGuards(AuthGuard('jwt'))
   @Get(':id/top-members')
-  getTopMembers(@Param('id') id: string, @Req() req, @Query('limit') limit?: string) {
+  getTopMembers(@Param('id') id: string, @Req() req: AuthenticatedRequest, @Query('limit') limit?: string) {
     const memberLimit = limit ? parseInt(limit, 10) : 3;
     return this.communitiesService.getTopMembers(id, req.user.userId, Math.min(memberLimit, 100));
   }
@@ -372,7 +346,7 @@ export class CommunitiesController {
   updateRules(
     @Param('id') id: string,
     @Body() body: UpdateRulesDto,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     const userId = req.user.userId;
     return this.communitiesService.updateRules(id, userId, body.rules);
@@ -395,7 +369,7 @@ export class CommunitiesController {
   announcePriceChange(
     @Param('id') id: string,
     @Body() body: { newPrice: number },
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     const userId = req.user.userId;
     return this.communitiesService.announcePriceChange(id, userId, Number(body.newPrice));
@@ -404,7 +378,7 @@ export class CommunitiesController {
   // Member-side: dismiss the price-change announcement popup. Idempotent.
   @UseGuards(AuthGuard('jwt'))
   @Post(':id/acknowledge-price-change')
-  acknowledgePriceChange(@Param('id') id: string, @Req() req) {
+  acknowledgePriceChange(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     const userId = req.user.userId;
     return this.communitiesService.acknowledgePriceChange(id, userId);
   }
@@ -412,7 +386,7 @@ export class CommunitiesController {
   // Member-side: dismiss the scheduled-suspension popup. Idempotent.
   @UseGuards(AuthGuard('jwt'))
   @Post(':id/acknowledge-suspension-scheduled')
-  acknowledgeSuspensionScheduled(@Param('id') id: string, @Req() req) {
+  acknowledgeSuspensionScheduled(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     const userId = req.user.userId;
     return this.communitiesService.acknowledgeSuspensionScheduled(id, userId);
   }
@@ -424,7 +398,7 @@ export class CommunitiesController {
   @Post(':id/bind-existing-card')
   bindExistingCard(
     @Param('id') id: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Body() body: BindExistingCardDto,
   ) {
     const userId = req.user.userId;
@@ -443,7 +417,7 @@ export class CommunitiesController {
   @Post(':id/join-paid-with-existing-card')
   joinPaidWithExistingCard(
     @Param('id') id: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Body() body: JoinPaidWithExistingCardDto,
   ) {
     const userId = req.user.userId;
@@ -472,7 +446,7 @@ export class CommunitiesController {
   updatePaymentInfo(
     @Param('id') id: string,
     @Body() body: UpdatePaymentInfoDto,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     const userId = req.user.userId;
     const price = body.price !== undefined ? parseFloat(body.price) : undefined;

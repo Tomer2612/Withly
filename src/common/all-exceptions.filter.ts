@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { Prisma } from '@prisma/client';
+import type { Request, Response } from 'express';
 
 /**
  * Global exception filter — every error that escapes a controller comes through
@@ -30,8 +31,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const { httpAdapter } = this.httpAdapterHost;
     const ctx = host.switchToHttp();
-    const request = ctx.getRequest();
-    const response = ctx.getResponse();
+    const request = ctx.getRequest<Request>();
+    const response = ctx.getResponse<Response>();
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: string | string[] = 'Internal server error';
@@ -77,7 +78,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ...extras,
         statusCode: status,
         message,
-        path: httpAdapter.getRequestUrl(request),
+        // Same value the Express adapter's getRequestUrl() returns.
+        path: request.originalUrl ?? request.url,
         timestamp: new Date().toISOString(),
       },
       status,

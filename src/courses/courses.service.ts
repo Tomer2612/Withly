@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { CommunitiesService } from '../communities/communities.service';
+import { canManageCommunity } from '../common/community-roles.helper';
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../common/messages';
 import { FileAttachment } from '../common/file-attachment.type';
 
@@ -11,6 +12,20 @@ export class CoursesService {
     private prisma: PrismaService,
     private communitiesService: CommunitiesService,
   ) {}
+
+  // Lesson image/video uploads happen before a lesson exists, so they can't be
+  // tied to one community. Only people who can author courses somewhere — an
+  // owner or a manager of at least one community — may upload, so a regular
+  // account can't use the storage bucket as free file hosting.
+  async assertCanUploadLessonMedia(userId: string): Promise<void> {
+    const [owned, managed] = await Promise.all([
+      this.prisma.community.count({ where: { ownerId: userId } }),
+      this.prisma.communityMember.count({ where: { userId, role: 'MANAGER' } }),
+    ]);
+    if (owned + managed === 0) {
+      throw new ForbiddenException(ERROR_MESSAGES.NO_PERMISSION_CREATE_COURSE);
+    }
+  }
 
   // Create a new course
   async createCourse(data: {
@@ -224,7 +239,10 @@ export class CoursesService {
       throw new NotFoundException(ERROR_MESSAGES.COURSE_NOT_FOUND);
     }
 
-    await this.communitiesService.assertMember(course.communityId, userId);
+    const { role } = await this.communitiesService.assertMember(course.communityId, userId);
+    // The editor (course author, community owner or managers) needs the
+    // answers; a learner must not get them before answering.
+    const canEditCourse = course.authorId === userId || canManageCommunity(role);
 
     // Get user's enrollment and lesson progress if logged in
     let enrollment: {
@@ -270,8 +288,33 @@ export class CoursesService {
       ), 0
     );
 
+    // Learners get quiz answers (isCorrect) only for lessons they've already
+    // completed — the page shows those with the correct answers marked. For
+    // everything else, answers are checked by checkQuizAnswer().
+    const chapters = canEditCourse
+      ? course.chapters
+      : course.chapters.map((chapter) => ({
+          ...chapter,
+          lessons: chapter.lessons.map((lesson) =>
+            !lesson.quiz || lessonProgress[lesson.id]
+              ? lesson
+              : {
+                  ...lesson,
+                  quiz: {
+                    ...lesson.quiz,
+                    questions: lesson.quiz.questions.map((q) => ({
+                      ...q,
+                      // Every option field except isCorrect.
+                      options: q.options.map((o) => ({ id: o.id, text: o.text, order: o.order, questionId: o.questionId })),
+                    })),
+                  },
+                },
+          ),
+        }));
+
     return {
       ...course,
+      chapters,
       totalLessons,
       totalDuration,
       enrollment,
@@ -920,6 +963,32 @@ export class CoursesService {
   }
 
   // Get lesson by ID
+  // Checks one quiz answer on the server, so learners never need the answer
+  // key. Returns the correct option ids only when the answer is right (the
+  // page marks them green); a wrong answer reveals nothing.
+  async checkQuizAnswer(lessonId: string, questionId: string, optionIds: string[], userId: string) {
+    const question = await this.prisma.lessonQuizQuestion.findFirst({
+      where: { id: questionId, quiz: { lessonId } },
+      include: {
+        options: { select: { id: true, isCorrect: true } },
+        quiz: { select: { lesson: { select: { chapter: { select: { course: { select: { communityId: true } } } } } } } },
+      },
+    });
+    if (!question) {
+      throw new NotFoundException(ERROR_MESSAGES.LESSON_NOT_FOUND);
+    }
+    await this.communitiesService.assertMember(question.quiz.lesson.chapter.course.communityId, userId);
+
+    const validIds = new Set(question.options.map((o) => o.id));
+    if (optionIds.some((id) => !validIds.has(id))) {
+      throw new BadRequestException('INVALID_QUIZ_OPTION');
+    }
+    const correctIds = question.options.filter((o) => o.isCorrect).map((o) => o.id);
+    const chosen = new Set(optionIds);
+    const correct = chosen.size === correctIds.length && correctIds.every((id) => chosen.has(id));
+    return { correct, correctOptionIds: correct ? correctIds : [] };
+  }
+
   // Members of the lesson's community only (this is the lesson content itself).
   async getLessonById(lessonId: string, userId: string) {
     const lesson = await this.prisma.lesson.findUnique({

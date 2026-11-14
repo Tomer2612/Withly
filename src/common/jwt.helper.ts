@@ -17,8 +17,8 @@ export function getJwtSecret(): string {
  * Don't use this where auth is required — use AuthGuard('jwt') for that.
  */
 export function getUserIdFromRequest(req: Request): string | undefined {
-  const cookieToken = (req as Request & { cookies?: Record<string, string> })
-    .cookies?.[ACCESS_TOKEN_COOKIE];
+  const cookies = (req as { cookies?: unknown }).cookies as Record<string, string> | undefined;
+  const cookieToken = cookies?.[ACCESS_TOKEN_COOKIE];
   if (!cookieToken) return undefined;
   try {
     const decoded = jwt.verify(cookieToken, getJwtSecret()) as { sub?: string };

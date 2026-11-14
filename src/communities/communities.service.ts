@@ -1,9 +1,7 @@
 import { Injectable, InternalServerErrorException, NotFoundException, ForbiddenException, BadRequestException, ConflictException, HttpException, Logger } from '@nestjs/common';
 import { Prisma, CommunityStatus } from '@prisma/client';
-import { randomUUID } from 'crypto';
 import { PrismaService } from '../common/prisma.service';
 import { canManageCommunity, getEffectiveRole, type EffectiveRole } from '../common/community-roles.helper';
-import { MANAGERS_ONLY_MEMBER_LIST_COMMUNITY_IDS } from '../common/member-list-visibility';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailService } from '../email/email.service';
 import { HypService } from '../payments/hyp.service';
@@ -16,6 +14,16 @@ import { TransactionsService } from '../transactions/transactions.service';
 function formatHebrewDate(d: Date): string {
   return `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
 }
+
+// One-off (owner request, 2026-11-14): in these communities the member list
+// and the leaderboard are visible to the owner and managers only — regular
+// members get 403. Deliberately a constant, not a Community column: to add or
+// remove a community, edit this list AND the matching list in
+// frontend/app/communities/[id]/layout.tsx (which only hides the UI), then
+// deploy.
+const MANAGERS_ONLY_MEMBER_LIST_COMMUNITY_IDS: ReadonlySet<string> = new Set([
+  'cmweppisw0019qakssddfj6wm', // ai-forstudents
+]);
 
 @Injectable()
 export class CommunitiesService {
@@ -65,51 +73,10 @@ export class CommunitiesService {
     return { communityId, role };
   }
 
-  async create(
-    name: string,
-    description: string,
-    ownerId: string,
-    image?: string | null,
-    logo?: string | null,
-    topic?: string | null,
-    youtubeUrl?: string | null,
-    whatsappUrl?: string | null,
-    facebookUrl?: string | null,
-    instagramUrl?: string | null,
-    galleryImages?: string[],
-    galleryVideos?: string[],
-    price?: number | null,
-  ) {
-    try {
-      // Create community
-      const community = await this.prisma.community.create({
-        data: {
-          name,
-          description,
-          ownerId,
-          image: image || null,
-          logo: logo || null,
-          topic: topic || null,
-          price: price ?? 0,
-          youtubeUrl: youtubeUrl || null,
-          whatsappUrl: whatsappUrl || null,
-          facebookUrl: facebookUrl || null,
-          instagramUrl: instagramUrl || null,
-          galleryImages: galleryImages || [],
-          galleryVideos: galleryVideos || [],
-          trialStartDate: new Date(),
-        },
-      });
-
-      return community;
-    } catch (err) {
-      // Re-throw HttpExceptions so the global filter returns the
-      // intended status (e.g. a 409 conflict on duplicate slug becomes
-      // a 409, not a generic 500). See Phase 6.2 for rationale.
-      if (err instanceof HttpException) throw err;
-      throw new InternalServerErrorException('Could not create community');
-    }
-  }
+  // Communities are created only through the pricing checkout
+  // (beginCheckout → card tokenize → finalize), which binds a card, a plan and
+  // a first billing date. The old direct-create path made unbilled
+  // communities and was removed 2026-11-14.
 
   async findAll() {
     try {
@@ -1004,7 +971,7 @@ export class CommunitiesService {
     }
 
     const amount = Math.round(sub.priceAtJoin);
-    let chargeResult;
+    let chargeResult: Awaited<ReturnType<HypService['softCharge']>>;
     try {
       chargeResult = await this.hypService.softCharge({
         token: paymentMethod.hypPaymentMethodId,
@@ -1455,113 +1422,106 @@ export class CommunitiesService {
     // practice always whole shekels. Round to be safe.
     const amount = Math.round(effectivePrice);
 
-    try {
-      const result = await this.prisma.$transaction(async (tx) => {
-        // First SOFT charge BEFORE the DB writes so we can store the
-        // real HYP transaction Id on the sub (Phase 5 Mission 5 needs
-        // it for refunds). Within-tx network call is slow (~1.5s) but
-        // acceptable for Withly's volume. Throws on non-zero CCode →
-        // tx rolls back (no DB writes happened yet anyway).
-        const chargeResult = await this.hypService.softCharge({
-          token: paymentMethod.hypPaymentMethodId,
-          amount,
-          cardExpMonth: paymentMethod.cardExpMonth,
-          cardExpYear: paymentMethod.cardExpYear,
-          clientName: user.name ?? user.email,
-          email: user.email,
-          order: `memberjoin-${communityId}-${userId}-${Date.now()}`,
-          info: `Join "${community.name}"`,
-        });
-        if (!chargeResult.ok) {
-          throw new BadRequestException(`CHARGE_FAILED:${chargeResult.ccode}`);
-        }
-        // Defensive — HYP should always return Id alongside CCode=0,
-        // but if for any reason it's missing we can't store a refund
-        // anchor. Fail loudly rather than silently lose refundability.
-        const hypTxnId = chargeResult.body.Id;
-        if (!hypTxnId) {
-          throw new InternalServerErrorException(
-            `HYP returned CCode=0 but no Id — order=${chargeResult.body.Order ?? '?'}`,
-          );
-        }
-
-        await tx.communityMember.create({
-          data: { userId, communityId, role: 'USER' },
-        });
-        const subscription = await tx.memberSubscription.create({
-          data: {
-            userId,
-            communityId,
-            paymentMethodId: paymentMethod.id,
-            // The real HYP transaction Id from the first SOFT charge.
-            // Phase 5 Mission 5 uses this as the TransId for refunds
-            // (CancelTrans + zikoyAPI both reference it).
-            hypSubscriptionId: hypTxnId,
-            // Non-null narrowed by the effectivePrice > 0 guard above.
-            // Locks the joiner at the price they actually paid today —
-            // when pendingPrice was in effect, that's the new price,
-            // not the soon-to-be-obsolete community.price.
-            priceAtJoin: effectivePrice,
-            nextBillingDate,
-            currentPeriodStart: now,
-            currentPeriodEnd: nextBillingDate,
-            status: 'ACTIVE',
-          },
-        });
-
-        return { subscription, hypId: hypTxnId };
+    const result = await this.prisma.$transaction(async (tx) => {
+      // First SOFT charge BEFORE the DB writes so we can store the
+      // real HYP transaction Id on the sub (Phase 5 Mission 5 needs
+      // it for refunds). Within-tx network call is slow (~1.5s) but
+      // acceptable for Withly's volume. Throws on non-zero CCode →
+      // tx rolls back (no DB writes happened yet anyway).
+      const chargeResult = await this.hypService.softCharge({
+        token: paymentMethod.hypPaymentMethodId,
+        amount,
+        cardExpMonth: paymentMethod.cardExpMonth,
+        cardExpYear: paymentMethod.cardExpYear,
+        clientName: user.name ?? user.email,
+        email: user.email,
+        order: `memberjoin-${communityId}-${userId}-${Date.now()}`,
+        info: `Join "${community.name}"`,
       });
-
-      // Ledger: first member charge → same split as recurring member-monthly.
-      // Outside the tx (fail-soft) so a recording hiccup can't roll back a
-      // paid join that already moved money.
-      await this.transactionsService.recordCharge({
-        kind: 'MEMBER_MONTHLY',
-        grossAmount: amount,
-        commissionBasisPoints: community.plan?.commissionBasisPoints ?? community.owner?.plan?.commissionBasisPoints,
-        communityId: community.id,
-        ownerId: community.ownerId,
-        payerId: userId,
-        memberSubscriptionId: result.subscription.id,
-        hypTxnId: result.hypId,
-      });
-
-      // Post-success side effects (outside tx, fire-and-forget).
-      void this.emailService
-        .sendPaidMemberJoinedEmail(
-          user.email,
-          user.name ?? user.email,
-          community.name,
-          community.id,
-          amount,
-          formatHebrewDate(nextBillingDate),
-        )
-        .catch((err) => {
-          this.logger.warn(`Paid-joined email failed (user=${userId}): ${(err as Error).message}`);
-        });
-      // Owner gets the bell-icon notification — existing
-      // notifyCommunityJoin handles the per-type prefs (owner can
-      // opt-in/out via the join notification toggle). Skipped if the
-      // owner deleted their account (Phase 5 Mission 4 wind-down).
-      if (community.ownerId) {
-        void this.notificationsService
-          .notifyCommunityJoin(community.ownerId, userId, community.id)
-          .catch(() => {});
+      if (!chargeResult.ok) {
+        throw new BadRequestException(`CHARGE_FAILED:${chargeResult.ccode}`);
+      }
+      // Defensive — HYP should always return Id alongside CCode=0,
+      // but if for any reason it's missing we can't store a refund
+      // anchor. Fail loudly rather than silently lose refundability.
+      const hypTxnId = chargeResult.body.Id;
+      if (!hypTxnId) {
+        throw new InternalServerErrorException(
+          `HYP returned CCode=0 but no Id — order=${chargeResult.body.Order ?? '?'}`,
+        );
       }
 
-      this.logger.log(
-        `Paid join: user=${userId} community=${communityId} amount=${amount} hypId=${result.hypId}`,
-      );
-      return {
-        community,
-        memberSubscription: result.subscription,
-      };
-    } catch (err) {
-      // Re-throw NestJS exceptions as-is (they have HTTP status info).
-      // Pure database errors bubble up as 500s, which is fine — they
-      // indicate an unexpected bug.
-      throw err;
+      await tx.communityMember.create({
+        data: { userId, communityId, role: 'USER' },
+      });
+      const subscription = await tx.memberSubscription.create({
+        data: {
+          userId,
+          communityId,
+          paymentMethodId: paymentMethod.id,
+          // The real HYP transaction Id from the first SOFT charge.
+          // Phase 5 Mission 5 uses this as the TransId for refunds
+          // (CancelTrans + zikoyAPI both reference it).
+          hypSubscriptionId: hypTxnId,
+          // Non-null narrowed by the effectivePrice > 0 guard above.
+          // Locks the joiner at the price they actually paid today —
+          // when pendingPrice was in effect, that's the new price,
+          // not the soon-to-be-obsolete community.price.
+          priceAtJoin: effectivePrice,
+          nextBillingDate,
+          currentPeriodStart: now,
+          currentPeriodEnd: nextBillingDate,
+          status: 'ACTIVE',
+        },
+      });
+
+      return { subscription, hypId: hypTxnId };
+    });
+
+    // Ledger: first member charge → same split as recurring member-monthly.
+    // Outside the tx (fail-soft) so a recording hiccup can't roll back a
+    // paid join that already moved money.
+    await this.transactionsService.recordCharge({
+      kind: 'MEMBER_MONTHLY',
+      grossAmount: amount,
+      commissionBasisPoints: community.plan?.commissionBasisPoints ?? community.owner?.plan?.commissionBasisPoints,
+      communityId: community.id,
+      ownerId: community.ownerId,
+      payerId: userId,
+      memberSubscriptionId: result.subscription.id,
+      hypTxnId: result.hypId,
+    });
+
+    // Post-success side effects (outside tx, fire-and-forget).
+    void this.emailService
+      .sendPaidMemberJoinedEmail(
+        user.email,
+        user.name ?? user.email,
+        community.name,
+        community.id,
+        amount,
+        formatHebrewDate(nextBillingDate),
+      )
+      .catch((err) => {
+        this.logger.warn(`Paid-joined email failed (user=${userId}): ${(err as Error).message}`);
+      });
+    // Owner gets the bell-icon notification — existing
+    // notifyCommunityJoin handles the per-type prefs (owner can
+    // opt-in/out via the join notification toggle). Skipped if the
+    // owner deleted their account (Phase 5 Mission 4 wind-down).
+    if (community.ownerId) {
+      void this.notificationsService
+        .notifyCommunityJoin(community.ownerId, userId, community.id)
+        .catch(() => {});
     }
+
+    this.logger.log(
+      `Paid join: user=${userId} community=${communityId} amount=${amount} hypId=${result.hypId}`,
+    );
+    return {
+      community,
+      memberSubscription: result.subscription,
+    };
   }
 
   // Phase 4 Mission 4.5 — member's view of their membership in a

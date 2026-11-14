@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Delete, Param, Query, UseGuards, Req } from '@nestjs/common';
+import type { AuthenticatedRequest } from '../common/authenticated-request';
 import { AuthGuard } from '@nestjs/passport';
 import { NotificationsService } from './notifications.service';
 
@@ -10,7 +11,7 @@ export class NotificationsController {
   // Get all notifications for current user
   @Get()
   async getNotifications(
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
@@ -23,20 +24,20 @@ export class NotificationsController {
 
   // Get unread count only
   @Get('unread-count')
-  async getUnreadCount(@Req() req) {
+  async getUnreadCount(@Req() req: AuthenticatedRequest) {
     return this.notificationsService.getUnreadCount(req.user.userId);
   }
 
   // Mark all notifications as read (must be before parameterized routes)
   @Post('read-all')
-  async markAllAsRead(@Req() req) {
+  async markAllAsRead(@Req() req: AuthenticatedRequest) {
     await this.notificationsService.markAllAsRead(req.user.userId);
     return { success: true };
   }
 
   // Mark a specific notification as read
   @Post(':id/read')
-  async markAsRead(@Req() req, @Param('id') id: string) {
+  async markAsRead(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     await this.notificationsService.markAsRead(id, req.user.userId);
     return { success: true };
   }
@@ -44,14 +45,14 @@ export class NotificationsController {
   // Delete all notifications for the current user. Must come before the
   // parameterized :id route or the literal "all" would be treated as an id.
   @Delete('all')
-  async deleteAll(@Req() req) {
+  async deleteAll(@Req() req: AuthenticatedRequest) {
     await this.notificationsService.deleteAll(req.user.userId);
     return { success: true };
   }
 
   // Delete a notification
   @Delete(':id')
-  async deleteNotification(@Req() req, @Param('id') id: string) {
+  async deleteNotification(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     await this.notificationsService.delete(id, req.user.userId);
     return { success: true };
   }

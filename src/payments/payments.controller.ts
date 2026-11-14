@@ -1,4 +1,5 @@
-import { All, Body, Controller, Get, Logger, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { All, BadRequestException, Body, Controller, Get, Logger, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import type { AuthenticatedRequest } from '../common/authenticated-request';
 import type { Request, Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { HypService } from './hyp.service';
@@ -56,6 +57,23 @@ const TOKENIZE_MEMBER_JOIN_ORDER_RE = /^tokenize-memberJoin-([a-z0-9]+)-([a-z0-9
 // anything that's not whitespace to keep the regex tolerant.
 const TOKENIZE_DUNNING_ORDER_RE = /^tokenize-dunning-[a-f0-9-]+$/;
 
+// The Order string is what paymentSuccess() uses to decide WHOSE account (and
+// which community) a tokenized card lands on — and it is built by the
+// browser, not the server. HYP's signature only proves the string wasn't
+// changed after signing, not that the caller was allowed to sign it. So before
+// signing, require one of the four client-initiated shapes and that the user
+// id inside it is the caller's own. Dunning orders are signed server-side
+// (DunningService) and never come through create-payment.
+function orderUserId(order: string): string | null {
+  const cardOnFile = order.match(TOKENIZE_CARD_ON_FILE_ORDER_RE);
+  if (cardOnFile) return cardOnFile[1];
+  const scoped =
+    order.match(TOKENIZE_COMMUNITY_ORDER_RE)
+    ?? order.match(TOKENIZE_NEW_COMMUNITY_ORDER_RE)
+    ?? order.match(TOKENIZE_MEMBER_JOIN_ORDER_RE);
+  return scoped ? scoped[2] : null;
+}
+
 @Controller('payments')
 export class PaymentsController {
   private readonly logger = new Logger(PaymentsController.name);
@@ -73,7 +91,12 @@ export class PaymentsController {
   // can correlate the charge back to the right account.
   @UseGuards(AuthGuard('jwt'))
   @Post('create-payment')
-  async createPayment(@Req() req, @Body() body: CreatePaymentDto) {
+  async createPayment(@Req() req: AuthenticatedRequest, @Body() body: CreatePaymentDto) {
+    // Only sign orders that act on the caller's own account (see orderUserId).
+    if (orderUserId(body.order) !== req.user.userId) {
+      throw new BadRequestException('INVALID_PAYMENT_ORDER');
+    }
+
     // Info is free-text only — HYP echoes it back as a tag for support /
     // debugging but it doesn't reliably round-trip on the success redirect.
     // Payment context (which flow paid for what) belongs in `Order`, which

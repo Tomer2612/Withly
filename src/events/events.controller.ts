@@ -12,6 +12,7 @@ import {
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
+import type { AuthenticatedRequest } from '../common/authenticated-request';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -41,7 +42,7 @@ export class EventsController {
   )
   async create(
     @Param('communityId') communityId: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Body() body: CreateEventDto,
     @UploadedFile() coverImage?: Express.Multer.File,
   ) {
@@ -76,7 +77,7 @@ export class EventsController {
   @Get('community/:communityId')
   async findByCommunity(
     @Param('communityId') communityId: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     return this.eventsService.findByCommunity(communityId, req.user.userId);
   }
@@ -87,7 +88,7 @@ export class EventsController {
   async findUpcoming(
     @Param('communityId') communityId: string,
     @Query('limit') limit: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     return this.eventsService.findUpcoming(communityId, req.user.userId, Math.min(limit ? parseInt(limit) : 5, 50));
   }
@@ -99,7 +100,7 @@ export class EventsController {
     @Param('communityId') communityId: string,
     @Query('year') year: string,
     @Query('month') month: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     return this.eventsService.getEventsForMonth(
       communityId,
@@ -112,7 +113,7 @@ export class EventsController {
   // Get single event
   @UseGuards(AuthGuard('jwt'))
   @Get(':eventId')
-  async findOne(@Param('eventId') eventId: string, @Req() req) {
+  async findOne(@Param('eventId') eventId: string, @Req() req: AuthenticatedRequest) {
     return this.eventsService.findOne(eventId, req.user.userId);
   }
 
@@ -127,7 +128,7 @@ export class EventsController {
   )
   async update(
     @Param('eventId') eventId: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Body() body: UpdateEventDto,
     @UploadedFile() coverImage?: Express.Multer.File,
   ) {
@@ -179,7 +180,7 @@ export class EventsController {
   // Delete event
   @UseGuards(AuthGuard('jwt'))
   @Delete(':eventId')
-  async delete(@Param('eventId') eventId: string, @Req() req) {
+  async delete(@Param('eventId') eventId: string, @Req() req: AuthenticatedRequest) {
     const userId = req.user.userId;
     return this.eventsService.delete(eventId, userId);
   }
@@ -189,7 +190,7 @@ export class EventsController {
   @Post(':eventId/rsvp')
   async rsvp(
     @Param('eventId') eventId: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Body() body: RsvpEventDto,
   ) {
     const userId = req.user.userId;
@@ -199,7 +200,7 @@ export class EventsController {
   // Remove RSVP
   @UseGuards(AuthGuard('jwt'))
   @Delete(':eventId/rsvp')
-  async removeRsvp(@Param('eventId') eventId: string, @Req() req) {
+  async removeRsvp(@Param('eventId') eventId: string, @Req() req: AuthenticatedRequest) {
     const userId = req.user.userId;
     return this.eventsService.removeRsvp(eventId, userId);
   }
@@ -209,7 +210,7 @@ export class EventsController {
   @Get(':eventId/attendees')
   async getAttendees(
     @Param('eventId') eventId: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Query('status') status?: RsvpStatus,
   ) {
     return this.eventsService.getAttendees(eventId, req.user.userId, status);

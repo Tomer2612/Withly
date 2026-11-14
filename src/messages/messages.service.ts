@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+
+// Same limit as SendMessageDto. Enforced in the service too because the
+// WebSocket path (MessagesGateway) doesn't go through the DTO validation pipe.
+const MESSAGE_MAX_LENGTH = 5000;
 import { PrismaService } from '../common/prisma.service';
 
 @Injectable()
@@ -17,6 +21,27 @@ export class MessagesService {
     });
     
     return !!conversation;
+  }
+
+  // A conversation needs a real second person: not yourself, and an account
+  // that exists (an unknown id used to surface as a 500 from the foreign key).
+  private async assertValidRecipient(senderId: string, recipientId: string): Promise<void> {
+    if (typeof recipientId !== 'string' || !recipientId || recipientId === senderId) {
+      throw new BadRequestException('INVALID_RECIPIENT');
+    }
+    const recipient = await this.prisma.user.findUnique({
+      where: { id: recipientId },
+      select: { id: true },
+    });
+    if (!recipient) {
+      throw new NotFoundException('Recipient not found');
+    }
+  }
+
+  // Entry point for POST /messages/conversations/:userId.
+  async startConversation(userId: string, otherUserId: string) {
+    await this.assertValidRecipient(userId, otherUserId);
+    return this.getOrCreateConversation(userId, otherUserId);
   }
 
   // Get or create a conversation between two users
@@ -59,6 +84,11 @@ export class MessagesService {
 
   // Send a message
   async sendMessage(senderId: string, recipientId: string, content: string) {
+    if (typeof content !== 'string' || !content.trim() || content.length > MESSAGE_MAX_LENGTH) {
+      throw new BadRequestException('INVALID_MESSAGE');
+    }
+    await this.assertValidRecipient(senderId, recipientId);
+
     // Get or create conversation
     const conversation = await this.getOrCreateConversation(senderId, recipientId);
 

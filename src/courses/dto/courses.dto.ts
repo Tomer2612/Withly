@@ -167,3 +167,17 @@ export class UpdateLessonDto {
   @Type(() => LessonQuizDto)
   quiz?: LessonQuizDto;
 }
+
+// POST /courses/lessons/:lessonId/quiz/check — one question at a time.
+export class CheckQuizAnswerDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(50)
+  questionId!: string;
+
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(50, { each: true })
+  optionIds!: string[];
+}

@@ -411,7 +411,9 @@ export class EmailService {
     });
 
     if (error) {
-      throw error;
+      // Resend returns a plain object, not an Error — wrap it so callers get
+      // a real Error (message + stack) while keeping the original details.
+      throw Object.assign(new Error(`Resend: ${error.message}`), { resendError: error });
     }
   }
 

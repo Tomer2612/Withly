@@ -1,9 +1,8 @@
-import { Controller, Post, Body, Param, UseGuards, Req, Get, Delete, Patch, Query, UseInterceptors, UploadedFiles, Res, StreamableFile } from '@nestjs/common';
+import { Controller, Post, Body, Param, UseGuards, Req, Get, Delete, Patch, Query, UseInterceptors, UploadedFiles } from '@nestjs/common';
+import type { AuthenticatedRequest } from '../common/authenticated-request';
+import { parseIdTextArray, parseStringArray } from '../common/parse-json';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import { join } from 'path';
-import { createReadStream, existsSync } from 'fs';
-import { Response } from 'express';
 import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import { PostsService } from './posts.service';
 import { AuthGuard } from '@nestjs/passport';
@@ -48,7 +47,7 @@ export class PostsController {
   @Get('community/:communityId')
   getPosts(
     @Param('communityId') communityId: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     return this.postsService.findByCommunity(communityId, req.user.userId);
   }
@@ -60,7 +59,7 @@ export class PostsController {
   @UseInterceptors(FilesInterceptor('files', 15, { storage, fileFilter: postContentFileFilter, limits: { fileSize: MAX_VIDEO_SIZE } }))
   async createPost(
     @Param('communityId') communityId: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Body() body: CreatePostDto,
     @UploadedFiles() files?: Express.Multer.File[]
   ) {
@@ -94,29 +93,11 @@ export class PostsController {
     }
     
     // Parse external video URLs (YouTube, Vimeo, Dailymotion)
-    if (body.videoUrls) {
-      try {
-        const externalVideos = JSON.parse(body.videoUrls);
-        if (Array.isArray(externalVideos)) {
-          videos.push(...externalVideos.slice(0, 3 - videos.length));
-        }
-      } catch {}
-    }
-    
-    // Parse links from JSON string
-    let links: string[] = [];
-    if (body.links) {
-      try {
-        links = JSON.parse(body.links);
-        if (Array.isArray(links)) {
-          links = links.slice(0, 10); // Limit to 10 links
-        } else {
-          links = [];
-        }
-      } catch {
-        links = [];
-      }
-    }
+    const externalVideos = parseStringArray(body.videoUrls) ?? [];
+    videos.push(...externalVideos.slice(0, 3 - videos.length));
+
+    // Parse links from JSON string (max 10)
+    const links: string[] = (parseStringArray(body.links) ?? []).slice(0, 10);
     
     const post = await this.postsService.create(
       body.content, 
@@ -140,7 +121,7 @@ export class PostsController {
   // Delete a comment - specific route before generic :postId
   @UseGuards(AuthGuard('jwt'))
   @Delete('comments/:commentId')
-  deleteComment(@Param('commentId') commentId: string, @Req() req) {
+  deleteComment(@Param('commentId') commentId: string, @Req() req: AuthenticatedRequest) {
     const userId = req.user.userId;
     return this.postsService.deleteComment(commentId, userId);
   }
@@ -150,7 +131,7 @@ export class PostsController {
   @Patch('comments/:commentId')
   editComment(
     @Param('commentId') commentId: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Body() body: EditCommentDto,
   ) {
     const userId = req.user.userId;
@@ -163,7 +144,7 @@ export class PostsController {
   @UseInterceptors(FilesInterceptor('files', 15, { storage, fileFilter: postContentFileFilter, limits: { fileSize: MAX_VIDEO_SIZE } }))
   async updatePost(
     @Param('postId') postId: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Body() body: UpdatePostDto,
     @UploadedFiles() files?: Express.Multer.File[]
   ) {
@@ -193,35 +174,18 @@ export class PostsController {
     }
     
     // Parse external video URLs
-    if (body.videoUrls) {
-      try {
-        const externalVideos = JSON.parse(body.videoUrls);
-        if (Array.isArray(externalVideos)) {
-          newVideos.push(...externalVideos.slice(0, 3 - newVideos.length));
-        }
-      } catch {}
-    }
-    
-    // Parse arrays from JSON strings
-    let links: string[] | undefined;
-    let imagesToRemove: string[] | undefined;
-    let filesToRemove: string[] | undefined;
-    let linksToRemove: string[] | undefined;
-    let videosToRemove: string[] | undefined;
-    let pollOptions: { id: string; text: string }[] | undefined;
-    let newPollOptions: string[] | undefined;
-    
-    try {
-      if (body.links) links = JSON.parse(body.links);
-      if (body.imagesToRemove) imagesToRemove = JSON.parse(body.imagesToRemove);
-      if (body.filesToRemove) filesToRemove = JSON.parse(body.filesToRemove);
-      if (body.linksToRemove) linksToRemove = JSON.parse(body.linksToRemove);
-      if (body.videosToRemove) videosToRemove = JSON.parse(body.videosToRemove);
-      if (body.pollOptions) pollOptions = JSON.parse(body.pollOptions);
-      if (body.newPollOptions) newPollOptions = JSON.parse(body.newPollOptions);
-    } catch {
-      // Ignore parse errors
-    }
+    const externalVideos = parseStringArray(body.videoUrls) ?? [];
+    newVideos.push(...externalVideos.slice(0, 3 - newVideos.length));
+
+    // Parse arrays from JSON strings. Each field independently; a malformed
+    // one is treated as "not sent" (undefined = leave as is).
+    const links = parseStringArray(body.links);
+    const imagesToRemove = parseStringArray(body.imagesToRemove);
+    const filesToRemove = parseStringArray(body.filesToRemove);
+    const linksToRemove = parseStringArray(body.linksToRemove);
+    const videosToRemove = parseStringArray(body.videosToRemove);
+    const pollOptions = parseIdTextArray(body.pollOptions);
+    const newPollOptions = parseStringArray(body.newPollOptions);
     
     return this.postsService.update(
       postId, 
@@ -246,7 +210,7 @@ export class PostsController {
   // Delete a post
   @UseGuards(AuthGuard('jwt'))
   @Delete(':postId')
-  deletePost(@Param('postId') postId: string, @Req() req) {
+  deletePost(@Param('postId') postId: string, @Req() req: AuthenticatedRequest) {
     const userId = req.user.userId;
     return this.postsService.delete(postId, userId);
   }
@@ -254,7 +218,7 @@ export class PostsController {
   // Like/Unlike toggle
   @UseGuards(AuthGuard('jwt'))
   @Post(':postId/like')
-  async toggleLike(@Param('postId') postId: string, @Req() req) {
+  async toggleLike(@Param('postId') postId: string, @Req() req: AuthenticatedRequest) {
     const userId = req.user.userId;
     const result = await this.postsService.toggleLike(postId, userId);
     
@@ -276,7 +240,7 @@ export class PostsController {
   // Save/Unsave toggle
   @UseGuards(AuthGuard('jwt'))
   @Post(':postId/save')
-  toggleSave(@Param('postId') postId: string, @Req() req) {
+  toggleSave(@Param('postId') postId: string, @Req() req: AuthenticatedRequest) {
     const userId = req.user.userId;
     return this.postsService.toggleSave(postId, userId);
   }
@@ -284,7 +248,7 @@ export class PostsController {
   // Pin/Unpin a post (owner/manager only)
   @UseGuards(AuthGuard('jwt'))
   @Post(':postId/pin')
-  togglePin(@Param('postId') postId: string, @Req() req) {
+  togglePin(@Param('postId') postId: string, @Req() req: AuthenticatedRequest) {
     const userId = req.user.userId;
     return this.postsService.togglePin(postId, userId);
   }
@@ -292,7 +256,7 @@ export class PostsController {
   // Get comments for a post — members of the post's community only.
   @UseGuards(AuthGuard('jwt'))
   @Get(':postId/comments')
-  getComments(@Param('postId') postId: string, @Req() req) {
+  getComments(@Param('postId') postId: string, @Req() req: AuthenticatedRequest) {
     return this.postsService.getComments(postId, req.user.userId);
   }
 
@@ -301,7 +265,7 @@ export class PostsController {
   @Post(':postId/comments')
   async createComment(
     @Param('postId') postId: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Body() body: CreateCommentDto,
   ) {
     const userId = req.user.userId;
@@ -330,10 +294,16 @@ export class PostsController {
     return comment;
   }
 
-  // Get link preview metadata
+  // Get link preview metadata. Login required: the only caller is the
+  // members-only feed, and an open endpoint would let anyone use the server
+  // to fetch pages. Not throttled because the feed asks for several at once.
+  @UseGuards(AuthGuard('jwt'))
   @SkipThrottle()
   @Get('link-preview')
   async getLinkPreview(@Query('url') url: string) {
+    if (typeof url !== 'string' || url.length > 2048) {
+      return { url: String(url ?? ''), title: String(url ?? ''), description: null, image: null };
+    }
     return this.postsService.getLinkPreview(url);
   }
 
@@ -342,7 +312,7 @@ export class PostsController {
   @Post(':postId/poll')
   createPoll(
     @Param('postId') postId: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Body() body: CreatePollDto,
   ) {
     const userId = req.user.userId;
@@ -355,7 +325,7 @@ export class PostsController {
   @Post('polls/:pollId/vote')
   votePoll(
     @Param('pollId') pollId: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Body() body: VotePollDto,
   ) {
     const userId = req.user.userId;
@@ -367,7 +337,7 @@ export class PostsController {
   @Delete('polls/:pollId/vote')
   removeVote(
     @Param('pollId') pollId: string,
-    @Req() req
+    @Req() req: AuthenticatedRequest
   ) {
     const userId = req.user.userId;
     return this.postsService.removeVote(pollId, userId);
@@ -378,7 +348,7 @@ export class PostsController {
   @Delete('polls/:pollId')
   deletePoll(
     @Param('pollId') pollId: string,
-    @Req() req
+    @Req() req: AuthenticatedRequest
   ) {
     const userId = req.user.userId;
     return this.postsService.deletePoll(pollId, userId);

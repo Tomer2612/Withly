@@ -27,23 +27,6 @@ const SocialUrl = (pattern: RegExp, platform: string): PropertyDecorator =>
     Matches(pattern, { message: `${String(key)} must be a ${platform} link` })(target, key);
   };
 
-export class CreateCommunityDto {
-  @IsString()
-  @MinLength(1)
-  @MaxLength(50)
-  name!: string;
-
-  @IsString()
-  @MinLength(1)
-  @MaxLength(2000)
-  description!: string;
-
-  @IsOptional() @IsString() @MaxLength(50) topic?: string;
-  @SocialUrl(YOUTUBE_URL_OR_EMPTY, 'YouTube') youtubeUrl?: string;
-  @SocialUrl(WHATSAPP_URL_OR_EMPTY, 'WhatsApp') whatsappUrl?: string;
-  @SocialUrl(FACEBOOK_URL_OR_EMPTY, 'Facebook') facebookUrl?: string;
-  @SocialUrl(INSTAGRAM_URL_OR_EMPTY, 'Instagram') instagramUrl?: string;
-}
 
 // Existing-card flows (Phase 3.3+): the user picked a card from their
 // wallet instead of tokenizing a new one through HYP. The id is the
@@ -77,7 +60,7 @@ export class JoinPaidWithExistingCardDto {
   paymentMethodId!: string;
 }
 
-// Pricing-checkout staging: same shape as CreateCommunityDto. Persisted as
+// Pricing-checkout staging (the only way to create a community). Persisted as
 // a PendingCommunityCreation row until the tokenize iframe completes, then
 // promoted to a real Community in the same transaction that binds the card.
 export class BeginCheckoutDto {

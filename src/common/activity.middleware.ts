@@ -17,11 +17,11 @@ export class ActivityMiddleware implements NestMiddleware {
 
   constructor(private prisma: PrismaService) {}
 
-  async use(req: Request, res: Response, next: NextFunction) {
+  use(req: Request, res: Response, next: NextFunction) {
     try {
       // Pull the access token from the httpOnly cookie set on login.
-      const cookieToken = (req as Request & { cookies?: Record<string, string> })
-        .cookies?.[ACCESS_TOKEN_COOKIE];
+      const cookies = (req as { cookies?: unknown }).cookies as Record<string, string> | undefined;
+      const cookieToken = cookies?.[ACCESS_TOKEN_COOKIE];
       if (cookieToken) {
         const decoded = jwt.verify(cookieToken, getJwtSecret()) as { sub?: string };
 

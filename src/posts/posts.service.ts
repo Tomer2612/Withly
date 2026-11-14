@@ -4,6 +4,7 @@ import { PrismaService } from '../common/prisma.service';
 import { CommunitiesService } from '../communities/communities.service';
 import { canManageCommunity, getEffectiveRole } from '../common/community-roles.helper';
 import { FileAttachment } from '../common/file-attachment.type';
+import { fetchPublicHtml } from '../common/safe-fetch';
 
 @Injectable()
 export class PostsService {
@@ -195,7 +196,7 @@ export class PostsService {
     
     // Handle images - add new ones and remove specified
     if (images || imagesToRemove) {
-      const currentImages = (post.images as string[]) || [];
+      const currentImages = post.images || [];
       let newImages = [...currentImages];
       
       // Remove specified images
@@ -238,13 +239,13 @@ export class PostsService {
       updateData.links = links.slice(0, 10);
     } else if (linksToRemove && linksToRemove.length > 0) {
       // If only removing links (no new links array), filter the existing ones
-      const currentLinks = (post.links as string[]) || [];
+      const currentLinks = post.links || [];
       updateData.links = currentLinks.filter(link => !linksToRemove.includes(link));
     }
 
     // Handle videos - add new ones and remove specified
     if (videos || videosToRemove) {
-      const currentVideos = (post.videos as string[]) || [];
+      const currentVideos = post.videos || [];
       let newVideos = [...currentVideos];
       
       if (videosToRemove && videosToRemove.length > 0) {
@@ -589,25 +590,14 @@ export class PostsService {
 
   async getLinkPreview(url: string) {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; Withly/1.0; +http://withly.co.il)',
-        },
-        redirect: 'follow',
-        signal: controller.signal,
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
+      // Public addresses only, size-capped, every redirect re-checked —
+      // see common/safe-fetch.ts for why.
+      const page = await fetchPublicHtml(url);
+      if (!page) {
         throw new Error('Failed to fetch URL');
       }
-      
-      const html = await response.text();
-      
+      const { html, finalUrl } = page;
+
       // Extract Open Graph meta tags
       const getMetaContent = (property: string): string | null => {
         const match = html.match(new RegExp(`<meta[^>]*property=["']${property}["'][^>]*content=["']([^"']+)["']`, 'i')) 
@@ -634,8 +624,8 @@ export class PostsService {
       // Get image
       let image = getMetaContent('og:image') || getMetaName('twitter:image');
       if (image && !image.startsWith('http')) {
-        const urlObj = new URL(url);
-        image = image.startsWith('/') ? `${urlObj.origin}${image}` : `${urlObj.origin}/${image}`;
+        // Relative to the page we actually landed on (after redirects).
+        image = new URL(image, finalUrl).toString();
       }
       
       return {

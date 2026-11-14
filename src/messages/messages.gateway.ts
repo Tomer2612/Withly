@@ -51,7 +51,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
 
   constructor(private messagesService: MessagesService) {}
 
-  async handleConnection(socket: AuthenticatedSocket) {
+  handleConnection(socket: AuthenticatedSocket) {
     try {
       // Pull the access token from the httpOnly cookie sent on the
       // handshake (frontend connects with withCredentials: true).
@@ -65,7 +65,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
 
       // Verify JWT using jsonwebtoken directly
       const payload = jwt.verify(token, getJwtSecret()) as { sub: string };
-      const userId = payload.sub as string;
+      const userId = payload.sub;
       socket.userId = userId;
 
       // Add socket to user's socket set
@@ -75,7 +75,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       this.userSockets.get(userId)!.add(socket.id);
 
       // Join a room with user's ID for targeted messages
-      socket.join(`user:${userId}`);
+      void socket.join(`user:${userId}`);
     } catch {
       socket.disconnect();
     }
@@ -136,7 +136,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       await this.messagesService.markConversationAsRead(data.conversationId, socket.userId);
       return { success: true };
     } catch (err) {
-      return { error: err.message };
+      return { error: err instanceof Error ? err.message : 'Failed to mark as read' };
     }
   }
 

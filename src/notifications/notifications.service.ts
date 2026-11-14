@@ -100,23 +100,25 @@ export class NotificationsService {
     ]);
 
     // Enrich notifications with post and community data
-    const postIds = [...new Set(rawNotifications.filter(n => n.postId).map(n => n.postId))];
-    const communityIds = [...new Set(rawNotifications.filter(n => n.communityId).map(n => n.communityId))];
+    const postIds = [...new Set(rawNotifications.map(n => n.postId).filter((id): id is string => !!id))];
+    const communityIds = [...new Set(rawNotifications.map(n => n.communityId).filter((id): id is string => !!id))];
 
-    const [posts, communities] = await Promise.all([
-      postIds.length > 0 
+    // Both queries are started before either is awaited, so they still run in
+    // parallel; awaiting them separately keeps each result's row type.
+    const [postsQuery, communitiesQuery] = [
+      postIds.length > 0
         ? this.prisma.post.findMany({
-            where: { id: { in: postIds as string[] } },
+            where: { id: { in: postIds } },
             select: { 
               id: true, 
               title: true,
               community: { select: { id: true, name: true } }
             },
           })
-        : [],
+        : null,
       communityIds.length > 0
         ? this.prisma.community.findMany({
-            where: { id: { in: communityIds as string[] } },
+            where: { id: { in: communityIds } },
             // slug is included so the bell can link to the canonical URL
             // and avoid a slug-redirect refetch on the destination page.
             // ownerId lets the bell route PAYMENT_FAILED to the owner's
@@ -124,8 +126,10 @@ export class NotificationsService {
             // fallback for actor-less, community-scoped rows (PAYMENT_FAILED).
             select: { id: true, name: true, slug: true, ownerId: true, logo: true },
           })
-        : [],
-    ]);
+        : null,
+    ] as const;
+    const posts = postsQuery ? await postsQuery : [];
+    const communities = communitiesQuery ? await communitiesQuery : [];
 
     const postMap = new Map(posts.map(p => [p.id, p] as const));
     const communityMap = new Map(communities.map(c => [c.id, c] as const));

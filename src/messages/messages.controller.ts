@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import type { AuthenticatedRequest } from '../common/authenticated-request';
 import { AuthGuard } from '@nestjs/passport';
 import { MessagesService } from './messages.service';
 import { MessagesGateway } from './messages.gateway';
@@ -14,21 +15,21 @@ export class MessagesController {
   // Get all conversations (inbox)
   @UseGuards(AuthGuard('jwt'))
   @Get('conversations')
-  async getConversations(@Req() req) {
+  async getConversations(@Req() req: AuthenticatedRequest) {
     return this.messagesService.getConversations(req.user.userId);
   }
 
   // Get unread message count
   @UseGuards(AuthGuard('jwt'))
   @Get('unread-count')
-  async getUnreadCount(@Req() req) {
+  async getUnreadCount(@Req() req: AuthenticatedRequest) {
     return this.messagesService.getUnreadCount(req.user.userId);
   }
 
   // Mark all messages as read (must be before parameterized routes)
   @UseGuards(AuthGuard('jwt'))
   @Post('read-all')
-  async markAllAsRead(@Req() req) {
+  async markAllAsRead(@Req() req: AuthenticatedRequest) {
     await this.messagesService.markAllAsRead(req.user.userId);
     return { success: true };
   }
@@ -36,15 +37,15 @@ export class MessagesController {
   // Get or create conversation with a user
   @UseGuards(AuthGuard('jwt'))
   @Post('conversations/:userId')
-  async getOrCreateConversation(@Req() req, @Param('userId') otherUserId: string) {
-    return this.messagesService.getOrCreateConversation(req.user.userId, otherUserId);
+  async getOrCreateConversation(@Req() req: AuthenticatedRequest, @Param('userId') otherUserId: string) {
+    return this.messagesService.startConversation(req.user.userId, otherUserId);
   }
 
   // Get messages in a conversation
   @UseGuards(AuthGuard('jwt'))
   @Get('conversations/:conversationId/messages')
   async getMessages(
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Param('conversationId') conversationId: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
@@ -61,7 +62,7 @@ export class MessagesController {
   @UseGuards(AuthGuard('jwt'))
   @Post('send')
   async sendMessage(
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Body() body: SendMessageDto,
   ) {
     const message = await this.messagesService.sendMessage(req.user.userId, body.recipientId, body.content);
@@ -75,7 +76,7 @@ export class MessagesController {
   // Mark conversation as read
   @UseGuards(AuthGuard('jwt'))
   @Post('conversations/:conversationId/read')
-  async markAsRead(@Req() req, @Param('conversationId') conversationId: string) {
+  async markAsRead(@Req() req: AuthenticatedRequest, @Param('conversationId') conversationId: string) {
     await this.messagesService.markConversationAsRead(conversationId, req.user.userId);
     return { success: true };
   }
@@ -83,7 +84,7 @@ export class MessagesController {
   // Check if conversation exists with a user
   @UseGuards(AuthGuard('jwt'))
   @Get('has-conversation/:userId')
-  async hasConversation(@Req() req, @Param('userId') otherUserId: string) {
+  async hasConversation(@Req() req: AuthenticatedRequest, @Param('userId') otherUserId: string) {
     const hasConversation = await this.messagesService.hasConversation(req.user.userId, otherUserId);
     return { hasConversation };
   }

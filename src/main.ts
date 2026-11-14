@@ -3,7 +3,12 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
+// Must stay `import = require`: cookie-parser is a CommonJS `module.exports =
+// fn` package and this project doesn't enable esModuleInterop, so a default
+// import would compile to `.default` — undefined at runtime — and crash boot.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 import cookieParser = require('cookie-parser');
+import type { Response } from 'express';
 import { CORS_ORIGINS } from './common/cors';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 
@@ -54,7 +59,7 @@ async function bootstrap() {
   // Serve static files with CORS headers
   app.useStaticAssets('uploads', { 
     prefix: '/uploads',
-    setHeaders: (res) => {
+    setHeaders: (res: Response) => {
       res.set('Access-Control-Allow-Origin', '*');
       res.set('Access-Control-Allow-Methods', 'GET');
     }
@@ -62,5 +67,10 @@ async function bootstrap() {
   
   await app.listen(4000);
 }
-bootstrap();
+// A failed startup must exit non-zero (so pm2 / the deploy notices) rather
+// than leave an unhandled rejection.
+bootstrap().catch((err) => {
+  console.error('Failed to start the server:', err);
+  process.exit(1);
+});
 

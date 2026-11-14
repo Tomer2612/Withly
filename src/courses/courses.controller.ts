@@ -6,14 +6,13 @@ import {
   Delete,
   Body,
   Param,
-  Query,
   UseGuards,
   Req,
   UseInterceptors,
   UploadedFile,
-  Headers,
   BadRequestException,
 } from '@nestjs/common';
+import type { AuthenticatedRequest } from '../common/authenticated-request';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -27,6 +26,7 @@ import {
   UpdateChapterDto,
   AddLessonDto,
   UpdateLessonDto,
+  CheckQuizAnswerDto,
 } from './dto/courses.dto';
 
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB
@@ -49,7 +49,7 @@ export class CoursesController {
     }),
   )
   async createCourse(
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Body() body: CreateCourseDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
@@ -65,7 +65,7 @@ export class CoursesController {
   @Get('community/:communityId')
   async getCoursesByCommunity(
     @Param('communityId') communityId: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     return this.coursesService.getCoursesByCommunity(communityId, req.user.userId);
   }
@@ -73,7 +73,7 @@ export class CoursesController {
   // Get user's enrolled courses
   @UseGuards(AuthGuard('jwt'))
   @Get('my-courses')
-  async getUserCourses(@Req() req) {
+  async getUserCourses(@Req() req: AuthenticatedRequest) {
     return this.coursesService.getUserCourses(req.user.userId);
   }
 
@@ -82,7 +82,7 @@ export class CoursesController {
   @Get(':courseId')
   async getCourseById(
     @Param('courseId') courseId: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     return this.coursesService.getCourseById(courseId, req.user.userId);
   }
@@ -90,14 +90,14 @@ export class CoursesController {
   // Enroll in a course
   @UseGuards(AuthGuard('jwt'))
   @Post(':courseId/enroll')
-  async enrollInCourse(@Param('courseId') courseId: string, @Req() req) {
+  async enrollInCourse(@Param('courseId') courseId: string, @Req() req: AuthenticatedRequest) {
     return this.coursesService.enrollInCourse(courseId, req.user.userId);
   }
 
   // Unenroll from a course
   @UseGuards(AuthGuard('jwt'))
   @Delete(':courseId/enroll')
-  async unenrollFromCourse(@Param('courseId') courseId: string, @Req() req) {
+  async unenrollFromCourse(@Param('courseId') courseId: string, @Req() req: AuthenticatedRequest) {
     return this.coursesService.unenrollFromCourse(courseId, req.user.userId);
   }
 
@@ -112,7 +112,7 @@ export class CoursesController {
   )
   async updateCourse(
     @Param('courseId') courseId: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Body() body: UpdateCourseDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
@@ -131,7 +131,7 @@ export class CoursesController {
   // Delete course
   @UseGuards(AuthGuard('jwt'))
   @Delete(':courseId')
-  async deleteCourse(@Param('courseId') courseId: string, @Req() req) {
+  async deleteCourse(@Param('courseId') courseId: string, @Req() req: AuthenticatedRequest) {
     return this.coursesService.deleteCourse(courseId, req.user.userId);
   }
 
@@ -141,7 +141,7 @@ export class CoursesController {
   async addChapter(
     @Param('courseId') courseId: string,
     @Body() body: AddChapterDto,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     return this.coursesService.addChapter(courseId, body.title, req.user.userId);
   }
@@ -152,7 +152,7 @@ export class CoursesController {
   async updateChapter(
     @Param('chapterId') chapterId: string,
     @Body() body: UpdateChapterDto,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     return this.coursesService.updateChapter(chapterId, body, req.user.userId);
   }
@@ -160,7 +160,7 @@ export class CoursesController {
   // Delete chapter
   @UseGuards(AuthGuard('jwt'))
   @Delete('chapters/:chapterId')
-  async deleteChapter(@Param('chapterId') chapterId: string, @Req() req) {
+  async deleteChapter(@Param('chapterId') chapterId: string, @Req() req: AuthenticatedRequest) {
     return this.coursesService.deleteChapter(chapterId, req.user.userId);
   }
 
@@ -170,7 +170,7 @@ export class CoursesController {
   async addLesson(
     @Param('chapterId') chapterId: string,
     @Body() body: AddLessonDto,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     return this.coursesService.addLesson(chapterId, body, req.user.userId);
   }
@@ -185,8 +185,10 @@ export class CoursesController {
     }),
   )
   async uploadLessonImage(
+    @Req() req: AuthenticatedRequest,
     @UploadedFile() file: Express.Multer.File,
   ) {
+    await this.coursesService.assertCanUploadLessonMedia(req.user.userId);
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
@@ -205,8 +207,10 @@ export class CoursesController {
     }),
   )
   async uploadLessonVideo(
+    @Req() req: AuthenticatedRequest,
     @UploadedFile() file: Express.Multer.File,
   ) {
+    await this.coursesService.assertCanUploadLessonMedia(req.user.userId);
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
@@ -214,12 +218,24 @@ export class CoursesController {
     return { url };
   }
 
+  // Check one quiz answer on the server (learners no longer receive the
+  // answer key). Members of the lesson's community only.
+  @UseGuards(AuthGuard('jwt'))
+  @Post('lessons/:lessonId/quiz/check')
+  async checkQuizAnswer(
+    @Param('lessonId') lessonId: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() body: CheckQuizAnswerDto,
+  ) {
+    return this.coursesService.checkQuizAnswer(lessonId, body.questionId, body.optionIds, req.user.userId);
+  }
+
   // Get lesson by ID — members of the lesson's community only.
   @UseGuards(AuthGuard('jwt'))
   @Get('lessons/:lessonId')
   async getLessonById(
     @Param('lessonId') lessonId: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     return this.coursesService.getLessonById(lessonId, req.user.userId);
   }
@@ -230,7 +246,7 @@ export class CoursesController {
   async updateLesson(
     @Param('lessonId') lessonId: string,
     @Body() body: UpdateLessonDto,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     return this.coursesService.updateLesson(lessonId, body, req.user.userId);
   }
@@ -238,21 +254,21 @@ export class CoursesController {
   // Delete lesson
   @UseGuards(AuthGuard('jwt'))
   @Delete('lessons/:lessonId')
-  async deleteLesson(@Param('lessonId') lessonId: string, @Req() req) {
+  async deleteLesson(@Param('lessonId') lessonId: string, @Req() req: AuthenticatedRequest) {
     return this.coursesService.deleteLesson(lessonId, req.user.userId);
   }
 
   // Mark lesson as complete
   @UseGuards(AuthGuard('jwt'))
   @Post('lessons/:lessonId/complete')
-  async completeLesson(@Param('lessonId') lessonId: string, @Req() req) {
+  async completeLesson(@Param('lessonId') lessonId: string, @Req() req: AuthenticatedRequest) {
     return this.coursesService.completeLesson(lessonId, req.user.userId);
   }
 
   // Mark lesson as incomplete
   @UseGuards(AuthGuard('jwt'))
   @Delete('lessons/:lessonId/complete')
-  async uncompleteLesson(@Param('lessonId') lessonId: string, @Req() req) {
+  async uncompleteLesson(@Param('lessonId') lessonId: string, @Req() req: AuthenticatedRequest) {
     return this.coursesService.uncompleteLesson(lessonId, req.user.userId);
   }
 }

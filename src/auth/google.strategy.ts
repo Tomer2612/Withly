@@ -20,12 +20,12 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     super.authenticate(req, { ...options, prompt: 'select_account' });
   }
 
-  async validate(
+  validate(
     _accessToken: string,
     _refreshToken: string,
     profile: Profile,
     done: VerifyCallback,
-  ): Promise<void> {
+  ): void {
     const { name, emails, photos } = profile;
     const email = emails?.[0]?.value;
     if (!email) {

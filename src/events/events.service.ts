@@ -148,16 +148,30 @@ export class EventsService {
       },
     });
 
+    // Real counts per status for every event in the list, in one grouped
+    // query (this used to return a hard-coded 0 for all of them).
+    const grouped = events.length
+      ? await this.prisma.eventRsvp.groupBy({
+          by: ['eventId', 'status'],
+          where: { eventId: { in: events.map(e => e.id) } },
+          _count: { _all: true },
+        })
+      : [];
+    const countsByEvent = new Map<string, { going: number; maybe: number; notGoing: number }>();
+    for (const row of grouped) {
+      const c = countsByEvent.get(row.eventId) ?? { going: 0, maybe: 0, notGoing: 0 };
+      if (row.status === 'GOING') c.going = row._count._all;
+      else if (row.status === 'MAYBE') c.maybe = row._count._all;
+      else if (row.status === 'NOT_GOING') c.notGoing = row._count._all;
+      countsByEvent.set(row.eventId, c);
+    }
+
     return events.map(event => ({
       ...event,
-      userRsvp: userId && event.rsvps && event.rsvps.length > 0 
-        ? event.rsvps[0].status 
+      userRsvp: userId && event.rsvps && event.rsvps.length > 0
+        ? event.rsvps[0].status
         : null,
-      rsvpCounts: {
-        going: 0,
-        maybe: 0,
-        notGoing: 0,
-      },
+      rsvpCounts: countsByEvent.get(event.id) ?? { going: 0, maybe: 0, notGoing: 0 },
     }));
   }
 
