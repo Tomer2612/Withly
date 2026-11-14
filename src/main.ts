@@ -1,3 +1,9 @@
+// Must stay the first import: load .env before any module reads process.env
+// at load time (auth/cookies.helper.ts reads REFRESH_COOKIE_PATH and NODE_ENV).
+// Prisma 6 loaded .env as a side effect of importing @prisma/client; Prisma 7
+// doesn't, and the refresh cookie fell back to path=/auth on prod (users were
+// signed out every 15 minutes).
+import 'dotenv/config';
 import { NestFactory, HttpAdapterHost } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';

@@ -1,5 +1,5 @@
 // Payment order ownership, direct-message recipients, link-preview SSRF
-// protection, quiz answer key, and request validation.
+// protection, quiz answer key, request validation, and auth cookie settings.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 require('reflect-metadata');
@@ -76,4 +76,37 @@ test('community link validation (DTO, same options as the global ValidationPipe)
   assert.deepEqual(await bad({ youtubeUrl: '', linkedinUrl: '', customLinkUrl: '' }), []);
   assert.deepEqual(await bad({ facebookUrl: 'https://facebook.com.evil.io/', youtubeUrl: 'javascript:alert(1)', customLinkUrl: 'site.co.il' }), ['customLinkUrl', 'facebookUrl', 'youtubeUrl']);
   assert.deepEqual(await bad({ customLinkLabel: 'א'.repeat(21) }), ['customLinkLabel']);
+});
+
+// .env must be loaded before any module reads process.env at load time.
+// Regression: after Prisma 7 (which no longer loads .env on import) the
+// refresh cookie fell back to path=/auth on prod and users were signed out
+// every 15 minutes.
+test('auth cookie settings come from .env (loaded first thing in main.js)', () => {
+  const fs = require('fs');
+  const os = require('os');
+  const path = require('path');
+  const { execFileSync } = require('child_process');
+  const distDir = path.join(__dirname, '..', 'dist');
+
+  const main = fs.readFileSync(path.join(distDir, 'main.js'), 'utf8');
+  assert.equal(main.match(/require\("([^"]+)"\)/)[1], 'dotenv/config');
+
+  // Load .env the way main.js does, from a throwaway directory whose .env
+  // holds prod-like cookie settings, then see what the refresh cookie gets.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'withly-env-'));
+  fs.writeFileSync(path.join(dir, '.env'), 'REFRESH_COOKIE_PATH=/api/auth\nNODE_ENV=production\n');
+  const script = `
+    require(${JSON.stringify(require.resolve('dotenv/config'))});
+    const { setRefreshCookie } = require(${JSON.stringify(path.join(distDir, 'auth', 'cookies.helper.js'))});
+    const set = {};
+    setRefreshCookie({ cookie: (name, _v, opts) => { set[name] = opts; } }, 'token');
+    process.stdout.write(JSON.stringify(set.refresh_token));`;
+  const env = { ...process.env, DOTENV_CONFIG_QUIET: 'true' };
+  delete env.REFRESH_COOKIE_PATH;
+  delete env.NODE_ENV;
+  const opts = JSON.parse(execFileSync(process.execPath, ['-e', script], { cwd: dir, env, encoding: 'utf8' }));
+  fs.rmSync(dir, { recursive: true, force: true });
+  assert.equal(opts.path, '/api/auth');
+  assert.equal(opts.secure, true);
 });
