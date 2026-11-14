@@ -51,7 +51,7 @@
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.2",
+    "@eslint/js": "^10.0.1",
     "@nestjs/cli": "^11.0.10",
     "@nestjs/schematics": "^11.0.0",
     "@types/bcrypt": "^6.0.0",
@@ -61,16 +61,16 @@
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.16",
     "@types/passport-jwt": "^4.0.1",
-    "eslint": "^9.39.2",
+    "eslint": "^10.15.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
-    "globals": "^16.5.0",
+    "globals": "^17.14.0",
     "kill-port": "^2.0.1",
     "knip": "^6.17.1",
     "prisma": "^7.10.1",
     "ts-loader": "^9.4.2",
     "ts-node": "^10.9.1",
     "typescript": "^5.2.2",
-    "typescript-eslint": "^8.49.0"
+    "typescript-eslint": "^8.72.2"
   }
 }
