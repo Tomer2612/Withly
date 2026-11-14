@@ -2,6 +2,9 @@
   "name": "withly",
   "version": "1.0.0",
   "description": "",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "prestart": "kill-port 4000",
     "start": "node dist/main.js",
@@ -13,7 +16,7 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "knip": "knip",
     "lint": "eslint src",
-    "test": "npm run build && node --test test/",
+    "test": "npm run build && node --test \"test/**/*.test.js\"",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -52,7 +55,7 @@
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/multer": "^2.0.0",
-    "@types/node": "^20.19.11",
+    "@types/node": "^22.20.5",
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.16",
     "@types/passport-jwt": "^4.0.1",
