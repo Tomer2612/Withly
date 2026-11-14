@@ -9,9 +9,11 @@
     "start:dev": "nest start --watch",
     "prestart:debug": "kill-port 4000",
     "start:debug": "nest start --debug --watch",
-    "build": "node -e \"require('fs').rmSync('tsconfig.tsbuildinfo',{force:true})\" && tsc -p tsconfig.build.json",
+    "build": "node -e \"for (const f of ['tsconfig.tsbuildinfo','tsconfig.build.tsbuildinfo']) require('fs').rmSync(f,{force:true})\" && tsc -p tsconfig.build.json",
     "format": "prettier --write \"src/**/*.ts\"",
     "knip": "knip",
+    "lint": "eslint src",
+    "test": "npm run build && node --test test/",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -54,6 +56,8 @@
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.16",
     "@types/passport-jwt": "^4.0.1",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
     "globals": "^16.5.0",
     "kill-port": "^2.0.1",

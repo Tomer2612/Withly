@@ -25,9 +25,6 @@
         "eslint",
         "eslint-config-next",
         "@types/react-datepicker"
-      ],
-      "ignoreBinaries": [
-        "jest"
       ]
     }
   }
