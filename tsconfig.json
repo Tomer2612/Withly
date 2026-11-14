@@ -13,6 +13,10 @@
     "rootDir": "src",
     "incremental": true,
     "skipLibCheck": true,
+    // TypeScript 6 turns `strict` on by default; this codebase was written
+    // without it (TS 5 default). Keep it off explicitly; strictNullChecks
+    // below stays on as before.
+    "strict": false,
     "strictNullChecks": true,
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": false,
