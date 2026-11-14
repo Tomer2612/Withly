@@ -13,6 +13,7 @@ function VerifyEmailContent() {
 
   useEffect(() => {
     if (!token) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- part of the one-time verification request on page load
       setStatus('error');
       setMessage('טוקן אימות חסר');
       return;

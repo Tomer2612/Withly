@@ -58,6 +58,7 @@ export default function RouteProgress() {
   // visibly in the wrong direction.
   useEffect(() => {
     if (loading) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- finishes the progress bar (timers) when the route changes
       setProgress(100);
       const fadeOut = setTimeout(() => setLoading(false), 200);
       const reset = setTimeout(() => setProgress(0), 500);

@@ -196,11 +196,12 @@ export default function SettingsPage() {
     }
   }, [message]);
 
-  // Track initial form values for unsaved changes detection
-  const initialFormRef = useRef<{ name: string; bio: string; location: string } | null>(null);
+  // Track initial form values for unsaved changes detection. State (not a
+  // ref) because the save bar compares against it while rendering.
+  const [initialForm, setInitialForm] = useState<{ name: string; bio: string; location: string } | null>(null);
 
   const hasUnsavedChanges = () => {
-    const init = initialFormRef.current;
+    const init = initialForm;
     if (!init) return false;
     return (
       name !== init.name ||
@@ -238,7 +239,7 @@ export default function SettingsPage() {
         e.stopPropagation();
       } else {
         shouldBlockRef.current = false;
-        initialFormRef.current = null;
+        setInitialForm(null);
       }
     };
 
@@ -267,6 +268,7 @@ export default function SettingsPage() {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash.replace(/^#/, '');
       if (hash === 'profile' || hash === 'security' || hash === 'notifications' || hash === 'payment') {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- location.hash is browser-only (localStorage / location), unavailable during server rendering
         setActiveTab(hash);
       }
     }
@@ -289,11 +291,11 @@ export default function SettingsPage() {
         setName(data.name || '');
         setBio(data.bio || '');
         setLocation(data.location || '');
-        initialFormRef.current = {
+        setInitialForm({
           name: data.name || '',
           bio: data.bio || '',
           location: data.location || '',
-        };
+        });
         if (data.profileImage) {
           setImagePreview(getImageUrl(data.profileImage));
         }
@@ -343,6 +345,7 @@ export default function SettingsPage() {
     const cardStatus = searchParams.get('card');
     if (!cardStatus) return;
     if (cardStatus === 'added' || cardStatus === 'existing') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of the URL on arrival (?card= after the payment redirect); it also rewrites the URL
       setMessage(
         cardStatus === 'added'
           ? 'הכרטיס נוסף בהצלחה'
@@ -383,7 +386,7 @@ export default function SettingsPage() {
 
   // Revert the profile form to its last-saved values and stay on the page.
   const handleResetProfile = () => {
-    const init = initialFormRef.current;
+    const init = initialForm;
     if (!init) return;
     setName(init.name);
     setBio(init.bio);
@@ -447,7 +450,7 @@ export default function SettingsPage() {
       setMessageType('success');
       // Re-snapshot to the just-saved values: clears the dirty state (bar hides,
       // beforeunload won't trigger) while still tracking further edits.
-      initialFormRef.current = { name, bio, location };
+      setInitialForm({ name, bio, location });
     } catch (err) {
       console.error('Profile update error:', err);
       setMessage((err instanceof Error && err.message) || 'שגיאה בעדכון הפרופיל');

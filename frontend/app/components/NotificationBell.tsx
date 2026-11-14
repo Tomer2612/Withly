@@ -328,6 +328,7 @@ export default function NotificationBell() {
   // Fetch notifications when dropdown opens
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- loads data from the API when the dropdown opens
       fetchNotifications();
     }
     // Fetch once each time the dropdown opens. fetchNotifications is

@@ -168,6 +168,7 @@ export default function ChatWidget() {
   // just below the sticky navbar so it never overlaps it.
   useEffect(() => {
     if (!showConversations) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- positions the dropdown from the bell's on-screen position, known only after render
       setDropdownPos(null);
       return;
     }

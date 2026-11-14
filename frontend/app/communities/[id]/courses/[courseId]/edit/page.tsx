@@ -121,7 +121,9 @@ export default function EditCoursePage() {
 
   const [course, setCourse] = useState<CourseForm | null>(null);
   // Snapshot of the course as loaded; drives dirty-detection + reset.
-  const initialCourseRef = useRef<CourseForm | null>(null);
+  // The course as last loaded, for dirty-detection and ביטול. State (not a
+  // ref) because the unsaved-changes bar compares against it while rendering.
+  const [initialCourse, setInitialCourse] = useState<CourseForm | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -215,7 +217,7 @@ export default function EditCoursePage() {
           })),
         };
         setCourse(loaded);
-        initialCourseRef.current = JSON.parse(JSON.stringify(loaded));
+        setInitialCourse(JSON.parse(JSON.stringify(loaded)));
       } else {
         router.push(`/communities/${communityId}/courses`);
       }
@@ -242,6 +244,7 @@ export default function EditCoursePage() {
       }
     })();
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loads data from the API
     fetchCourse();
     // Load when the course, community or user changes. fetchCourse is
     // recreated on every render, so listing it would refetch in a loop and
@@ -555,8 +558,8 @@ export default function EditCoursePage() {
 
   const isDirty =
     !!course &&
-    !!initialCourseRef.current &&
-    serializeCourse(course) !== serializeCourse(initialCourseRef.current);
+    !!initialCourse &&
+    serializeCourse(course) !== serializeCourse(initialCourse);
 
   const allChaptersExpanded =
     !!course &&
@@ -568,8 +571,8 @@ export default function EditCoursePage() {
   // user's current expand/collapse state over by id (existing items) so
   // ביטול doesn't visually collapse the editor — it only reverts data.
   const handleResetCourse = () => {
-    if (!initialCourseRef.current) return;
-    const snapshot: CourseForm = JSON.parse(JSON.stringify(initialCourseRef.current));
+    if (!initialCourse) return;
+    const snapshot: CourseForm = JSON.parse(JSON.stringify(initialCourse));
     const currentExpansion = new Map<string, { expanded: boolean; lessons: Map<string, boolean> }>();
     course?.chapters.forEach(c => {
       if (!c.id) return;

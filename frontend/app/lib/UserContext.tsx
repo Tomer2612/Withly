@@ -70,6 +70,7 @@ export function UserProvider({ initialUser, children }: UserProviderProps) {
       const cached = localStorage.getItem(PROFILE_CACHE_KEY);
       if (!cached) return;
       const parsed = JSON.parse(cached) as { name?: string; profileImage?: string | null };
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is browser-only (localStorage / location), unavailable during server rendering
       setUser((prev) => (prev ? { ...prev, ...parsed } : prev));
     } catch {
       // Ignore parse errors.
@@ -125,6 +126,7 @@ export function UserProvider({ initialUser, children }: UserProviderProps) {
   // /users/me failures, so anonymous visitors to public pages just stay
   // logged-out instead of getting bounced to /login.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loads data from the API
     void refresh();
   }, [refresh]);
 

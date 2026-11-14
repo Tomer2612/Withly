@@ -201,6 +201,7 @@ function CourseViewerContent() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loads data from the API
     fetchCourse();
     // Load once per course. fetchCourse is recreated on every render, so
     // listing it would refetch in a loop.
@@ -212,6 +213,7 @@ function CourseViewerContent() {
       // Check if user has access (enrolled or owner/author)
       const isOwnerOrAuthor = userId && (course.authorId === userId || course.community.ownerId === userId);
       if (course.enrollment || isOwnerOrAuthor) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- picks the lesson to show when the course loads or ?lesson= changes, and auto-enrolls the owner (an API call)
         setExpandedChapters(new Set(course.chapters.map(c => c.id)));
         if (lessonIdFromUrl) {
           const lesson = findLessonById(lessonIdFromUrl);
@@ -298,6 +300,7 @@ function CourseViewerContent() {
             submitted[q.id] = true;
           }
         }
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- restores a completed quiz's answers when moving to another lesson
         setQuizAnswers(answers);
         setQuizSubmitted(submitted);
       }
@@ -401,6 +404,7 @@ function CourseViewerContent() {
 
   // Also check immediately when conditions change
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- runs the auto-complete check when completion conditions change (it may call the API)
     checkAutoComplete();
   }, [hasVideoEnded, hasScrolledToBottom, clickedLinks, viewedImages, checkAutoComplete]);
 

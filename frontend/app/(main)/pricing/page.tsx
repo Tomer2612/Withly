@@ -150,6 +150,7 @@ function PricingContent() {
   useEffect(() => {
     const stepParam = searchParams.get('step');
     if (stepParam === 'create') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of the URL on arrival (?step / ?plan when returning from signup)
       setCurrentStep('create');
     }
     const planParam = searchParams.get('plan');

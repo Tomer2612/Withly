@@ -1269,6 +1269,7 @@ function CommunityFeedContent() {
     if (isOwner && community?.id) {
       const key = `welcome_shown_${community.id}`;
       if (!localStorage.getItem(key)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is browser-only (localStorage / location), unavailable during server rendering
         setShowWelcomePopup(true);
       }
     }
@@ -1285,6 +1286,7 @@ function CommunityFeedContent() {
     const joinedMs = new Date(memberJoinedAt).getTime();
     if (!Number.isFinite(joinedMs) || Date.now() - joinedMs > NEW_MEMBER_WINDOW_DAYS * 24 * 60 * 60 * 1000) return;
     try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is browser-only (localStorage / location), unavailable during server rendering
       if (!localStorage.getItem(memberWelcomeKey)) setShowMemberWelcome(true);
     } catch {
       // Storage blocked (private mode etc.) — skip the popup rather than

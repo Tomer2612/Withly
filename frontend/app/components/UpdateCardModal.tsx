@@ -177,6 +177,7 @@ export default function UpdateCardModal({
       );
       if (!res.ok) {
         // Reuse the manage page's URL-param handler for the failure toast.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- full reload on purpose: after a payment change the layout (suspended/active) and the manage page start fresh
         window.location.href = `/communities/${communityId}/manage?card=error`;
         return;
       }
@@ -202,8 +203,10 @@ export default function UpdateCardModal({
         result?.wasReactivated ? 'reactivated'
         : result?.wasAlreadyBound ? 'existing'
         : 'updated';
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- full reload on purpose: after a payment change the layout (suspended/active) and the manage page start fresh
       window.location.href = `/communities/${communityId}/manage?card=${cardParam}`;
     } catch {
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- full reload on purpose: after a payment change the layout (suspended/active) and the manage page start fresh
       window.location.href = `/communities/${communityId}/manage?card=error`;
     }
   };

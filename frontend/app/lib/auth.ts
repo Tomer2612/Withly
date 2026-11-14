@@ -46,6 +46,7 @@ export function clearSessionAndRedirect() {
   clearLegacyAuthCookie();
   const path = window.location.pathname;
   if (path !== '/login' && path !== '/signup') {
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- full reload on purpose: clears all in-memory session state (user, socket, caches)
     window.location.href = '/login?expired=true';
   }
 }

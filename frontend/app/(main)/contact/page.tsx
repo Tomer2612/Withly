@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import SiteFooter from '../../components/SiteFooter';
 import { useUser } from '../../lib/UserContext';
 
@@ -31,13 +31,16 @@ export default function ContactPage() {
   const [emailTouched, setEmailTouched] = useState(false);
   const [emailError, setEmailError] = useState('');
 
-  // Pre-fill form if user is logged in
-  useEffect(() => {
+  // Pre-fill form if user is logged in, whenever the user resolves or
+  // changes (adjusted during render, React's recommended pattern).
+  const [prevUser, setPrevUser] = useState<typeof user | undefined>(undefined);
+  if (user !== prevUser) {
+    setPrevUser(user);
     if (user) {
       setContactName(user.name || '');
       setContactEmail(user.email || '');
     }
-  }, [user]);
+  }
 
   const validateEmail = () => {
     setEmailTouched(true);

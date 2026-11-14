@@ -254,6 +254,7 @@ function CommunityPreviewContent() {
     if (searchParams.get('showPayment') === 'true' && community && !isBanned) {
       // Re-trigger the join click path so the wallet is fetched + the
       // right modal is opened. handleJoinClick is async-safe here.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of the URL on arrival (?showPayment= after signup); it also rewrites the URL
       void handleJoinClickForResume();
       router.replace(`/communities/${communityId}/preview`);
     }
@@ -264,6 +265,7 @@ function CommunityPreviewContent() {
   // with ?card=error (charge failed or tokenize failed).
   useEffect(() => {
     if (searchParams.get('card') === 'error') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of the URL on arrival (?card=error after the payment redirect); it also rewrites the URL
       setPaidJoinError('החיוב לא עבר. אפשר לנסות שוב או להשתמש בכרטיס אחר.');
       router.replace(`/communities/${communityId}/preview`);
     }
@@ -289,6 +291,7 @@ function CommunityPreviewContent() {
             if (membershipData.role) {
               // Already a member — hard navigate so the layout's membership
               // cache can't lag behind and bounce us back here.
+              // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- full reload on purpose: the community layout must remount with the new membership
               window.location.href = `/communities/${communityId}/feed`;
               return;
             }
@@ -418,6 +421,7 @@ function CommunityPreviewContent() {
       }
       // Success → land on feed with a "joined" toast.
       const redirectId = community?.slug || communityId;
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- full reload on purpose: the community layout must remount with the new membership
       window.location.href = `/communities/${redirectId}/feed?card=joined`;
     } catch {
       setPaidJoinError('שגיאה בהצטרפות לקהילה. יש לנסות שוב.');
@@ -441,6 +445,7 @@ function CommunityPreviewContent() {
         // membership state — otherwise the layout caches isMember=false
         // from before we joined and feed bounces us back to preview.
         const redirectId = community?.slug || communityId;
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- full reload on purpose: the community layout must remount with the new membership
         window.location.href = `/communities/${redirectId}/feed`;
       }
     } catch (err) {

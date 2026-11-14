@@ -300,15 +300,17 @@ export default function ManageCommunityPage() {
     'יזמות ועסקים עצמאיים'
   ];
 
-  // Track initial form values to detect unsaved changes
-  const initialFormRef = useRef<{ name: string; description: string; topic: string; slug: string; rules: string[]; galleryVideos: string[]; youtubeUrl: string; whatsappUrl: string; facebookUrl: string; instagramUrl: string; linkedinUrl: string; customLinkUrl: string; customLinkLabel: string; price: number; isPaidCommunity: boolean; showOnlineMembers: boolean; communityStatus: string } | null>(null);
+  // Track initial form values to detect unsaved changes. State (not a ref)
+  // because the save bar and the price modal compare against it while
+  // rendering.
+  const [initialForm, setInitialForm] = useState<{ name: string; description: string; topic: string; slug: string; rules: string[]; galleryVideos: string[]; youtubeUrl: string; whatsappUrl: string; facebookUrl: string; instagramUrl: string; linkedinUrl: string; customLinkUrl: string; customLinkLabel: string; price: number; isPaidCommunity: boolean; showOnlineMembers: boolean; communityStatus: string } | null>(null);
 
   // Pricing is owned entirely by the Payments tab's contextual button +
   // announcement popup, so it must NOT drive the floating bar (that's the
   // cross-tab leak). `includePricing` stays true for the navigation-away
   // guard, so leaving the page with an uncommitted price change still warns.
   const hasUnsavedChanges = (includePricing = true) => {
-    const init = initialFormRef.current;
+    const init = initialForm;
     if (!init) return false;
     const pricingChanged =
       price !== init.price || isPaidCommunity !== init.isPaidCommunity;
@@ -350,17 +352,21 @@ export default function ManageCommunityPage() {
   useEffect(() => {
     const tab = searchParams.get('tab');
     if (tab === 'rules' || tab === 'social' || tab === 'payments') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of the URL on arrival (?tab=)
       setActiveTab(tab);
     }
   }, [searchParams]);
 
   // When the subscription is suspended, force the owner onto Payments — the
   // other tabs are dimmed and edits would 403 server-side anyway.
-  useEffect(() => {
-    if (isSuspended && isOwner) {
-      setActiveTab('payments');
-    }
-  }, [isSuspended, isOwner]);
+  // (Adjusted during render, React's recommended pattern: runs when the
+  // owner's community becomes suspended, as the effect did.)
+  const suspendedOwner = Boolean(isSuspended && isOwner);
+  const [prevSuspendedOwner, setPrevSuspendedOwner] = useState(false);
+  if (suspendedOwner !== prevSuspendedOwner) {
+    setPrevSuspendedOwner(suspendedOwner);
+    if (suspendedOwner) setActiveTab('payments');
+  }
 
   // Warn user about unsaved changes when leaving (browser close/refresh + client-side navigation)
   useEffect(() => {
@@ -386,7 +392,7 @@ export default function ManageCommunityPage() {
         e.stopPropagation();
       } else {
         shouldBlockRef.current = false;
-        initialFormRef.current = null;
+        setInitialForm(null);
       }
     };
 
@@ -440,6 +446,7 @@ export default function ManageCommunityPage() {
     if (!cardStatus) return;
     if (cardStatus === 'updated') {
       refreshCommunity().catch(() => {});
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of the URL on arrival (?card= after the payment redirect); it also reloads the community
       setActiveTab('payments');
       setMessage('אמצעי התשלום עודכן בהצלחה');
       setMessageType('success');
@@ -534,7 +541,7 @@ export default function ManageCommunityPage() {
         setCommunityStatus(data.status || 'DRAFT');
         
         // Store initial form values for unsaved changes detection
-        initialFormRef.current = {
+        setInitialForm({
           name: data.name,
           description: data.description,
           topic: data.topic || '',
@@ -552,8 +559,8 @@ export default function ManageCommunityPage() {
           isPaidCommunity: (data.price ?? 0) > 0,
           showOnlineMembers: data.showOnlineMembers !== false,
           communityStatus: data.status || 'DRAFT',
-        };
-        
+        });
+
         // Load logo
         if (data.logo) {
           setLogo({
@@ -783,7 +790,7 @@ export default function ManageCommunityPage() {
   // page. Scope matches hasUnsavedChanges() so the bar hides afterwards:
   // scalars + rules from the snapshot, drop unsaved media additions.
   const handleResetCommunity = () => {
-    const init = initialFormRef.current;
+    const init = initialForm;
     if (!init) return;
     setName(init.name);
     setDescription(init.description);
@@ -879,7 +886,7 @@ export default function ManageCommunityPage() {
       setImages(loaded);
       setGalleryVideos(Array.isArray(data.galleryVideos) ? data.galleryVideos : []);
       setGalleryVideoFiles([]);
-      initialFormRef.current = {
+      setInitialForm({
         name: data.name,
         description: data.description,
         topic: data.topic || '',
@@ -897,7 +904,7 @@ export default function ManageCommunityPage() {
         isPaidCommunity: (data.price ?? 0) > 0,
         showOnlineMembers: data.showOnlineMembers !== false,
         communityStatus: data.status || 'DRAFT',
-      };
+      });
     } catch {
       // Non-fatal: save already succeeded; worst case the bar lingers.
     }
@@ -907,7 +914,7 @@ export default function ManageCommunityPage() {
   // is the explicit trigger; this opens the announcement popup (the confirm
   // + commit). Called only from that button, with the current pricing state.
   const openPriceChangeIfChanged = (nextIsPaid: boolean, nextPrice: number) => {
-    const init = initialFormRef.current;
+    const init = initialForm;
     if (!init || !isOwner || pendingPriceEffectiveAt || showPriceChangeConfirmModal) return;
     // A paid price must be in range. This is where the ₪10–1000 check now
     // lives (the old handleUpdateCommunity guard isn't reached on Payments
@@ -1007,7 +1014,7 @@ export default function ManageCommunityPage() {
     // here and by the server). A link saved before validation existed may not
     // pass today's rules; while it's left untouched it must not block saving
     // anything else on the page. It still shows its red hint on the tab.
-    const savedLinks = initialFormRef.current;
+    const savedLinks = initialForm;
     const changedSocialFields = socialFields.filter((f) => !savedLinks || f.value !== savedLinks[f.field]);
     const customLinkChanged = !savedLinks || customLinkUrl !== savedLinks.customLinkUrl;
     const customLabelChanged = !savedLinks || customLinkLabel !== savedLinks.customLinkLabel;
@@ -1058,7 +1065,7 @@ export default function ManageCommunityPage() {
       // changes go only through announce-price, so this is a no-op for the
       // committed value and can't bypass the grandfather/rate-limit flow.
       if (!pendingPriceEffectiveAt && !skipPriceFieldThisSave) {
-        const base = initialFormRef.current;
+        const base = initialForm;
         const committedPrice = base && base.isPaidCommunity ? base.price : 0;
         formData.append('price', committedPrice.toString());
       }
@@ -2120,7 +2127,7 @@ export default function ManageCommunityPage() {
                       </div>
                     </div>
                     {(() => {
-                      const init = initialFormRef.current;
+                      const init = initialForm;
                       const changed =
                         !!init &&
                         (isPaidCommunity !== init.isPaidCommunity ||
@@ -2491,7 +2498,7 @@ export default function ManageCommunityPage() {
           {showPriceChangeConfirmModal && (() => {
             const effectiveDate = addMonths(new Date(), 1);
             const newPriceVal = isPaidCommunity ? price : 0;
-            const oldPriceVal = initialFormRef.current?.price ?? 0;
+            const oldPriceVal = initialForm?.price ?? 0;
             return (
               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                 <div
@@ -2533,7 +2540,7 @@ export default function ManageCommunityPage() {
                         // Restoring from the snapshot is the correct revert —
                         // the old radio-flip bug came from mutating state
                         // rather than restoring the saved values.
-                        const init = initialFormRef.current;
+                        const init = initialForm;
                         if (init) {
                           setPrice(init.price);
                           setIsPaidCommunity(init.isPaidCommunity);
@@ -2579,7 +2586,7 @@ export default function ManageCommunityPage() {
               animateIn
               onCancel={() => {
                 // Abandon the whole flow — revert the pricing fields too.
-                const init = initialFormRef.current;
+                const init = initialForm;
                 if (init) {
                   setPrice(init.price);
                   setIsPaidCommunity(init.isPaidCommunity);

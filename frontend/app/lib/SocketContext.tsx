@@ -49,6 +49,10 @@ const SocketContext = createContext<SocketContextType | null>(null);
 
 export function SocketProvider({ children }: { children: React.ReactNode }) {
   const socketRef = useRef<Socket | null>(null);
+  // What consumers see. State (not socketRef.current) so it can be read while
+  // rendering; set once the socket first connects, which is when consumers
+  // received it before (the provider re-rendered on connect).
+  const [connectedSocket, setConnectedSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
@@ -83,6 +87,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
     socket.on('connect', () => {
       console.log('WebSocket connected');
+      setConnectedSocket(socket);
       setIsConnected(true);
     });
 
@@ -170,7 +175,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   return (
     <SocketContext.Provider
       value={{
-        socket: socketRef.current,
+        socket: connectedSocket,
         isConnected,
         unreadNotificationCount,
         unreadMessageCount,

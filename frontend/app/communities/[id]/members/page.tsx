@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useCommunityContext } from '../CommunityContext';
@@ -41,7 +41,6 @@ export default function CommunityMembersPage() {
   const communityId = params.id as string;
 
   const [members, setMembers] = useState<Member[]>([]);
-  const [filteredMembers, setFilteredMembers] = useState<Member[]>([]);
   const [bannedUsers, setBannedUsers] = useState<BannedUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -86,7 +85,6 @@ export default function CommunityMembersPage() {
         if (membersRes.ok) {
           const membersData = await membersRes.json();
           setMembers(membersData);
-          setFilteredMembers(membersData);
         }
 
         // Fetch banned users (for owners/managers)
@@ -105,16 +103,12 @@ export default function CommunityMembersPage() {
     fetchData();
   }, [communityId, router, userEmail, memberListHidden]);
 
-  // Filter members by search
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredMembers(members);
-    } else {
-      const query = searchQuery.toLowerCase();
-      setFilteredMembers(
-        members.filter(m => m.name?.toLowerCase().includes(query))
-      );
-    }
+  // Filter members by search (computed during render, always in sync with
+  // `members`, so role changes and removals need no second update).
+  const filteredMembers = useMemo(() => {
+    if (!searchQuery.trim()) return members;
+    const query = searchQuery.toLowerCase();
+    return members.filter(m => m.name?.toLowerCase().includes(query));
   }, [searchQuery, members]);
 
   const formatDate = (dateString: string) => {
@@ -168,11 +162,6 @@ export default function CommunityMembersPage() {
             ? { ...m, role: newRole, isManager: newRole === 'MANAGER' } 
             : m
         ));
-        setFilteredMembers(prev => prev.map(m => 
-          m.id === memberId 
-            ? { ...m, role: newRole, isManager: newRole === 'MANAGER' } 
-            : m
-        ));
       } else {
         console.error('Failed to update role');
       }
@@ -192,7 +181,6 @@ export default function CommunityMembersPage() {
       if (res.ok) {
         // Remove from members list
         setMembers(prev => prev.filter(m => m.id !== memberId));
-        setFilteredMembers(prev => prev.filter(m => m.id !== memberId));
         setRemoveModal({ open: false, memberId: null, memberName: '' });
 
         // Refresh banned users list

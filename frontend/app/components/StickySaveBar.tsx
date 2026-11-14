@@ -38,7 +38,7 @@ export default function StickySaveBar({
   onSave,
   saving = false,
   saveDisabled = false,
-  saveLabel = 'שמור שינויים',
+  saveLabel = 'שמירת שינויים',
   savingLabel = 'שומר...',
   cancelLabel = 'ביטול',
 }: StickySaveBarProps) {

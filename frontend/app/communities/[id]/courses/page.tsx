@@ -119,20 +119,20 @@ export default function CoursesPage() {
 
   useEffect(() => {
     fetchCommunity();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loads data from the API
     fetchCourses();
     // Load once per community. Both loaders are recreated on every render, so
     // listing them would refetch in a loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [communityId]);
 
-  // Set default tab based on user role
-  useEffect(() => {
-    if (isOwner) {
-      setActiveTab('my-courses');
-    } else {
-      setActiveTab('all');
-    }
-  }, [isOwner]);
+  // Set default tab based on user role, whenever the role resolves or
+  // changes (adjusted during render, React's recommended pattern).
+  const [prevIsOwner, setPrevIsOwner] = useState<boolean | undefined>(undefined);
+  if (isOwner !== prevIsOwner) {
+    setPrevIsOwner(isOwner);
+    setActiveTab(isOwner ? 'my-courses' : 'all');
+  }
 
   const formatDuration = (minutes: number) => {
     if (minutes < 60) return `${minutes} דקות`;

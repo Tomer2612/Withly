@@ -17,10 +17,13 @@ export default function VideoPlayer({ url, className = '', onEnded }: VideoPlaye
   const videoRef = useRef<HTMLVideoElement>(null);
   const provider = getVideoProvider(url);
 
-  // Reset facade when the URL changes (e.g. gallery navigation)
-  useEffect(() => {
+  // Reset facade when the URL changes (e.g. gallery navigation). Adjusted
+  // during render (React's recommended pattern) rather than in an effect.
+  const [prevUrl, setPrevUrl] = useState(url);
+  if (url !== prevUrl) {
+    setPrevUrl(url);
     setActivated(false);
-  }, [url]);
+  }
 
   // YouTube: pre-load iframe with JS API, postMessage to play on click
   if (provider === 'youtube') {

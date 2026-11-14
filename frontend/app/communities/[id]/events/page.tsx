@@ -101,8 +101,11 @@ function DateInput({
 }) {
   const [inputValue, setInputValue] = useState('');
 
-  // Initialize from value prop
-  useEffect(() => {
+  // Sync from the value prop whenever it changes (adjusted during render,
+  // React's recommended pattern; null so the first render initializes).
+  const [prevValue, setPrevValue] = useState<string | null>(null);
+  if (value !== prevValue) {
+    setPrevValue(value);
     if (value) {
       const d = new Date(value);
       if (!isNaN(d.getTime())) {
@@ -114,7 +117,7 @@ function DateInput({
     } else {
       setInputValue('');
     }
-  }, [value]);
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -213,14 +216,13 @@ function TimePicker({
   const [inputValue, setInputValue] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Initialize from value prop
-  useEffect(() => {
-    if (value) {
-      setInputValue(value);
-    } else {
-      setInputValue('');
-    }
-  }, [value]);
+  // Sync from the value prop whenever it changes (adjusted during render,
+  // React's recommended pattern; null so the first render initializes).
+  const [prevValue, setPrevValue] = useState<string | null>(null);
+  if (value !== prevValue) {
+    setPrevValue(value);
+    setInputValue(value || '');
+  }
 
   // Scroll to current time when dropdown opens
   useEffect(() => {
@@ -470,6 +472,7 @@ function EventsPageContent() {
       }
     };
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loads data from the API
     setLoading(true);
     Promise.all([fetchData(), fetchAllEventsInitial()]).finally(() => setLoading(false));
     // Initial load only: runs when the community changes. Month navigation

@@ -88,6 +88,7 @@ function SignupContent() {
     // Check URL param first, then localStorage
     const returnParam = searchParams.get('returnUrl');
     if (returnParam) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of the URL on arrival (return URL), plus localStorage, which is browser-only (localStorage / location), unavailable during server rendering
       setReturnUrl(returnParam);
     } else {
       // Check localStorage (set by pricing page etc.)

@@ -22,12 +22,11 @@ export default defineConfig([
       // through the optimizer on the app server. Revisit per image if a
       // specific one needs optimizing.
       "@next/next/no-img-element": "off",
-      // New in eslint-config-next 16 (React Compiler-era hook rules). They
-      // flag existing, working code in ~27 files; warnings until that code is
-      // reworked deliberately, file by file, rather than inside the upgrade.
-      "react-hooks/set-state-in-effect": "warn",
-      "react-hooks/refs": "warn",
-      "react-hooks/immutability": "warn",
+      // The React hook rules from eslint-config-next 16 (set-state-in-effect,
+      // refs, immutability) run at their default severity, error. Where an
+      // effect legitimately sets state (browser-only reads, one-time URL
+      // handling, data loading), the line carries an eslint-disable comment
+      // giving the reason.
     }
   }
 ]);

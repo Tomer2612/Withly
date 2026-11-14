@@ -33,6 +33,7 @@ export default function UserProfileDropdown({
     await serverLogout();
     localStorage.removeItem('userProfileCache');
     document.cookie = 'auth-token=; path=/; max-age=0';
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- full reload on purpose: clears all in-memory session state (user, socket, caches)
     window.location.href = '/';
   };
 

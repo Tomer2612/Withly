@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import SiteFooter from '../components/SiteFooter';
@@ -100,7 +100,6 @@ export default function Home() {
   const userEmail = user?.email ?? null;
   const userId = user?.userId ?? null;
   const [communities, setCommunities] = useState<Community[]>([]);
-  const [filteredCommunities, setFilteredCommunities] = useState<Community[]>([]);
   const [userMemberships, setUserMemberships] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTopic, setSelectedTopic] = useState('');
@@ -141,7 +140,6 @@ export default function Home() {
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         });
         setCommunities(sorted);
-        setFilteredCommunities(sorted);
       } catch (err) {
         console.error('Error fetching communities:', err);
       } finally {
@@ -152,10 +150,10 @@ export default function Home() {
     fetchCommunities();
   }, []);
 
-  // Filter communities
-  useEffect(() => {
+  // Filter communities (computed during render; no extra state or effect).
+  const filteredCommunities = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    const filtered = communities.filter((community) => {
+    return communities.filter((community) => {
       const matchesSearch =
         term === ''
           ? true
@@ -178,10 +176,17 @@ export default function Home() {
 
       return matchesSearch && matchesTopic && matchesSize && matchesPrice;
     });
-
-    setFilteredCommunities(filtered);
-    setCurrentPage(1); // Reset to first page when filters change
   }, [searchTerm, communities, selectedTopic, selectedSize, selectedPrice]);
+
+  // Back to the first page whenever the filters change. Adjusting state
+  // during render (React's recommended pattern) instead of in an effect
+  // avoids rendering the stale page first.
+  const filterKey = [searchTerm, selectedTopic, selectedSize, selectedPrice].join('\u0000');
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  if (filterKey !== prevFilterKey) {
+    setPrevFilterKey(filterKey);
+    setCurrentPage(1);
+  }
 
   const handleCardClick = (community: Community) => {
     if (!userEmail) {

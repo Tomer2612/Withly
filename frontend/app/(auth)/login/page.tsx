@@ -28,6 +28,7 @@ function LoginContent() {
     // Check for Google auth error
     const errorParam = searchParams.get('error');
     if (errorParam === 'account_exists') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of the URL on arrival (error / expired / return URL), plus localStorage, which is browser-only (localStorage / location), unavailable during server rendering
       setMessage('חשבון עם כתובת האימייל הזו כבר קיים. אנא התחבר עם האימייל והסיסמה שלך.');
       setMessageType('error');
     } else if (errorParam === 'google_failed') {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { getImageUrl } from '@/app/lib/imageUrl';
 
 interface AvatarProps {
@@ -50,11 +50,14 @@ export default function Avatar({
   onClick,
 }: AvatarProps) {
   const [imgError, setImgError] = useState(false);
-  
-  // Reset error state when src changes
-  useEffect(() => {
+
+  // Reset error state when src changes (adjusted during render, React's
+  // recommended pattern, so a new image never flashes the old fallback).
+  const [prevSrc, setPrevSrc] = useState(src);
+  if (src !== prevSrc) {
+    setPrevSrc(src);
     setImgError(false);
-  }, [src]);
+  }
   
   const initials = name?.charAt(0) || email?.charAt(0)?.toUpperCase() || '?';
 

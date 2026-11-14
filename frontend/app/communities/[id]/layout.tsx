@@ -75,10 +75,14 @@ export default function CommunityLayout({ children }: { children: ReactNode }) {
   // Show search only on feed and courses pages
   const showSearch = pathname?.includes('/feed') || pathname?.includes('/courses');
 
-  // Reset search query when navigating between pages
-  useEffect(() => {
+  // Reset search query when navigating between pages (adjusted during
+  // render, React's recommended pattern, so the new page never renders
+  // with the previous page's query).
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
     setSearchQuery('');
-  }, [pathname]);
+  }
 
   // Fetch community data and membership.
   // `silent=true` skips the loading-reset — used by refreshCommunity() after
@@ -161,6 +165,7 @@ export default function CommunityLayout({ children }: { children: ReactNode }) {
     // page to double-refetch in turn.
     if (userLoading) return;
     if (communityId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- loads data from the API
       fetchCommunity();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

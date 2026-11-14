@@ -44,6 +44,7 @@ export default function CancelSubscriptionModal({
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resets the date each time the modal opens, then loads the real one from the API
     setPreviewedDate(effectiveDate);
     (async () => {
       try {
