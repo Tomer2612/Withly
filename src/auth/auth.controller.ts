@@ -1,4 +1,5 @@
 import { Controller, Post, Body, Get, Req, Res, UseGuards, Param, Query, UnauthorizedException } from '@nestjs/common';
+import type { GoogleAuthRequest } from '../common/authenticated-request';
 import { ConfigService } from '@nestjs/config';
 import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
@@ -6,6 +7,12 @@ import { AuthGuard } from '@nestjs/passport';
 import { SignupDto, LoginDto, EmailOnlyDto, ResetPasswordDto, ContactFormDto } from './dto/auth.dto';
 import { setAccessCookie, setRefreshCookie, clearAuthCookies, REFRESH_TOKEN_COOKIE } from './cookies.helper';
 import type { Request, Response } from 'express';
+
+// cookie-parser types req.cookies as `any`; read the one cookie we need typed.
+function refreshCookieOf(req: Request): string | undefined {
+  const cookies = (req as { cookies?: unknown }).cookies as Record<string, string> | undefined;
+  return cookies?.[REFRESH_TOKEN_COOKIE];
+}
 
 
 @Controller('auth')
@@ -45,11 +52,21 @@ export class AuthController {
   @Post('refresh')
   @SkipThrottle()
   async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const submitted = req.cookies?.[REFRESH_TOKEN_COOKIE];
+    const submitted = refreshCookieOf(req);
     if (!submitted) {
+      // No session left: drop the "signed in" hint too, so page routing
+      // stops treating this browser as logged in.
+      clearAuthCookies(res);
       throw new UnauthorizedException('No refresh token');
     }
-    const { accessToken, refreshToken } = await this.authService.refreshTokens(submitted);
+    let tokens: { accessToken: string; refreshToken: string };
+    try {
+      tokens = await this.authService.refreshTokens(submitted);
+    } catch (err) {
+      clearAuthCookies(res); // expired / revoked refresh token — same reason
+      throw err;
+    }
+    const { accessToken, refreshToken } = tokens;
     setAccessCookie(res, accessToken);
     setRefreshCookie(res, refreshToken);
     return { success: true };
@@ -58,7 +75,7 @@ export class AuthController {
   @Post('logout')
   @SkipThrottle()
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const submitted = req.cookies?.[REFRESH_TOKEN_COOKIE];
+    const submitted = refreshCookieOf(req);
     await this.authService.logout(submitted);
     clearAuthCookies(res);
     return { success: true };
@@ -80,7 +97,7 @@ export class AuthController {
   @Get('google/redirect')
   @SkipThrottle()
   @UseGuards(AuthGuard('google'))
-  async googleAuthRedirect(@Req() req, @Res() res: Response) {
+  async googleAuthRedirect(@Req() req: GoogleAuthRequest, @Res() res: Response) {
     try {
       const { accessToken, refreshToken } = await this.authService.loginWithGoogle(req.user);
       setAccessCookie(res, accessToken);
@@ -89,7 +106,7 @@ export class AuthController {
       // needs to land the user on the home screen.
       res.redirect(`${this.frontendUrl}/google-success`);
     } catch (error) {
-      if (error.message === 'ACCOUNT_EXISTS_USE_PASSWORD') {
+      if (error instanceof Error && error.message === 'ACCOUNT_EXISTS_USE_PASSWORD') {
         // User exists with email/password, redirect to login with message
         res.redirect(`${this.frontendUrl}/login?error=account_exists`);
       } else {

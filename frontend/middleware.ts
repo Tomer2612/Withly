@@ -53,7 +53,16 @@ export function middleware(request: NextRequest) {
   }
 
   const effectiveToken = isTokenValid ? token : undefined;
-  
+
+  // The access cookie lives 15 minutes, but the session (refresh cookie,
+  // 30 days) outlives it — and the refresh cookie is path-restricted, so it
+  // never reaches this middleware. The backend sets a secret-free hint cookie
+  // alongside the refresh cookie; when it's present, let protected pages load
+  // and the client's fetch interceptor will refresh on the first API call.
+  // Routing only — the backend still verifies every request.
+  // Name must match SESSION_HINT_COOKIE in src/auth/cookies.helper.ts.
+  const hasSession = !!effectiveToken || request.cookies.get('signed_in')?.value === '1';
+
   // Check if it's a public route
   const isPublicRoute = publicRoutes.some(route => 
     pathname === route || pathname.startsWith(`${route}/`)
@@ -83,9 +92,9 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // No valid token on protected route - redirect to login
+  // Not signed in on a protected route - redirect to login
   // Exception: community pages redirect to preview instead
-  if (!effectiveToken) {
+  if (!hasSession) {
     const communityMatch = pathname.match(/^\/communities\/([^/]+)/);
     if (communityMatch) {
       const communityId = communityMatch[1];
@@ -96,7 +105,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Valid token exists - allow through
+  // Signed in (or a refreshable session) - allow through
   return NextResponse.next();
 }
 
