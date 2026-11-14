@@ -1,19 +1,42 @@
-import { Controller, Post, Body, Get, Req, Res, UseGuards, Param, Query, UnauthorizedException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Req,
+  Res,
+  UseGuards,
+  Param,
+  Query,
+  UnauthorizedException,
+} from '@nestjs/common';
 import type { GoogleAuthRequest } from '../common/authenticated-request';
 import { ConfigService } from '@nestjs/config';
 import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { AuthGuard } from '@nestjs/passport';
-import { SignupDto, LoginDto, EmailOnlyDto, ResetPasswordDto, ContactFormDto } from './dto/auth.dto';
-import { setAccessCookie, setRefreshCookie, clearAuthCookies, REFRESH_TOKEN_COOKIE } from './cookies.helper';
+import {
+  SignupDto,
+  LoginDto,
+  EmailOnlyDto,
+  ResetPasswordDto,
+  ContactFormDto,
+} from './dto/auth.dto';
+import {
+  setAccessCookie,
+  setRefreshCookie,
+  clearAuthCookies,
+  REFRESH_TOKEN_COOKIE,
+} from './cookies.helper';
 import type { Request, Response } from 'express';
 
 // cookie-parser types req.cookies as `any`; read the one cookie we need typed.
 function refreshCookieOf(req: Request): string | undefined {
-  const cookies = (req as { cookies?: unknown }).cookies as Record<string, string> | undefined;
+  const cookies = (req as { cookies?: unknown }).cookies as
+    | Record<string, string>
+    | undefined;
   return cookies?.[REFRESH_TOKEN_COOKIE];
 }
-
 
 @Controller('auth')
 export class AuthController {
@@ -23,14 +46,22 @@ export class AuthController {
     private authService: AuthService,
     private configService: ConfigService,
   ) {
-    this.frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    this.frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
   }
 
   // Strict rate limit for signup: 5 per minute
   @Post('signup')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  async signup(@Body() body: SignupDto, @Res({ passthrough: true }) res: Response) {
-    const { accessToken, refreshToken } = await this.authService.signup(body.email, body.name, body.password);
+  async signup(
+    @Body() body: SignupDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { accessToken, refreshToken } = await this.authService.signup(
+      body.email,
+      body.name,
+      body.password,
+    );
     setAccessCookie(res, accessToken);
     setRefreshCookie(res, refreshToken);
     return { success: true };
@@ -39,8 +70,14 @@ export class AuthController {
   // Strict rate limit for login: 5 per minute to prevent brute force
   @Post('login')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  async login(@Body() body: LoginDto, @Res({ passthrough: true }) res: Response) {
-    const { accessToken, refreshToken } = await this.authService.login(body.email, body.password);
+  async login(
+    @Body() body: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { accessToken, refreshToken } = await this.authService.login(
+      body.email,
+      body.password,
+    );
     setAccessCookie(res, accessToken);
     setRefreshCookie(res, refreshToken);
     return { success: true };
@@ -51,7 +88,10 @@ export class AuthController {
   // on logout, not on every API request.
   @Post('refresh')
   @SkipThrottle()
-  async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const submitted = refreshCookieOf(req);
     if (!submitted) {
       // No session left: drop the "signed in" hint too, so page routing
@@ -90,23 +130,28 @@ export class AuthController {
 
   @Get('google')
   @UseGuards(AuthGuard('google'))
-  async googleAuth() {
-
-  }
+  async googleAuth() {}
 
   @Get('google/redirect')
   @SkipThrottle()
   @UseGuards(AuthGuard('google'))
-  async googleAuthRedirect(@Req() req: GoogleAuthRequest, @Res() res: Response) {
+  async googleAuthRedirect(
+    @Req() req: GoogleAuthRequest,
+    @Res() res: Response,
+  ) {
     try {
-      const { accessToken, refreshToken } = await this.authService.loginWithGoogle(req.user);
+      const { accessToken, refreshToken } =
+        await this.authService.loginWithGoogle(req.user);
       setAccessCookie(res, accessToken);
       setRefreshCookie(res, refreshToken);
       // Cookies are set on this response — the /google-success page just
       // needs to land the user on the home screen.
       res.redirect(`${this.frontendUrl}/google-success`);
     } catch (error) {
-      if (error instanceof Error && error.message === 'ACCOUNT_EXISTS_USE_PASSWORD') {
+      if (
+        error instanceof Error &&
+        error.message === 'ACCOUNT_EXISTS_USE_PASSWORD'
+      ) {
         // User exists with email/password, redirect to login with message
         res.redirect(`${this.frontendUrl}/login?error=account_exists`);
       } else {
@@ -146,6 +191,11 @@ export class AuthController {
   @Post('contact')
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   contact(@Body() body: ContactFormDto) {
-    return this.authService.sendContactForm(body.name, body.email, body.subject, body.message);
+    return this.authService.sendContactForm(
+      body.name,
+      body.email,
+      body.subject,
+      body.message,
+    );
   }
 }

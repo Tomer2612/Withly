@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import type { AuthenticatedRequest } from '../common/authenticated-request';
 import { AuthGuard } from '@nestjs/passport';
 import { MessagesService } from './messages.service';
@@ -37,7 +46,10 @@ export class MessagesController {
   // Get or create conversation with a user
   @UseGuards(AuthGuard('jwt'))
   @Post('conversations/:userId')
-  async getOrCreateConversation(@Req() req: AuthenticatedRequest, @Param('userId') otherUserId: string) {
+  async getOrCreateConversation(
+    @Req() req: AuthenticatedRequest,
+    @Param('userId') otherUserId: string,
+  ) {
     return this.messagesService.startConversation(req.user.userId, otherUserId);
   }
 
@@ -65,27 +77,43 @@ export class MessagesController {
     @Req() req: AuthenticatedRequest,
     @Body() body: SendMessageDto,
   ) {
-    const message = await this.messagesService.sendMessage(req.user.userId, body.recipientId, body.content);
-    
+    const message = await this.messagesService.sendMessage(
+      req.user.userId,
+      body.recipientId,
+      body.content,
+    );
+
     // Emit to recipient via WebSocket for real-time delivery
     this.messagesGateway.sendMessageToUser(body.recipientId, message);
-    
+
     return message;
   }
 
   // Mark conversation as read
   @UseGuards(AuthGuard('jwt'))
   @Post('conversations/:conversationId/read')
-  async markAsRead(@Req() req: AuthenticatedRequest, @Param('conversationId') conversationId: string) {
-    await this.messagesService.markConversationAsRead(conversationId, req.user.userId);
+  async markAsRead(
+    @Req() req: AuthenticatedRequest,
+    @Param('conversationId') conversationId: string,
+  ) {
+    await this.messagesService.markConversationAsRead(
+      conversationId,
+      req.user.userId,
+    );
     return { success: true };
   }
 
   // Check if conversation exists with a user
   @UseGuards(AuthGuard('jwt'))
   @Get('has-conversation/:userId')
-  async hasConversation(@Req() req: AuthenticatedRequest, @Param('userId') otherUserId: string) {
-    const hasConversation = await this.messagesService.hasConversation(req.user.userId, otherUserId);
+  async hasConversation(
+    @Req() req: AuthenticatedRequest,
+    @Param('userId') otherUserId: string,
+  ) {
+    const hasConversation = await this.messagesService.hasConversation(
+      req.user.userId,
+      otherUserId,
+    );
     return { hasConversation };
   }
 }

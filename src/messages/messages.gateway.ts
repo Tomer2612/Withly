@@ -23,7 +23,9 @@ function parseCookieHeader(header: string | undefined): Record<string, string> {
     const eq = pair.indexOf('=');
     if (eq === -1) continue;
     try {
-      out[pair.slice(0, eq).trim()] = decodeURIComponent(pair.slice(eq + 1).trim());
+      out[pair.slice(0, eq).trim()] = decodeURIComponent(
+        pair.slice(eq + 1).trim(),
+      );
     } catch {
       // Skip malformed cookies.
     }
@@ -42,7 +44,9 @@ interface AuthenticatedSocket extends Socket {
   },
   namespace: '/',
 })
-export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class MessagesGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -112,13 +116,15 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
 
       // Emit to recipient's room
       this.server.to(`user:${data.recipientId}`).emit('newMessage', message);
-      
+
       // Also emit back to sender (for multi-tab sync)
       this.server.to(`user:${socket.userId}`).emit('messageSent', message);
 
       return { success: true, message };
     } catch (err) {
-      return { error: err instanceof Error ? err.message : 'Failed to send message' };
+      return {
+        error: err instanceof Error ? err.message : 'Failed to send message',
+      };
     }
   }
 
@@ -133,10 +139,15 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     }
 
     try {
-      await this.messagesService.markConversationAsRead(data.conversationId, socket.userId);
+      await this.messagesService.markConversationAsRead(
+        data.conversationId,
+        socket.userId,
+      );
       return { success: true };
     } catch (err) {
-      return { error: err instanceof Error ? err.message : 'Failed to mark as read' };
+      return {
+        error: err instanceof Error ? err.message : 'Failed to mark as read',
+      };
     }
   }
 
@@ -168,6 +179,8 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
 
   // Check if user is online
   isUserOnline(userId: string): boolean {
-    return this.userSockets.has(userId) && this.userSockets.get(userId)!.size > 0;
+    return (
+      this.userSockets.has(userId) && this.userSockets.get(userId)!.size > 0
+    );
   }
 }

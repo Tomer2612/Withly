@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+} from '@aws-sdk/client-s3';
 import { extname } from 'path';
 import { mkdir, writeFile, unlink } from 'fs/promises';
 import { randomBytes } from 'crypto';
@@ -31,15 +35,12 @@ export class StorageService {
   /**
    * Upload a file. In production, uploads to S3 and returns CloudFront URL.
    * In development, saves to local disk and returns /uploads/... path.
-   * 
+   *
    * @param file - Multer file (with buffer from memoryStorage, or path from diskStorage)
    * @param folder - Subfolder name: 'communities', 'posts', 'profiles', 'events', 'courses', 'lessons'
    * @returns The URL/path to access the file
    */
-  async uploadFile(
-    file: Express.Multer.File,
-    folder: string,
-  ): Promise<string> {
+  async uploadFile(file: Express.Multer.File, folder: string): Promise<string> {
     const randomName = randomBytes(16).toString('hex');
     const ext = extname(file.originalname);
     const filename = `${randomName}${ext}`;

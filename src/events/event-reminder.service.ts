@@ -16,7 +16,10 @@ export class EventReminderService {
     private notificationsService: NotificationsService,
     private configService: ConfigService,
   ) {
-    this.frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3001');
+    this.frontendUrl = this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3001',
+    );
   }
 
   @Cron(CronExpression.EVERY_HOUR)
@@ -112,7 +115,10 @@ export class EventReminderService {
               eventLink,
             );
           } catch (error) {
-            this.logger.error(`Failed to send reminder email to ${user.email} for event ${event.id}`, error);
+            this.logger.error(
+              `Failed to send reminder email to ${user.email} for event ${event.id}`,
+              error,
+            );
           }
           try {
             // Fire-and-forget the bell-icon notification alongside the
@@ -132,7 +138,9 @@ export class EventReminderService {
               error,
             );
           }
-          this.logger.log(`Sent reminder for "${event.title}" to ${user.email}`);
+          this.logger.log(
+            `Sent reminder for "${event.title}" to ${user.email}`,
+          );
         }
 
         // Mark reminder as sent
@@ -141,7 +149,9 @@ export class EventReminderService {
           data: { reminderSentAt: now },
         });
 
-        this.logger.log(`Reminder sent for event "${event.title}" to ${users.length} attendees`);
+        this.logger.log(
+          `Reminder sent for event "${event.title}" to ${users.length} attendees`,
+        );
       }
     } catch (error) {
       this.logger.error('Error processing event reminders', error);

@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Delete, Param, Query, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import type { AuthenticatedRequest } from '../common/authenticated-request';
 import { AuthGuard } from '@nestjs/passport';
 import { NotificationsService } from './notifications.service';
@@ -52,7 +61,10 @@ export class NotificationsController {
 
   // Delete a notification
   @Delete(':id')
-  async deleteNotification(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
+  async deleteNotification(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
     await this.notificationsService.delete(id, req.user.userId);
     return { success: true };
   }

@@ -1,4 +1,16 @@
-import { All, BadRequestException, Body, Controller, Get, Logger, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  All,
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Logger,
+  Post,
+  Query,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import type { AuthenticatedRequest } from '../common/authenticated-request';
 import type { Request, Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
@@ -29,26 +41,30 @@ function bankIdToBrand(bank: string | undefined): string {
 // Order conventions for paymentSuccess dispatch (Phase 3+). The Order field
 // round-trips reliably from SIGN to redirect (verified on prod) and HYP's
 // signature covers it, so we can trust the values here.
-const TOKENIZE_CARD_ON_FILE_ORDER_RE = /^tokenize-cardOnFile-([a-zA-Z0-9_-]+)-\d+$/;
+const TOKENIZE_CARD_ON_FILE_ORDER_RE =
+  /^tokenize-cardOnFile-([a-zA-Z0-9_-]+)-\d+$/;
 // Phase 3.2 — community card update / suspended-community renewal.
 // Order shape: tokenize-community-<communityId>-<userId>-<ts>. The frontend
 // modal puts communityId in its prefix and the shared HypPaymentIframeModal
 // appends userId+timestamp. Captures: 1 = communityId, 2 = userId. Cuids
 // are lowercase alphanumeric so the regex parses unambiguously across
 // the two id boundaries.
-const TOKENIZE_COMMUNITY_ORDER_RE = /^tokenize-community-([a-z0-9]+)-([a-z0-9]+)-\d+$/;
+const TOKENIZE_COMMUNITY_ORDER_RE =
+  /^tokenize-community-([a-z0-9]+)-([a-z0-9]+)-\d+$/;
 // Phase 3.3 — pricing checkout: new community creation. The community
 // row does NOT exist yet; instead a PendingCommunityCreation row holds
 // the staged form fields. On tokenize success we atomically create the
 // Community + bind the card + delete the pending row.
 // Order shape: tokenize-newCommunity-<pendingId>-<userId>-<ts>.
 // Captures: 1 = pendingId, 2 = userId.
-const TOKENIZE_NEW_COMMUNITY_ORDER_RE = /^tokenize-newCommunity-([a-z0-9]+)-([a-z0-9]+)-\d+$/;
+const TOKENIZE_NEW_COMMUNITY_ORDER_RE =
+  /^tokenize-newCommunity-([a-z0-9]+)-([a-z0-9]+)-\d+$/;
 // Phase 4 Mission 3 — paid member-join through the iframe (new card).
 // After tokenize, the backend creates CommunityMember + MemberSubscription
 // AND runs the first SOFT charge atomically. Failure: rollback, no join.
 // Order shape: tokenize-memberJoin-<communityId>-<userId>-<ts>.
-const TOKENIZE_MEMBER_JOIN_ORDER_RE = /^tokenize-memberJoin-([a-z0-9]+)-([a-z0-9]+)-\d+$/;
+const TOKENIZE_MEMBER_JOIN_ORDER_RE =
+  /^tokenize-memberJoin-([a-z0-9]+)-([a-z0-9]+)-\d+$/;
 // Phase 6.4 — dunning callback. User clicked the pay-now link from a
 // failure email → HYP page → tokenize → redirect here. Lookup happens
 // via DunningService.findByOrderId on the full Order string (which is
@@ -68,9 +84,9 @@ function orderUserId(order: string): string | null {
   const cardOnFile = order.match(TOKENIZE_CARD_ON_FILE_ORDER_RE);
   if (cardOnFile) return cardOnFile[1];
   const scoped =
-    order.match(TOKENIZE_COMMUNITY_ORDER_RE)
-    ?? order.match(TOKENIZE_NEW_COMMUNITY_ORDER_RE)
-    ?? order.match(TOKENIZE_MEMBER_JOIN_ORDER_RE);
+    order.match(TOKENIZE_COMMUNITY_ORDER_RE) ??
+    order.match(TOKENIZE_NEW_COMMUNITY_ORDER_RE) ??
+    order.match(TOKENIZE_MEMBER_JOIN_ORDER_RE);
   return scoped ? scoped[2] : null;
 }
 
@@ -91,7 +107,10 @@ export class PaymentsController {
   // can correlate the charge back to the right account.
   @UseGuards(AuthGuard('jwt'))
   @Post('create-payment')
-  async createPayment(@Req() req: AuthenticatedRequest, @Body() body: CreatePaymentDto) {
+  async createPayment(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: CreatePaymentDto,
+  ) {
     // Only sign orders that act on the caller's own account (see orderUserId).
     if (orderUserId(body.order) !== req.user.userId) {
       throw new BadRequestException('INVALID_PAYMENT_ORDER');
@@ -128,7 +147,10 @@ export class PaymentsController {
   //   add Order prefixes (ownersub-, memberJoin-, renew-) and matching
   //   dispatch arms here.
   @Get('payment-success')
-  async paymentSuccess(@Query() query: Record<string, string>, @Res() res: Response) {
+  async paymentSuccess(
+    @Query() query: Record<string, string>,
+    @Res() res: Response,
+  ) {
     const frontend = process.env.FRONTEND_URL || 'http://localhost:3000';
     try {
       const result = await this.hypService.verifyTransaction(query);
@@ -136,31 +158,66 @@ export class PaymentsController {
         this.logger.warn(
           `Payment failed verify: Id=${query.Id} CCode=${result.ccode} Order=${query.Order}`,
         );
-        return res.redirect(`${frontend}/?paid=fail&ccode=${result.ccode ?? 'unknown'}`);
+        return res.redirect(
+          `${frontend}/?paid=fail&ccode=${result.ccode ?? 'unknown'}`,
+        );
       }
 
       const order = query.Order ?? '';
       const tokenizeMatch = order.match(TOKENIZE_CARD_ON_FILE_ORDER_RE);
       if (tokenizeMatch) {
-        return this.handleTokenizeCardOnFile(query, result.body, tokenizeMatch[1], res, frontend);
+        return this.handleTokenizeCardOnFile(
+          query,
+          result.body,
+          tokenizeMatch[1],
+          res,
+          frontend,
+        );
       }
       const communityMatch = order.match(TOKENIZE_COMMUNITY_ORDER_RE);
       if (communityMatch) {
         const [, communityId, userId] = communityMatch;
-        return this.handleTokenizeCommunity(query, result.body, userId, communityId, res, frontend);
+        return this.handleTokenizeCommunity(
+          query,
+          result.body,
+          userId,
+          communityId,
+          res,
+          frontend,
+        );
       }
       const newCommunityMatch = order.match(TOKENIZE_NEW_COMMUNITY_ORDER_RE);
       if (newCommunityMatch) {
         const [, pendingId, userId] = newCommunityMatch;
-        return this.handleTokenizeNewCommunity(query, result.body, userId, pendingId, res, frontend);
+        return this.handleTokenizeNewCommunity(
+          query,
+          result.body,
+          userId,
+          pendingId,
+          res,
+          frontend,
+        );
       }
       const memberJoinMatch = order.match(TOKENIZE_MEMBER_JOIN_ORDER_RE);
       if (memberJoinMatch) {
         const [, communityId, userId] = memberJoinMatch;
-        return this.handleTokenizeMemberJoin(query, result.body, userId, communityId, res, frontend);
+        return this.handleTokenizeMemberJoin(
+          query,
+          result.body,
+          userId,
+          communityId,
+          res,
+          frontend,
+        );
       }
       if (TOKENIZE_DUNNING_ORDER_RE.test(order)) {
-        return this.handleTokenizeDunning(query, result.body, order, res, frontend);
+        return this.handleTokenizeDunning(
+          query,
+          result.body,
+          order,
+          res,
+          frontend,
+        );
       }
 
       // Default successful-payment redirect (legacy charge flow).
@@ -191,10 +248,10 @@ export class PaymentsController {
     try {
       const tokenResult = await this.hypService.getToken(query.Id);
       if (
-        !tokenResult.ok
-        || !tokenResult.token
-        || tokenResult.expMonth === null
-        || tokenResult.expYear === null
+        !tokenResult.ok ||
+        !tokenResult.token ||
+        tokenResult.expMonth === null ||
+        tokenResult.expYear === null
       ) {
         this.logger.error(
           `getToken failed: Id=${query.Id} userId=${userId} CCode=${tokenResult.ccode}`,
@@ -209,18 +266,21 @@ export class PaymentsController {
       const cardLastFour = verifiedBody.L4digit || tokenResult.token.slice(-4);
       const cardBrand = bankIdToBrand(verifiedBody.Bank);
 
-      const { isNew } = await this.usersService.addTokenizedPaymentMethod(userId, {
-        token: tokenResult.token,
-        expMonth: tokenResult.expMonth,
-        expYear: tokenResult.expYear,
-        cardLastFour,
-        cardBrand,
-      });
+      const { isNew } = await this.usersService.addTokenizedPaymentMethod(
+        userId,
+        {
+          token: tokenResult.token,
+          expMonth: tokenResult.expMonth,
+          expYear: tokenResult.expYear,
+          cardLastFour,
+          cardBrand,
+        },
+      );
 
       this.logger.log(
         `Card tokenized: userId=${userId} last4=${cardLastFour} brand=${cardBrand} ` +
-        `exp=${tokenResult.expMonth}/${tokenResult.expYear} tokenSuffix=${tokenResult.token.slice(-4)} ` +
-        `isNew=${isNew}`,
+          `exp=${tokenResult.expMonth}/${tokenResult.expYear} tokenSuffix=${tokenResult.token.slice(-4)} ` +
+          `isNew=${isNew}`,
       );
 
       // Phase 3.6 — fire-and-forget security email on truly new cards only.
@@ -257,14 +317,14 @@ export class PaymentsController {
     try {
       const tokenResult = await this.hypService.getToken(query.Id);
       if (
-        !tokenResult.ok
-        || !tokenResult.token
-        || tokenResult.expMonth === null
-        || tokenResult.expYear === null
+        !tokenResult.ok ||
+        !tokenResult.token ||
+        tokenResult.expMonth === null ||
+        tokenResult.expYear === null
       ) {
         this.logger.error(
           `getToken failed (community): Id=${query.Id} userId=${userId} ` +
-          `communityId=${communityId} CCode=${tokenResult.ccode}`,
+            `communityId=${communityId} CCode=${tokenResult.ccode}`,
         );
         return res.redirect(failureRedirect);
       }
@@ -273,27 +333,36 @@ export class PaymentsController {
       const cardLastFour = verifiedBody.L4digit || tokenResult.token.slice(-4);
       const cardBrand = bankIdToBrand(verifiedBody.Bank);
 
-      const { paymentMethod } = await this.usersService.addTokenizedPaymentMethod(userId, {
-        token: tokenResult.token,
-        expMonth: tokenResult.expMonth,
-        expYear: tokenResult.expYear,
-        cardLastFour,
-        cardBrand,
-      });
+      const { paymentMethod } =
+        await this.usersService.addTokenizedPaymentMethod(userId, {
+          token: tokenResult.token,
+          expMonth: tokenResult.expMonth,
+          expYear: tokenResult.expYear,
+          cardLastFour,
+          cardBrand,
+        });
 
-      const bindResult = await this.communitiesService.bindTokenizedPaymentMethod(
-        communityId,
-        userId,
-        { id: paymentMethod.id },
-      );
-      const { community, wasAlreadyBound, wasReactivated, chargeAttempted, chargeFailed, chargeCCode } = bindResult;
+      const bindResult =
+        await this.communitiesService.bindTokenizedPaymentMethod(
+          communityId,
+          userId,
+          { id: paymentMethod.id },
+        );
+      const {
+        community,
+        wasAlreadyBound,
+        wasReactivated,
+        chargeAttempted,
+        chargeFailed,
+        chargeCCode,
+      } = bindResult;
 
       this.logger.log(
         `Community card bound: userId=${userId} communityId=${communityId} ` +
-        `last4=${cardLastFour} brand=${cardBrand} ` +
-        `tokenSuffix=${tokenResult.token.slice(-4)} ` +
-        `wasAlreadyBound=${wasAlreadyBound} chargeAttempted=${chargeAttempted} ` +
-        `wasReactivated=${wasReactivated} chargeCCode=${chargeCCode ?? '-'}`,
+          `last4=${cardLastFour} brand=${cardBrand} ` +
+          `tokenSuffix=${tokenResult.token.slice(-4)} ` +
+          `wasAlreadyBound=${wasAlreadyBound} chargeAttempted=${chargeAttempted} ` +
+          `wasReactivated=${wasReactivated} chargeCCode=${chargeCCode ?? '-'}`,
       );
 
       // Phase 3.6 — fire-and-forget security email when the community's
@@ -315,14 +384,20 @@ export class PaymentsController {
       //                   still bound; owner can retry)
       //   existing      = same card re-bound, no charge attempted
       //   updated       = fresh card on ACTIVE community, no charge
-      const cardParam =
-        wasReactivated ? 'reactivated'
-        : chargeFailed ? 'charge-failed'
-        : wasAlreadyBound ? 'existing'
-        : 'updated';
-      return res.redirect(`${frontend}/communities/${communityId}/manage?card=${cardParam}`);
+      const cardParam = wasReactivated
+        ? 'reactivated'
+        : chargeFailed
+          ? 'charge-failed'
+          : wasAlreadyBound
+            ? 'existing'
+            : 'updated';
+      return res.redirect(
+        `${frontend}/communities/${communityId}/manage?card=${cardParam}`,
+      );
     } catch (err) {
-      this.logger.error(`Community tokenize flow error: ${(err as Error).message}`);
+      this.logger.error(
+        `Community tokenize flow error: ${(err as Error).message}`,
+      );
       return res.redirect(failureRedirect);
     }
   }
@@ -346,14 +421,14 @@ export class PaymentsController {
     try {
       const tokenResult = await this.hypService.getToken(query.Id);
       if (
-        !tokenResult.ok
-        || !tokenResult.token
-        || tokenResult.expMonth === null
-        || tokenResult.expYear === null
+        !tokenResult.ok ||
+        !tokenResult.token ||
+        tokenResult.expMonth === null ||
+        tokenResult.expYear === null
       ) {
         this.logger.error(
           `getToken failed (newCommunity): Id=${query.Id} userId=${userId} ` +
-          `pendingId=${pendingId} CCode=${tokenResult.ccode}`,
+            `pendingId=${pendingId} CCode=${tokenResult.ccode}`,
         );
         return res.redirect(failureRedirect);
       }
@@ -361,25 +436,27 @@ export class PaymentsController {
       const cardLastFour = verifiedBody.L4digit || tokenResult.token.slice(-4);
       const cardBrand = bankIdToBrand(verifiedBody.Bank);
 
-      const { paymentMethod, isNew } = await this.usersService.addTokenizedPaymentMethod(userId, {
-        token: tokenResult.token,
-        expMonth: tokenResult.expMonth,
-        expYear: tokenResult.expYear,
-        cardLastFour,
-        cardBrand,
-      });
+      const { paymentMethod, isNew } =
+        await this.usersService.addTokenizedPaymentMethod(userId, {
+          token: tokenResult.token,
+          expMonth: tokenResult.expMonth,
+          expYear: tokenResult.expYear,
+          cardLastFour,
+          cardBrand,
+        });
 
-      const community = await this.communitiesService.finalizeCommunityFromPending(
-        pendingId,
-        userId,
-        { id: paymentMethod.id },
-      );
+      const community =
+        await this.communitiesService.finalizeCommunityFromPending(
+          pendingId,
+          userId,
+          { id: paymentMethod.id },
+        );
 
       this.logger.log(
         `New community created via pricing checkout: userId=${userId} ` +
-        `communityId=${community.id} pendingId=${pendingId} ` +
-        `last4=${cardLastFour} brand=${cardBrand} isNewCard=${isNew} ` +
-        `tokenSuffix=${tokenResult.token.slice(-4)}`,
+          `communityId=${community.id} pendingId=${pendingId} ` +
+          `last4=${cardLastFour} brand=${cardBrand} isNewCard=${isNew} ` +
+          `tokenSuffix=${tokenResult.token.slice(-4)}`,
       );
 
       // Phase 3.6 — security email on truly new cards only (suppress if
@@ -396,7 +473,9 @@ export class PaymentsController {
       // there showed nothing.
       return res.redirect(`${frontend}/communities/${community.id}/feed`);
     } catch (err) {
-      this.logger.error(`New-community tokenize flow error: ${(err as Error).message}`);
+      this.logger.error(
+        `New-community tokenize flow error: ${(err as Error).message}`,
+      );
       return res.redirect(failureRedirect);
     }
   }
@@ -423,14 +502,14 @@ export class PaymentsController {
     try {
       const tokenResult = await this.hypService.getToken(query.Id);
       if (
-        !tokenResult.ok
-        || !tokenResult.token
-        || tokenResult.expMonth === null
-        || tokenResult.expYear === null
+        !tokenResult.ok ||
+        !tokenResult.token ||
+        tokenResult.expMonth === null ||
+        tokenResult.expYear === null
       ) {
         this.logger.error(
           `getToken failed (memberJoin): Id=${query.Id} userId=${userId} ` +
-          `communityId=${communityId} CCode=${tokenResult.ccode}`,
+            `communityId=${communityId} CCode=${tokenResult.ccode}`,
         );
         return res.redirect(failureRedirect);
       }
@@ -440,23 +519,28 @@ export class PaymentsController {
       const cardLastFour = verifiedBody.L4digit || tokenResult.token.slice(-4);
       const cardBrand = bankIdToBrand(verifiedBody.Bank);
 
-      const { paymentMethod } = await this.usersService.addTokenizedPaymentMethod(userId, {
-        token: tokenResult.token,
-        expMonth: tokenResult.expMonth,
-        expYear: tokenResult.expYear,
-        cardLastFour,
-        cardBrand,
-      });
-
-      try {
-        await this.communitiesService.finalizePaidJoinFromTokenize(communityId, userId, {
-          id: paymentMethod.id,
-          hypPaymentMethodId: tokenResult.token,
-          cardExpMonth: tokenResult.expMonth,
-          cardExpYear: tokenResult.expYear,
+      const { paymentMethod } =
+        await this.usersService.addTokenizedPaymentMethod(userId, {
+          token: tokenResult.token,
+          expMonth: tokenResult.expMonth,
+          expYear: tokenResult.expYear,
           cardLastFour,
           cardBrand,
         });
+
+      try {
+        await this.communitiesService.finalizePaidJoinFromTokenize(
+          communityId,
+          userId,
+          {
+            id: paymentMethod.id,
+            hypPaymentMethodId: tokenResult.token,
+            cardExpMonth: tokenResult.expMonth,
+            cardExpYear: tokenResult.expYear,
+            cardLastFour,
+            cardBrand,
+          },
+        );
       } catch (err) {
         // Atomic rollback already happened inside the service; just log
         // and redirect with an error param so the frontend shows a toast.
@@ -468,11 +552,15 @@ export class PaymentsController {
 
       this.logger.log(
         `Paid join (iframe): userId=${userId} communityId=${communityId} ` +
-        `last4=${cardLastFour} brand=${cardBrand} tokenSuffix=${tokenResult.token.slice(-4)}`,
+          `last4=${cardLastFour} brand=${cardBrand} tokenSuffix=${tokenResult.token.slice(-4)}`,
       );
-      return res.redirect(`${frontend}/communities/${communityId}/feed?card=joined`);
+      return res.redirect(
+        `${frontend}/communities/${communityId}/feed?card=joined`,
+      );
     } catch (err) {
-      this.logger.error(`Paid join tokenize flow error: ${(err as Error).message}`);
+      this.logger.error(
+        `Paid join tokenize flow error: ${(err as Error).message}`,
+      );
       return res.redirect(failureRedirect);
     }
   }
@@ -498,7 +586,8 @@ export class PaymentsController {
       }
       const manageRedirect = `${frontend}/communities/${dunning.communityId}/manage`;
       const feedRedirect = `${frontend}/communities/${dunning.communityId}/feed`;
-      const successRedirect = dunning.kind === 'OWNER_MONTHLY' ? manageRedirect : feedRedirect;
+      const successRedirect =
+        dunning.kind === 'OWNER_MONTHLY' ? manageRedirect : feedRedirect;
 
       // Idempotency — if the user double-submits the link somehow, the
       // second callback finds fulfilledAt set and just sends them to the
@@ -512,30 +601,30 @@ export class PaymentsController {
 
       const tokenResult = await this.hypService.getToken(query.Id);
       if (
-        !tokenResult.ok
-        || !tokenResult.token
-        || tokenResult.expMonth === null
-        || tokenResult.expYear === null
+        !tokenResult.ok ||
+        !tokenResult.token ||
+        tokenResult.expMonth === null ||
+        tokenResult.expYear === null
       ) {
         this.logger.error(
           `Dunning getToken failed: order=${order} CCode=${tokenResult.ccode}`,
         );
-        return res.redirect(`${successRedirect}?dunning=token_failed&ccode=${tokenResult.ccode ?? ''}`);
+        return res.redirect(
+          `${successRedirect}?dunning=token_failed&ccode=${tokenResult.ccode ?? ''}`,
+        );
       }
 
       const cardLastFour = verifiedBody.L4digit || tokenResult.token.slice(-4);
       const cardBrand = bankIdToBrand(verifiedBody.Bank);
 
-      const { paymentMethod } = await this.usersService.addTokenizedPaymentMethod(
-        dunning.userId,
-        {
+      const { paymentMethod } =
+        await this.usersService.addTokenizedPaymentMethod(dunning.userId, {
           token: tokenResult.token,
           expMonth: tokenResult.expMonth,
           expYear: tokenResult.expYear,
           cardLastFour,
           cardBrand,
-        },
-      );
+        });
 
       if (dunning.kind === 'OWNER_MONTHLY') {
         // Reuse bindTokenizedPaymentMethod — its SUSPENDED-recovery path
@@ -543,11 +632,12 @@ export class PaymentsController {
         // notifyCommunityReactivated notification. Pass dunning.userId as
         // the trusted owner (we set it at link-generation time and HYP
         // can't tamper with it because the Order is in the signed payload).
-        const bindResult = await this.communitiesService.bindTokenizedPaymentMethod(
-          dunning.communityId,
-          dunning.userId,
-          { id: paymentMethod.id },
-        );
+        const bindResult =
+          await this.communitiesService.bindTokenizedPaymentMethod(
+            dunning.communityId,
+            dunning.userId,
+            { id: paymentMethod.id },
+          );
 
         if (bindResult.chargeFailed || !bindResult.chargeHypTxnId) {
           this.logger.warn(
@@ -558,7 +648,10 @@ export class PaymentsController {
           );
         }
 
-        await this.dunningService.markFulfilled(dunning.id, bindResult.chargeHypTxnId);
+        await this.dunningService.markFulfilled(
+          dunning.id,
+          bindResult.chargeHypTxnId,
+        );
         this.logger.log(
           `Dunning owner recovery ok: order=${order} community=${dunning.communityId} txn=${bindResult.chargeHypTxnId}`,
         );
@@ -599,7 +692,7 @@ export class PaymentsController {
         );
         this.logger.log(
           `Dunning member recovery ok: order=${order} community=${dunning.communityId} ` +
-          `txn=${result.hypTxnId ?? 'already-active'}`,
+            `txn=${result.hypTxnId ?? 'already-active'}`,
         );
         void this.sendDunningRecoveredEmailSafely(
           dunning.userId,
@@ -610,7 +703,9 @@ export class PaymentsController {
         return res.redirect(`${feedRedirect}?dunning=success`);
       }
     } catch (err) {
-      this.logger.error(`Dunning callback error: order=${order} ${(err as Error).message}`);
+      this.logger.error(
+        `Dunning callback error: order=${order} ${(err as Error).message}`,
+      );
       return res.redirect(`${frontend}/?dunning=error`);
     }
   }
@@ -634,7 +729,9 @@ export class PaymentsController {
         Math.round(amount),
       );
     } catch (err) {
-      this.logger.warn(`Dunning-recovered email failed (userId=${userId}): ${(err as Error).message}`);
+      this.logger.warn(
+        `Dunning-recovered email failed (userId=${userId}): ${(err as Error).message}`,
+      );
     }
   }
 
@@ -657,7 +754,9 @@ export class PaymentsController {
         cardLastFour,
       );
     } catch (err) {
-      this.logger.warn(`Card-added email failed (userId=${userId}): ${(err as Error).message}`);
+      this.logger.warn(
+        `Card-added email failed (userId=${userId}): ${(err as Error).message}`,
+      );
     }
   }
 
@@ -705,17 +804,20 @@ export class PaymentsController {
   // Phase 3's design.
   @All('hyp-webhook')
   async hypWebhook(@Req() req: Request, @Res() res: Response) {
-    const params = { ...req.query, ...(req.body ?? {}) } as Record<string, string>;
+    const params = { ...req.query, ...(req.body ?? {}) } as Record<
+      string,
+      string
+    >;
     try {
       const result = await this.hypService.verifyTransaction(params);
       this.logger.log(
         `HYP webhook: Id=${params.Id} CCode=${params.CCode} Amount=${params.Amount} ` +
-        `Order=${params.Order} verified=${result.ok}`,
+          `Order=${params.Order} verified=${result.ok}`,
       );
     } catch (err) {
       this.logger.error(
         `HYP webhook processing failed: ${(err as Error).message} ` +
-        `Id=${params.Id} CCode=${params.CCode}`,
+          `Id=${params.Id} CCode=${params.CCode}`,
       );
     }
     res.status(200).send('OK');

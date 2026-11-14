@@ -105,7 +105,12 @@ export class DunningService {
       include: {
         user: { select: { id: true, email: true, name: true } },
         community: {
-          select: { id: true, name: true, ownerId: true, paymentMethodId: true },
+          select: {
+            id: true,
+            name: true,
+            ownerId: true,
+            paymentMethodId: true,
+          },
         },
       },
     });

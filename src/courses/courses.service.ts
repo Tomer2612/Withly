@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { CommunitiesService } from '../communities/communities.service';
@@ -36,8 +41,10 @@ export class CoursesService {
     authorId: string;
   }) {
     // Resolve slug to actual community ID
-    const communityId = await this.communitiesService.resolveId(data.communityId);
-    
+    const communityId = await this.communitiesService.resolveId(
+      data.communityId,
+    );
+
     // Verify user is owner/manager of community
     const membership = await this.prisma.communityMember.findUnique({
       where: {
@@ -88,7 +95,10 @@ export class CoursesService {
   // Get all courses for a community — members only.
   async getCoursesByCommunity(communityIdOrSlug: string, userId: string) {
     // Members only (also resolves a slug to the real community id).
-    const { communityId } = await this.communitiesService.assertMember(communityIdOrSlug, userId);
+    const { communityId } = await this.communitiesService.assertMember(
+      communityIdOrSlug,
+      userId,
+    );
 
     // Build where clause - if user is logged in, show their unpublished courses too
     const whereClause: Prisma.CourseWhereInput = {
@@ -116,10 +126,12 @@ export class CoursesService {
           },
           orderBy: { order: 'asc' },
         },
-        enrollments: userId ? {
-          where: { userId },
-          take: 1,
-        } : false,
+        enrollments: userId
+          ? {
+              where: { userId },
+              take: 1,
+            }
+          : false,
         _count: {
           select: { enrollments: true },
         },
@@ -128,17 +140,22 @@ export class CoursesService {
     });
 
     // Calculate total lessons and duration for each course
-    return courses.map(course => {
+    return courses.map((course) => {
       const totalLessons = course.chapters.reduce(
-        (sum, chapter) => sum + chapter.lessons.length, 0
+        (sum, chapter) => sum + chapter.lessons.length,
+        0,
       );
       const totalDuration = course.chapters.reduce(
-        (sum, chapter) => sum + chapter.lessons.reduce(
-          (lessonSum, lesson) => lessonSum + lesson.duration, 0
-        ), 0
+        (sum, chapter) =>
+          sum +
+          chapter.lessons.reduce(
+            (lessonSum, lesson) => lessonSum + lesson.duration,
+            0,
+          ),
+        0,
       );
       const enrollment = course.enrollments?.[0] || null;
-      
+
       return {
         ...course,
         totalLessons,
@@ -173,14 +190,19 @@ export class CoursesService {
       orderBy: { enrolledAt: 'desc' },
     });
 
-    return enrollments.map(enrollment => {
+    return enrollments.map((enrollment) => {
       const totalLessons = enrollment.course.chapters.reduce(
-        (sum, chapter) => sum + chapter.lessons.length, 0
+        (sum, chapter) => sum + chapter.lessons.length,
+        0,
       );
       const totalDuration = enrollment.course.chapters.reduce(
-        (sum, chapter) => sum + chapter.lessons.reduce(
-          (lessonSum, lesson) => lessonSum + lesson.duration, 0
-        ), 0
+        (sum, chapter) =>
+          sum +
+          chapter.lessons.reduce(
+            (lessonSum, lesson) => lessonSum + lesson.duration,
+            0,
+          ),
+        0,
       );
 
       return {
@@ -239,10 +261,14 @@ export class CoursesService {
       throw new NotFoundException(ERROR_MESSAGES.COURSE_NOT_FOUND);
     }
 
-    const { role } = await this.communitiesService.assertMember(course.communityId, userId);
+    const { role } = await this.communitiesService.assertMember(
+      course.communityId,
+      userId,
+    );
     // The editor (course author, community owner or managers) needs the
     // answers; a learner must not get them before answering.
-    const canEditCourse = course.authorId === userId || canManageCommunity(role);
+    const canEditCourse =
+      course.authorId === userId || canManageCommunity(role);
 
     // Get user's enrollment and lesson progress if logged in
     let enrollment: {
@@ -273,19 +299,27 @@ export class CoursesService {
         },
       });
 
-      lessonProgress = progress.reduce((acc, p) => {
-        acc[p.lessonId] = p.completed;
-        return acc;
-      }, {} as Record<string, boolean>);
+      lessonProgress = progress.reduce(
+        (acc, p) => {
+          acc[p.lessonId] = p.completed;
+          return acc;
+        },
+        {} as Record<string, boolean>,
+      );
     }
 
     const totalLessons = course.chapters.reduce(
-      (sum, chapter) => sum + chapter.lessons.length, 0
+      (sum, chapter) => sum + chapter.lessons.length,
+      0,
     );
     const totalDuration = course.chapters.reduce(
-      (sum, chapter) => sum + chapter.lessons.reduce(
-        (lessonSum, lesson) => lessonSum + lesson.duration, 0
-      ), 0
+      (sum, chapter) =>
+        sum +
+        chapter.lessons.reduce(
+          (lessonSum, lesson) => lessonSum + lesson.duration,
+          0,
+        ),
+      0,
     );
 
     // Learners get quiz answers (isCorrect) only for lessons they've already
@@ -305,7 +339,12 @@ export class CoursesService {
                     questions: lesson.quiz.questions.map((q) => ({
                       ...q,
                       // Every option field except isCorrect.
-                      options: q.options.map((o) => ({ id: o.id, text: o.text, order: o.order, questionId: o.questionId })),
+                      options: q.options.map((o) => ({
+                        id: o.id,
+                        text: o.text,
+                        order: o.order,
+                        questionId: o.questionId,
+                      })),
                     })),
                   },
                 },
@@ -349,7 +388,10 @@ export class CoursesService {
       });
     } catch (error) {
       // Handle unique constraint violation (P2002) - enrollment already exists
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
         return await this.prisma.courseEnrollment.findUnique({
           where: {
             userId_courseId: { userId, courseId },
@@ -412,8 +454,13 @@ export class CoursesService {
       throw new NotFoundException(ERROR_MESSAGES.LESSON_NOT_FOUND);
     }
 
-    await this.communitiesService.assertMember(lesson.chapter.course.communityId, userId);
-    await this.communitiesService.assertActive(lesson.chapter.course.communityId);
+    await this.communitiesService.assertMember(
+      lesson.chapter.course.communityId,
+      userId,
+    );
+    await this.communitiesService.assertActive(
+      lesson.chapter.course.communityId,
+    );
 
     // Create or update lesson progress
     const progress = await this.prisma.lessonProgress.upsert({
@@ -455,7 +502,9 @@ export class CoursesService {
       throw new NotFoundException(ERROR_MESSAGES.LESSON_NOT_FOUND);
     }
 
-    await this.communitiesService.assertActive(lesson.chapter.course.communityId);
+    await this.communitiesService.assertActive(
+      lesson.chapter.course.communityId,
+    );
 
     // Update lesson progress to incomplete
     const progress = await this.prisma.lessonProgress.upsert({
@@ -497,7 +546,8 @@ export class CoursesService {
     if (!course) return;
 
     const totalLessons = course.chapters.reduce(
-      (sum, chapter) => sum + chapter.lessons.length, 0
+      (sum, chapter) => sum + chapter.lessons.length,
+      0,
     );
 
     if (totalLessons === 0) return;
@@ -566,29 +616,33 @@ export class CoursesService {
   }
 
   // Add lesson to chapter
-  async addLesson(chapterId: string, data: {
-    title: string;
-    content?: string;
-    videoUrl?: string | null;
-    duration?: number;
-    lessonType?: string;
-    images?: string[];
-    files?: FileAttachment[];
-    links?: string[];
-    contentOrder?: string[];
-    quiz?: {
-      questions: {
-        question: string;
-        questionType: string;
-        order: number;
-        options: {
-          text: string;
-          isCorrect: boolean;
+  async addLesson(
+    chapterId: string,
+    data: {
+      title: string;
+      content?: string;
+      videoUrl?: string | null;
+      duration?: number;
+      lessonType?: string;
+      images?: string[];
+      files?: FileAttachment[];
+      links?: string[];
+      contentOrder?: string[];
+      quiz?: {
+        questions: {
+          question: string;
+          questionType: string;
           order: number;
+          options: {
+            text: string;
+            isCorrect: boolean;
+            order: number;
+          }[];
         }[];
-      }[];
-    };
-  }, userId: string) {
+      };
+    },
+    userId: string,
+  ) {
     const chapter = await this.prisma.chapter.findUnique({
       where: { id: chapterId },
       include: { course: true },
@@ -625,26 +679,28 @@ export class CoursesService {
         files: (data.files || []) as unknown as Prisma.InputJsonValue[],
         links: data.links || [],
         contentOrder: data.contentOrder || ['video', 'text', 'links', 'images'],
-        ...(data.quiz && data.lessonType === 'quiz' ? {
-          quiz: {
-            create: {
-              questions: {
-                create: data.quiz.questions.map((q, qIndex) => ({
-                  question: q.question,
-                  questionType: q.questionType,
-                  order: q.order ?? qIndex,
-                  options: {
-                    create: q.options.map((o, oIndex) => ({
-                      text: o.text,
-                      isCorrect: o.isCorrect,
-                      order: o.order ?? oIndex,
+        ...(data.quiz && data.lessonType === 'quiz'
+          ? {
+              quiz: {
+                create: {
+                  questions: {
+                    create: data.quiz.questions.map((q, qIndex) => ({
+                      question: q.question,
+                      questionType: q.questionType,
+                      order: q.order ?? qIndex,
+                      options: {
+                        create: q.options.map((o, oIndex) => ({
+                          text: o.text,
+                          isCorrect: o.isCorrect,
+                          order: o.order ?? oIndex,
+                        })),
+                      },
                     })),
                   },
-                })),
+                },
               },
-            },
-          },
-        } : {}),
+            }
+          : {}),
       },
       include: {
         quiz: {
@@ -676,9 +732,13 @@ export class CoursesService {
     });
 
     const totalDuration = chapters.reduce(
-      (sum, chapter) => sum + chapter.lessons.reduce(
-        (lessonSum, lesson) => lessonSum + lesson.duration, 0
-      ), 0
+      (sum, chapter) =>
+        sum +
+        chapter.lessons.reduce(
+          (lessonSum, lesson) => lessonSum + lesson.duration,
+          0,
+        ),
+      0,
     );
 
     await this.prisma.course.update({
@@ -688,12 +748,16 @@ export class CoursesService {
   }
 
   // Update course
-  async updateCourse(courseId: string, data: {
-    title?: string;
-    description?: string;
-    image?: string;
-    isPublished?: boolean;
-  }, userId: string) {
+  async updateCourse(
+    courseId: string,
+    data: {
+      title?: string;
+      description?: string;
+      image?: string;
+      isPublished?: boolean;
+    },
+    userId: string,
+  ) {
     const course = await this.prisma.course.findUnique({
       where: { id: courseId },
     });
@@ -729,10 +793,14 @@ export class CoursesService {
   }
 
   // Update chapter
-  async updateChapter(chapterId: string, data: {
-    title?: string;
-    order?: number;
-  }, userId: string) {
+  async updateChapter(
+    chapterId: string,
+    data: {
+      title?: string;
+      order?: number;
+    },
+    userId: string,
+  ) {
     const chapter = await this.prisma.chapter.findUnique({
       where: { id: chapterId },
       include: { course: true },
@@ -760,32 +828,36 @@ export class CoursesService {
   }
 
   // Update lesson
-  async updateLesson(lessonId: string, data: {
-    title?: string;
-    content?: string;
-    videoUrl?: string | null;
-    duration?: number;
-    order?: number;
-    lessonType?: string;
-    images?: string[];
-    files?: FileAttachment[];
-    links?: string[];
-    contentOrder?: string[];
-    quiz?: {
-      questions: {
-        id?: string;
-        question: string;
-        questionType: string;
-        order: number;
-        options: {
+  async updateLesson(
+    lessonId: string,
+    data: {
+      title?: string;
+      content?: string;
+      videoUrl?: string | null;
+      duration?: number;
+      order?: number;
+      lessonType?: string;
+      images?: string[];
+      files?: FileAttachment[];
+      links?: string[];
+      contentOrder?: string[];
+      quiz?: {
+        questions: {
           id?: string;
-          text: string;
-          isCorrect: boolean;
+          question: string;
+          questionType: string;
           order: number;
+          options: {
+            id?: string;
+            text: string;
+            isCorrect: boolean;
+            order: number;
+          }[];
         }[];
-      }[];
-    };
-  }, userId: string) {
+      };
+    },
+    userId: string,
+  ) {
     const lesson = await this.prisma.lesson.findUnique({
       where: { id: lessonId },
       include: {
@@ -804,7 +876,9 @@ export class CoursesService {
       throw new ForbiddenException(ERROR_MESSAGES.NO_PERMISSION_EDIT_COURSE);
     }
 
-    await this.communitiesService.assertActive(lesson.chapter.course.communityId);
+    await this.communitiesService.assertActive(
+      lesson.chapter.course.communityId,
+    );
 
     // Handle quiz update separately
     if (data.quiz && data.lessonType === 'quiz') {
@@ -814,7 +888,7 @@ export class CoursesService {
           where: { id: lesson.quiz.id },
         });
       }
-      
+
       // Create new quiz
       await this.prisma.lessonQuiz.create({
         data: {
@@ -950,7 +1024,9 @@ export class CoursesService {
       throw new ForbiddenException(ERROR_MESSAGES.NO_PERMISSION_EDIT_COURSE);
     }
 
-    await this.communitiesService.assertActive(lesson.chapter.course.communityId);
+    await this.communitiesService.assertActive(
+      lesson.chapter.course.communityId,
+    );
 
     await this.prisma.lesson.delete({
       where: { id: lessonId },
@@ -966,26 +1042,48 @@ export class CoursesService {
   // Checks one quiz answer on the server, so learners never need the answer
   // key. Returns the correct option ids only when the answer is right (the
   // page marks them green); a wrong answer reveals nothing.
-  async checkQuizAnswer(lessonId: string, questionId: string, optionIds: string[], userId: string) {
+  async checkQuizAnswer(
+    lessonId: string,
+    questionId: string,
+    optionIds: string[],
+    userId: string,
+  ) {
     const question = await this.prisma.lessonQuizQuestion.findFirst({
       where: { id: questionId, quiz: { lessonId } },
       include: {
         options: { select: { id: true, isCorrect: true } },
-        quiz: { select: { lesson: { select: { chapter: { select: { course: { select: { communityId: true } } } } } } } },
+        quiz: {
+          select: {
+            lesson: {
+              select: {
+                chapter: {
+                  select: { course: { select: { communityId: true } } },
+                },
+              },
+            },
+          },
+        },
       },
     });
     if (!question) {
       throw new NotFoundException(ERROR_MESSAGES.LESSON_NOT_FOUND);
     }
-    await this.communitiesService.assertMember(question.quiz.lesson.chapter.course.communityId, userId);
+    await this.communitiesService.assertMember(
+      question.quiz.lesson.chapter.course.communityId,
+      userId,
+    );
 
     const validIds = new Set(question.options.map((o) => o.id));
     if (optionIds.some((id) => !validIds.has(id))) {
       throw new BadRequestException('INVALID_QUIZ_OPTION');
     }
-    const correctIds = question.options.filter((o) => o.isCorrect).map((o) => o.id);
+    const correctIds = question.options
+      .filter((o) => o.isCorrect)
+      .map((o) => o.id);
     const chosen = new Set(optionIds);
-    const correct = chosen.size === correctIds.length && correctIds.every((id) => chosen.has(id));
+    const correct =
+      chosen.size === correctIds.length &&
+      correctIds.every((id) => chosen.has(id));
     return { correct, correctOptionIds: correct ? correctIds : [] };
   }
 
@@ -997,7 +1095,12 @@ export class CoursesService {
         chapter: {
           include: {
             course: {
-              select: { id: true, title: true, authorId: true, communityId: true },
+              select: {
+                id: true,
+                title: true,
+                authorId: true,
+                communityId: true,
+              },
             },
           },
         },
@@ -1008,7 +1111,10 @@ export class CoursesService {
       throw new NotFoundException(ERROR_MESSAGES.LESSON_NOT_FOUND);
     }
 
-    await this.communitiesService.assertMember(lesson.chapter.course.communityId, userId);
+    await this.communitiesService.assertMember(
+      lesson.chapter.course.communityId,
+      userId,
+    );
 
     let progress: {
       id: string;

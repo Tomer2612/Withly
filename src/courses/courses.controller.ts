@@ -55,7 +55,9 @@ export class CoursesController {
   ) {
     return this.coursesService.createCourse({
       ...body,
-      image: file ? await this.storageService.uploadFile(file, 'courses') : undefined,
+      image: file
+        ? await this.storageService.uploadFile(file, 'courses')
+        : undefined,
       authorId: req.user.userId,
     });
   }
@@ -67,7 +69,10 @@ export class CoursesController {
     @Param('communityId') communityId: string,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.coursesService.getCoursesByCommunity(communityId, req.user.userId);
+    return this.coursesService.getCoursesByCommunity(
+      communityId,
+      req.user.userId,
+    );
   }
 
   // Get user's enrolled courses
@@ -90,14 +95,20 @@ export class CoursesController {
   // Enroll in a course
   @UseGuards(AuthGuard('jwt'))
   @Post(':courseId/enroll')
-  async enrollInCourse(@Param('courseId') courseId: string, @Req() req: AuthenticatedRequest) {
+  async enrollInCourse(
+    @Param('courseId') courseId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     return this.coursesService.enrollInCourse(courseId, req.user.userId);
   }
 
   // Unenroll from a course
   @UseGuards(AuthGuard('jwt'))
   @Delete(':courseId/enroll')
-  async unenrollFromCourse(@Param('courseId') courseId: string, @Req() req: AuthenticatedRequest) {
+  async unenrollFromCourse(
+    @Param('courseId') courseId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     return this.coursesService.unenrollFromCourse(courseId, req.user.userId);
   }
 
@@ -116,22 +127,37 @@ export class CoursesController {
     @Body() body: UpdateCourseDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    const updateData: { title?: string; description?: string; isPublished?: boolean; image?: string } = {};
-    
+    const updateData: {
+      title?: string;
+      description?: string;
+      isPublished?: boolean;
+      image?: string;
+    } = {};
+
     if (body.title !== undefined) updateData.title = body.title;
-    if (body.description !== undefined) updateData.description = body.description;
+    if (body.description !== undefined)
+      updateData.description = body.description;
     if (body.isPublished !== undefined) {
-      updateData.isPublished = body.isPublished === true || body.isPublished === 'true';
+      updateData.isPublished =
+        body.isPublished === true || body.isPublished === 'true';
     }
-    if (file) updateData.image = await this.storageService.uploadFile(file, 'courses');
-    
-    return this.coursesService.updateCourse(courseId, updateData, req.user.userId);
+    if (file)
+      updateData.image = await this.storageService.uploadFile(file, 'courses');
+
+    return this.coursesService.updateCourse(
+      courseId,
+      updateData,
+      req.user.userId,
+    );
   }
 
   // Delete course
   @UseGuards(AuthGuard('jwt'))
   @Delete(':courseId')
-  async deleteCourse(@Param('courseId') courseId: string, @Req() req: AuthenticatedRequest) {
+  async deleteCourse(
+    @Param('courseId') courseId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     return this.coursesService.deleteCourse(courseId, req.user.userId);
   }
 
@@ -143,7 +169,11 @@ export class CoursesController {
     @Body() body: AddChapterDto,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.coursesService.addChapter(courseId, body.title, req.user.userId);
+    return this.coursesService.addChapter(
+      courseId,
+      body.title,
+      req.user.userId,
+    );
   }
 
   // Update chapter
@@ -160,7 +190,10 @@ export class CoursesController {
   // Delete chapter
   @UseGuards(AuthGuard('jwt'))
   @Delete('chapters/:chapterId')
-  async deleteChapter(@Param('chapterId') chapterId: string, @Req() req: AuthenticatedRequest) {
+  async deleteChapter(
+    @Param('chapterId') chapterId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     return this.coursesService.deleteChapter(chapterId, req.user.userId);
   }
 
@@ -227,7 +260,12 @@ export class CoursesController {
     @Req() req: AuthenticatedRequest,
     @Body() body: CheckQuizAnswerDto,
   ) {
-    return this.coursesService.checkQuizAnswer(lessonId, body.questionId, body.optionIds, req.user.userId);
+    return this.coursesService.checkQuizAnswer(
+      lessonId,
+      body.questionId,
+      body.optionIds,
+      req.user.userId,
+    );
   }
 
   // Get lesson by ID — members of the lesson's community only.
@@ -254,21 +292,30 @@ export class CoursesController {
   // Delete lesson
   @UseGuards(AuthGuard('jwt'))
   @Delete('lessons/:lessonId')
-  async deleteLesson(@Param('lessonId') lessonId: string, @Req() req: AuthenticatedRequest) {
+  async deleteLesson(
+    @Param('lessonId') lessonId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     return this.coursesService.deleteLesson(lessonId, req.user.userId);
   }
 
   // Mark lesson as complete
   @UseGuards(AuthGuard('jwt'))
   @Post('lessons/:lessonId/complete')
-  async completeLesson(@Param('lessonId') lessonId: string, @Req() req: AuthenticatedRequest) {
+  async completeLesson(
+    @Param('lessonId') lessonId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     return this.coursesService.completeLesson(lessonId, req.user.userId);
   }
 
   // Mark lesson as incomplete
   @UseGuards(AuthGuard('jwt'))
   @Delete('lessons/:lessonId/complete')
-  async uncompleteLesson(@Param('lessonId') lessonId: string, @Req() req: AuthenticatedRequest) {
+  async uncompleteLesson(
+    @Param('lessonId') lessonId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     return this.coursesService.uncompleteLesson(lessonId, req.user.userId);
   }
 }

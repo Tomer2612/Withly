@@ -69,6 +69,9 @@ export function clearAuthCookies(res: Response) {
     sameSite: 'lax' as const,
   };
   res.clearCookie(ACCESS_TOKEN_COOKIE, { ...clearOptions, path: '/' });
-  res.clearCookie(REFRESH_TOKEN_COOKIE, { ...clearOptions, path: REFRESH_COOKIE_PATH });
+  res.clearCookie(REFRESH_TOKEN_COOKIE, {
+    ...clearOptions,
+    path: REFRESH_COOKIE_PATH,
+  });
   res.clearCookie(SESSION_HINT_COOKIE, { ...clearOptions, path: '/' });
 }

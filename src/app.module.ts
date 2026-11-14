@@ -18,7 +18,6 @@ import { PaymentsModule } from './payments/payments.module';
 import { PlansModule } from './plans/plans.module';
 import { ActivityMiddleware } from './common/activity.middleware';
 
-
 @Module({
   imports: [
     ScheduleModule.forRoot(),

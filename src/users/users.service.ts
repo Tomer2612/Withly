@@ -1,4 +1,12 @@
-import { Injectable, BadRequestException, ConflictException, NotFoundException, Logger, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+  Logger,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { EmailService } from '../email/email.service';
@@ -97,7 +105,14 @@ export class UsersService {
     });
   }
 
-  async updateProfile(userId: string, name?: string, profileImage?: string, coverImage?: string, bio?: string, location?: string) {
+  async updateProfile(
+    userId: string,
+    name?: string,
+    profileImage?: string,
+    coverImage?: string,
+    bio?: string,
+    location?: string,
+  ) {
     const user = await this.findByIdWithAuth(userId);
     if (!user) {
       throw new NotFoundException('User not found');
@@ -171,14 +186,17 @@ export class UsersService {
     return user;
   }
 
-  async updateNotificationPreferences(userId: string, preferences: {
-    notifyLikes?: boolean;
-    notifyComments?: boolean;
-    notifyFollows?: boolean;
-    notifyNewPosts?: boolean;
-    notifyMentions?: boolean;
-    notifyCommunityJoins?: boolean;
-  }) {
+  async updateNotificationPreferences(
+    userId: string,
+    preferences: {
+      notifyLikes?: boolean;
+      notifyComments?: boolean;
+      notifyFollows?: boolean;
+      notifyNewPosts?: boolean;
+      notifyMentions?: boolean;
+      notifyCommunityJoins?: boolean;
+    },
+  ) {
     const user = await this.findByIdWithAuth(userId);
     if (!user) {
       throw new NotFoundException('User not found');
@@ -198,7 +216,11 @@ export class UsersService {
     });
   }
 
-  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
@@ -248,7 +270,9 @@ export class UsersService {
     // the deletion email whether to include the owned-community winddown
     // disclosure.
     const ownedCommunityCount =
-      await this.communitiesService.windDownOwnedCommunitiesForUserDelete(user.id);
+      await this.communitiesService.windDownOwnedCommunitiesForUserDelete(
+        user.id,
+      );
 
     // Delete user — cascade handles Cascade-marked relations (RefreshToken,
     // UserPaymentMethod, CommunityMember, CourseEnrollment, etc.); SetNull
@@ -316,7 +340,9 @@ export class UsersService {
   // Visibility scopes for profile cards. The owner viewing their own profile
   // (or a member viewing their own joined-list) sees everything. An outside
   // viewer only sees PUBLIC + ACTIVE + non-cancellation-pending.
-  private profileVisibilityFilter(isOwnProfile: boolean): Prisma.CommunityWhereInput {
+  private profileVisibilityFilter(
+    isOwnProfile: boolean,
+  ): Prisma.CommunityWhereInput {
     if (isOwnProfile) return {};
     return {
       status: 'PUBLIC',
@@ -349,7 +375,10 @@ export class UsersService {
       },
       orderBy: { createdAt: 'desc' },
     });
-    return communities.map(({ _count, ...c }) => ({ ...c, memberCount: _count.members + 1 }));
+    return communities.map(({ _count, ...c }) => ({
+      ...c,
+      memberCount: _count.members + 1,
+    }));
   }
 
   // Get communities user is a member of
@@ -380,7 +409,7 @@ export class UsersService {
       orderBy: { joinedAt: 'desc' },
     });
 
-    return memberships.map(m => {
+    return memberships.map((m) => {
       const { _count, ...rest } = m.community;
       return { ...rest, memberCount: _count.members + 1 };
     });
@@ -526,7 +555,11 @@ export class UsersService {
     return enriched;
   }
 
-  async addPaymentMethod(userId: string, cardLastFour: string, cardBrand: string = 'Visa') {
+  async addPaymentMethod(
+    userId: string,
+    cardLastFour: string,
+    cardBrand: string = 'Visa',
+  ) {
     // Check if this card already exists for the user
     const existing = await this.prisma.userPaymentMethod.findFirst({
       where: { userId, cardLastFour },
@@ -537,7 +570,9 @@ export class UsersService {
     }
 
     // First card a user adds becomes primary automatically.
-    const hasAny = await this.prisma.userPaymentMethod.count({ where: { userId } });
+    const hasAny = await this.prisma.userPaymentMethod.count({
+      where: { userId },
+    });
 
     return this.prisma.userPaymentMethod.create({
       data: {
@@ -590,7 +625,9 @@ export class UsersService {
       return { paymentMethod: updated, isNew: false };
     }
 
-    const hasAny = await this.prisma.userPaymentMethod.count({ where: { userId } });
+    const hasAny = await this.prisma.userPaymentMethod.count({
+      where: { userId },
+    });
 
     const created = await this.prisma.userPaymentMethod.create({
       data: {
@@ -613,7 +650,9 @@ export class UsersService {
     });
 
     if (count <= 1) {
-      throw new BadRequestException(ERROR_MESSAGES.CANNOT_DELETE_LAST_PAYMENT_METHOD);
+      throw new BadRequestException(
+        ERROR_MESSAGES.CANNOT_DELETE_LAST_PAYMENT_METHOD,
+      );
     }
 
     // Block deletion if this card is currently billing any of the user's
@@ -673,7 +712,10 @@ export class UsersService {
     r.setMonth(r.getMonth() + n);
     return r;
   }
-  private getNextBillingDate(trialStart: Date | null, trialLengthMonths: number): Date {
+  private getNextBillingDate(
+    trialStart: Date | null,
+    trialLengthMonths: number,
+  ): Date {
     const now = new Date();
     if (!trialStart) return this.addMonths(now, 1);
     let candidate = this.addMonths(trialStart, trialLengthMonths);
@@ -687,7 +729,9 @@ export class UsersService {
     // map below doesn't re-query.
     const userWithPlan = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { plan: { select: { monthlyPriceILS: true, trialLengthMonths: true } } },
+      select: {
+        plan: { select: { monthlyPriceILS: true, trialLengthMonths: true } },
+      },
     });
     // Owner-level plan is now only the FALLBACK — each owned community below
     // prefers its own plan (per-community pricing). Defends against NULL
@@ -737,7 +781,8 @@ export class UsersService {
       // This community's plan drives its platform fee + trial; fall back to
       // the owner's plan for communities created before per-community plans.
       const planMonthlyPrice = c.plan?.monthlyPriceILS ?? ownerFallbackPrice;
-      const planTrialLengthMonths = c.plan?.trialLengthMonths ?? ownerFallbackTrial;
+      const planTrialLengthMonths =
+        c.plan?.trialLengthMonths ?? ownerFallbackTrial;
       // "Paid members" excludes the owner; owner doesn't appear in
       // CommunityMember anyway, so memberCount is paying-member count.
       // Post-Mission-4.5: CommunityMember rows are deleted at period-end
@@ -765,7 +810,8 @@ export class UsersService {
         // a real subscription, the fallback can be deleted.
         nextBillDate:
           c.subscriptionStatus === 'ACTIVE' && !c.subscriptionCancelledAt
-            ? c.nextBillingDate ?? this.getNextBillingDate(c.trialStartDate, planTrialLengthMonths)
+            ? (c.nextBillingDate ??
+              this.getNextBillingDate(c.trialStartDate, planTrialLengthMonths))
             : null,
         effectiveEndDate: c.subscriptionCancelledAt,
         paidMembersCount,

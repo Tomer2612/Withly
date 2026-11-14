@@ -1,4 +1,17 @@
-import { Controller, Post, Body, Param, UseGuards, Req, Get, Delete, Patch, Query, UseInterceptors, UploadedFiles } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Param,
+  UseGuards,
+  Req,
+  Get,
+  Delete,
+  Patch,
+  Query,
+  UseInterceptors,
+  UploadedFiles,
+} from '@nestjs/common';
 import type { AuthenticatedRequest } from '../common/authenticated-request';
 import { parseIdTextArray, parseStringArray } from '../common/parse-json';
 import { FilesInterceptor } from '@nestjs/platform-express';
@@ -56,12 +69,18 @@ export class PostsController {
   @UseGuards(AuthGuard('jwt'))
   @Post('community/:communityId')
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 posts per minute
-  @UseInterceptors(FilesInterceptor('files', 15, { storage, fileFilter: postContentFileFilter, limits: { fileSize: MAX_VIDEO_SIZE } }))
+  @UseInterceptors(
+    FilesInterceptor('files', 15, {
+      storage,
+      fileFilter: postContentFileFilter,
+      limits: { fileSize: MAX_VIDEO_SIZE },
+    }),
+  )
   async createPost(
     @Param('communityId') communityId: string,
     @Req() req: AuthenticatedRequest,
     @Body() body: CreatePostDto,
-    @UploadedFiles() files?: Express.Multer.File[]
+    @UploadedFiles() files?: Express.Multer.File[],
   ) {
     const userId = req.user.userId;
 
@@ -77,7 +96,9 @@ export class PostsController {
       for (const file of files) {
         const fileType = getFileType(file.mimetype);
         // Decode Hebrew/non-ASCII filenames properly
-        const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+        const originalName = Buffer.from(file.originalname, 'latin1').toString(
+          'utf8',
+        );
 
         if (fileType === 'image' && images.length < 6) {
           const url = await this.storageService.uploadFile(file, 'posts');
@@ -91,29 +112,31 @@ export class PostsController {
         }
       }
     }
-    
+
     // Parse external video URLs (YouTube, Vimeo, Dailymotion)
     const externalVideos = parseStringArray(body.videoUrls) ?? [];
     videos.push(...externalVideos.slice(0, 3 - videos.length));
 
     // Parse links from JSON string (max 10)
     const links: string[] = (parseStringArray(body.links) ?? []).slice(0, 10);
-    
+
     const post = await this.postsService.create(
-      body.content, 
-      userId, 
-      communityId, 
-      body.title, 
+      body.content,
+      userId,
+      communityId,
+      body.title,
       images.length > 0 ? images : undefined,
       uploadedFiles.length > 0 ? uploadedFiles : undefined,
       links.length > 0 ? links : undefined,
       body.category,
-      videos.length > 0 ? videos : undefined
+      videos.length > 0 ? videos : undefined,
     );
-    
+
     // Notify followers about new post. Fire-and-forget: the post is already
     // saved, and a 10k-follower fan-out shouldn't hold the response.
-    this.notificationsService.notifyNewPost(userId, post.id, communityId).catch(() => {});
+    this.notificationsService
+      .notifyNewPost(userId, post.id, communityId)
+      .catch(() => {});
 
     return post;
   }
@@ -121,7 +144,10 @@ export class PostsController {
   // Delete a comment - specific route before generic :postId
   @UseGuards(AuthGuard('jwt'))
   @Delete('comments/:commentId')
-  deleteComment(@Param('commentId') commentId: string, @Req() req: AuthenticatedRequest) {
+  deleteComment(
+    @Param('commentId') commentId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const userId = req.user.userId;
     return this.postsService.deleteComment(commentId, userId);
   }
@@ -141,25 +167,33 @@ export class PostsController {
   // Update a post
   @UseGuards(AuthGuard('jwt'))
   @Patch(':postId')
-  @UseInterceptors(FilesInterceptor('files', 15, { storage, fileFilter: postContentFileFilter, limits: { fileSize: MAX_VIDEO_SIZE } }))
+  @UseInterceptors(
+    FilesInterceptor('files', 15, {
+      storage,
+      fileFilter: postContentFileFilter,
+      limits: { fileSize: MAX_VIDEO_SIZE },
+    }),
+  )
   async updatePost(
     @Param('postId') postId: string,
     @Req() req: AuthenticatedRequest,
     @Body() body: UpdatePostDto,
-    @UploadedFiles() files?: Express.Multer.File[]
+    @UploadedFiles() files?: Express.Multer.File[],
   ) {
     const userId = req.user.userId;
-    
+
     const newImages: string[] = [];
     const newFiles: FileAttachment[] = [];
     const newVideos: string[] = [];
-    
+
     if (files && files.length > 0) {
       for (const file of files) {
         const fileType = getFileType(file.mimetype);
         // Decode Hebrew/non-ASCII filenames properly
-        const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
-        
+        const originalName = Buffer.from(file.originalname, 'latin1').toString(
+          'utf8',
+        );
+
         if (fileType === 'image' && newImages.length < 6) {
           const url = await this.storageService.uploadFile(file, 'posts');
           newImages.push(url);
@@ -172,7 +206,7 @@ export class PostsController {
         }
       }
     }
-    
+
     // Parse external video URLs
     const externalVideos = parseStringArray(body.videoUrls) ?? [];
     newVideos.push(...externalVideos.slice(0, 3 - newVideos.length));
@@ -186,12 +220,12 @@ export class PostsController {
     const videosToRemove = parseStringArray(body.videosToRemove);
     const pollOptions = parseIdTextArray(body.pollOptions);
     const newPollOptions = parseStringArray(body.newPollOptions);
-    
+
     return this.postsService.update(
-      postId, 
-      body.content, 
-      userId, 
-      body.title, 
+      postId,
+      body.content,
+      userId,
+      body.title,
       newImages.length > 0 ? newImages : undefined,
       newFiles.length > 0 ? newFiles : undefined,
       links,
@@ -203,14 +237,17 @@ export class PostsController {
       body.newPollQuestion,
       newPollOptions,
       newVideos.length > 0 ? newVideos : undefined,
-      videosToRemove
+      videosToRemove,
     );
   }
 
   // Delete a post
   @UseGuards(AuthGuard('jwt'))
   @Delete(':postId')
-  deletePost(@Param('postId') postId: string, @Req() req: AuthenticatedRequest) {
+  deletePost(
+    @Param('postId') postId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const userId = req.user.userId;
     return this.postsService.delete(postId, userId);
   }
@@ -218,10 +255,13 @@ export class PostsController {
   // Like/Unlike toggle
   @UseGuards(AuthGuard('jwt'))
   @Post(':postId/like')
-  async toggleLike(@Param('postId') postId: string, @Req() req: AuthenticatedRequest) {
+  async toggleLike(
+    @Param('postId') postId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const userId = req.user.userId;
     const result = await this.postsService.toggleLike(postId, userId);
-    
+
     // Send notification if liked (not unliked). Skip when the post author
     // has been anonymized (Phase 5 Mission 2 — deleted account) — there's
     // nobody to notify.
@@ -233,14 +273,17 @@ export class PostsController {
         result.post.communityId,
       );
     }
-    
+
     return result;
   }
 
   // Save/Unsave toggle
   @UseGuards(AuthGuard('jwt'))
   @Post(':postId/save')
-  toggleSave(@Param('postId') postId: string, @Req() req: AuthenticatedRequest) {
+  toggleSave(
+    @Param('postId') postId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const userId = req.user.userId;
     return this.postsService.toggleSave(postId, userId);
   }
@@ -256,7 +299,10 @@ export class PostsController {
   // Get comments for a post — members of the post's community only.
   @UseGuards(AuthGuard('jwt'))
   @Get(':postId/comments')
-  getComments(@Param('postId') postId: string, @Req() req: AuthenticatedRequest) {
+  getComments(
+    @Param('postId') postId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     return this.postsService.getComments(postId, req.user.userId);
   }
 
@@ -269,8 +315,12 @@ export class PostsController {
     @Body() body: CreateCommentDto,
   ) {
     const userId = req.user.userId;
-    const comment = await this.postsService.createComment(postId, userId, body.content);
-    
+    const comment = await this.postsService.createComment(
+      postId,
+      userId,
+      body.content,
+    );
+
     // Send notification to post author. Skip when anonymized (Phase 5
     // Mission 2 — deleted account).
     if (comment.post && comment.post.authorId) {
@@ -283,14 +333,11 @@ export class PostsController {
 
       // Process @mentions in the comment. Fire-and-forget for the same
       // reason as notifyNewPost above.
-      this.notificationsService.processMentions(
-        body.content,
-        userId,
-        postId,
-        comment.post.communityId,
-      ).catch(() => {});
+      this.notificationsService
+        .processMentions(body.content, userId, postId, comment.post.communityId)
+        .catch(() => {});
     }
-    
+
     return comment;
   }
 
@@ -302,7 +349,12 @@ export class PostsController {
   @Get('link-preview')
   async getLinkPreview(@Query('url') url: string) {
     if (typeof url !== 'string' || url.length > 2048) {
-      return { url: String(url ?? ''), title: String(url ?? ''), description: null, image: null };
+      return {
+        url: String(url ?? ''),
+        title: String(url ?? ''),
+        description: null,
+        image: null,
+      };
     }
     return this.postsService.getLinkPreview(url);
   }
@@ -317,7 +369,13 @@ export class PostsController {
   ) {
     const userId = req.user.userId;
     const expiresAt = body.expiresAt ? new Date(body.expiresAt) : undefined;
-    return this.postsService.createPoll(postId, userId, body.question, body.options, expiresAt);
+    return this.postsService.createPoll(
+      postId,
+      userId,
+      body.question,
+      body.options,
+      expiresAt,
+    );
   }
 
   // Vote on a poll
@@ -337,7 +395,7 @@ export class PostsController {
   @Delete('polls/:pollId/vote')
   removeVote(
     @Param('pollId') pollId: string,
-    @Req() req: AuthenticatedRequest
+    @Req() req: AuthenticatedRequest,
   ) {
     const userId = req.user.userId;
     return this.postsService.removeVote(pollId, userId);
@@ -348,7 +406,7 @@ export class PostsController {
   @Delete('polls/:pollId')
   deletePoll(
     @Param('pollId') pollId: string,
-    @Req() req: AuthenticatedRequest
+    @Req() req: AuthenticatedRequest,
   ) {
     const userId = req.user.userId;
     return this.postsService.deletePoll(pollId, userId);

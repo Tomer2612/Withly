@@ -1,7 +1,20 @@
-import { Injectable, InternalServerErrorException, NotFoundException, ForbiddenException, BadRequestException, ConflictException, HttpException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  ConflictException,
+  HttpException,
+  Logger,
+} from '@nestjs/common';
 import { Prisma, CommunityStatus } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
-import { canManageCommunity, getEffectiveRole, type EffectiveRole } from '../common/community-roles.helper';
+import {
+  canManageCommunity,
+  getEffectiveRole,
+  type EffectiveRole,
+} from '../common/community-roles.helper';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailService } from '../email/email.service';
 import { HypService } from '../payments/hyp.service';
@@ -95,13 +108,13 @@ export class CommunitiesService {
         },
         include: {
           _count: {
-            select: { members: true }
-          }
-        }
+            select: { members: true },
+          },
+        },
       });
-      
+
       // +1 includes the owner, who has no community_members row after D2.
-      return communities.map(community => ({
+      return communities.map((community) => ({
         ...community,
         memberCount: community._count.members + 1,
       }));
@@ -149,8 +162,13 @@ export class CommunitiesService {
       // DRAFT communities are visible only to the owner and managers.
       // Use 404 (not 403) so we don't leak that the community exists.
       if (community.status === 'DRAFT') {
-        const isPrivileged = viewerUserId
-          && (await this.canViewDraft(community.id, community.ownerId, viewerUserId));
+        const isPrivileged =
+          viewerUserId &&
+          (await this.canViewDraft(
+            community.id,
+            community.ownerId,
+            viewerUserId,
+          ));
         if (!isPrivileged) {
           throw new NotFoundException('Community not found');
         }
@@ -229,8 +247,12 @@ export class CommunitiesService {
       }
 
       // Check if user has permission to edit (owner or manager)
-      if (!canManageCommunity(await getEffectiveRole(this.prisma, id, userId))) {
-        throw new ForbiddenException('Only owners and managers can update the community');
+      if (
+        !canManageCommunity(await getEffectiveRole(this.prisma, id, userId))
+      ) {
+        throw new ForbiddenException(
+          'Only owners and managers can update the community',
+        );
       }
 
       // Block edits when SUSPENDED, except payment-only updates (renewal flow).
@@ -309,7 +331,9 @@ export class CommunitiesService {
       if (status !== undefined) {
         // Validate against the enum so bad input surfaces as 400 instead of
         // a Prisma type error at query time (proper DTO validation lands with S10).
-        if (!Object.values(CommunityStatus).includes(status as CommunityStatus)) {
+        if (
+          !Object.values(CommunityStatus).includes(status as CommunityStatus)
+        ) {
           throw new BadRequestException(`Invalid status: ${status}`);
         }
         // Block PUBLIC → DRAFT (or PRIVATE → DRAFT) when there are non-owner
@@ -333,9 +357,9 @@ export class CommunitiesService {
         // haven't thought of. Every Withly community owner pays the
         // platform fee, so the rule is unconditional.
         if (
-          (status === 'PUBLIC' || status === 'PRIVATE')
-          && community.status === 'DRAFT'
-          && !community.paymentMethodId
+          (status === 'PUBLIC' || status === 'PRIVATE') &&
+          community.status === 'DRAFT' &&
+          !community.paymentMethodId
         ) {
           throw new ForbiddenException('PAYMENT_METHOD_REQUIRED');
         }
@@ -348,9 +372,9 @@ export class CommunitiesService {
       });
     } catch (err) {
       if (
-        err instanceof NotFoundException
-        || err instanceof ForbiddenException
-        || err instanceof BadRequestException
+        err instanceof NotFoundException ||
+        err instanceof ForbiddenException ||
+        err instanceof BadRequestException
       ) {
         throw err;
       }
@@ -364,7 +388,11 @@ export class CommunitiesService {
   // (handled at billing time by HYP). One change per month: if either
   // `pendingPriceEffectiveAt` is still in the future OR the last
   // announcement was less than 1 month ago, the call is rejected.
-  async announcePriceChange(idOrSlug: string, userId: string, newPrice: number) {
+  async announcePriceChange(
+    idOrSlug: string,
+    userId: string,
+    newPrice: number,
+  ) {
     if (!Number.isFinite(newPrice) || newPrice < 0 || newPrice > 1000) {
       throw new ForbiddenException('Invalid price');
     }
@@ -382,16 +410,20 @@ export class CommunitiesService {
       throw new NotFoundException('Community not found');
     }
     if (community.ownerId !== userId) {
-      throw new ForbiddenException('Only the owner can change the community price');
+      throw new ForbiddenException(
+        'Only the owner can change the community price',
+      );
     }
 
     const now = new Date();
     const pendingStillActive =
-      community.pendingPriceEffectiveAt && community.pendingPriceEffectiveAt > now;
+      community.pendingPriceEffectiveAt &&
+      community.pendingPriceEffectiveAt > now;
     const oneMonthAgo = new Date(now);
     oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
     const announcedRecently =
-      community.priceChangeAnnouncedAt && community.priceChangeAnnouncedAt > oneMonthAgo;
+      community.priceChangeAnnouncedAt &&
+      community.priceChangeAnnouncedAt > oneMonthAgo;
 
     if (pendingStillActive || announcedRecently) {
       throw new ForbiddenException('PRICE_CHANGE_RATE_LIMIT');
@@ -418,8 +450,17 @@ export class CommunitiesService {
     // back the DB transition. Owner is not a CommunityMember row, so
     // the existing query naturally excludes them (which is right —
     // the owner is the one who just announced the change).
-    void this.broadcastPriceChange(id, userId, updated.name, community.price ?? 0, newPrice, effectiveAt).catch((err) => {
-      this.logger.error(`Price change broadcast failed for community ${id}: ${(err as Error).message}`);
+    void this.broadcastPriceChange(
+      id,
+      userId,
+      updated.name,
+      community.price ?? 0,
+      newPrice,
+      effectiveAt,
+    ).catch((err) => {
+      this.logger.error(
+        `Price change broadcast failed for community ${id}: ${(err as Error).message}`,
+      );
     });
 
     return updated;
@@ -480,7 +521,9 @@ export class CommunitiesService {
     }
     await this.prisma.communityMember.updateMany({
       where: { userId, communityId },
-      data: { priceChangeSeenForEffectiveAt: community.pendingPriceEffectiveAt },
+      data: {
+        priceChangeSeenForEffectiveAt: community.pendingPriceEffectiveAt,
+      },
     });
     return { ok: true };
   }
@@ -500,7 +543,11 @@ export class CommunitiesService {
 
       const community = await this.prisma.community.findUnique({
         where: { id },
-        select: { ownerId: true, subscriptionStatus: true, nextBillingDate: true },
+        select: {
+          ownerId: true,
+          subscriptionStatus: true,
+          nextBillingDate: true,
+        },
       });
 
       if (!community) {
@@ -508,7 +555,9 @@ export class CommunitiesService {
       }
 
       if (community.ownerId !== userId) {
-        throw new ForbiddenException('Only the community owner can update payment info');
+        throw new ForbiddenException(
+          'Only the community owner can update payment info',
+        );
       }
 
       const updateData: Prisma.CommunityUpdateInput = {};
@@ -531,11 +580,12 @@ export class CommunitiesService {
           // the community only fully closes after the last member's period
           // ends. CANCELLED member subs are excluded (Mission 4.5 handles
           // their per-member age-out independently).
-          updateData.subscriptionCancelledAt = await this.computeCancellationEffectiveDate(
-            id,
-            data.subscriptionCancelledAt,
-            community.nextBillingDate,
-          );
+          updateData.subscriptionCancelledAt =
+            await this.computeCancellationEffectiveDate(
+              id,
+              data.subscriptionCancelledAt,
+              community.nextBillingDate,
+            );
         } else {
           clearingScheduledNotifications = true;
           updateData.subscriptionCancelledAt = null;
@@ -559,13 +609,15 @@ export class CommunitiesService {
       // Side-effects after successful write. Fire-and-forget — failures here
       // shouldn't roll back the state change.
       if (firingScheduledForSuspension) {
-        void this.notifyCommunityScheduledForSuspension(id, userId).catch(() => {});
+        void this.notifyCommunityScheduledForSuspension(id, userId).catch(
+          () => {},
+        );
         // Owner confirmation email (#8). Members get the popup +
         // notification separately. The owner gets the audit-trail email
         // here as their primary confirmation.
         // Use the persisted date (which may have been extended past
-         // data.subscriptionCancelledAt by computeCancellationEffectiveDate
-         // above) so the email shows the same date the cron will act on.
+        // data.subscriptionCancelledAt by computeCancellationEffectiveDate
+        // above) so the email shows the same date the cron will act on.
         if (updated.subscriptionCancelledAt) {
           void this.sendOwnerCancellationEmailSafely(
             id,
@@ -585,7 +637,10 @@ export class CommunitiesService {
 
       return updated;
     } catch (err) {
-      if (err instanceof NotFoundException || err instanceof ForbiddenException) {
+      if (
+        err instanceof NotFoundException ||
+        err instanceof ForbiddenException
+      ) {
         throw err;
       }
       throw new InternalServerErrorException('Could not update payment info');
@@ -597,7 +652,10 @@ export class CommunitiesService {
   // For the scheduled-suspension fanout we also skip recipients who already
   // have an unread notification of the same type on this community, so a
   // toggle storm of cancel/uncancel doesn't pile up duplicates in the bell.
-  private async notifyCommunityScheduledForSuspension(communityId: string, ownerId: string) {
+  private async notifyCommunityScheduledForSuspension(
+    communityId: string,
+    ownerId: string,
+  ) {
     const [memberships, alreadyNotified] = await Promise.all([
       this.prisma.communityMember.findMany({
         where: { communityId },
@@ -612,11 +670,20 @@ export class CommunitiesService {
         select: { recipientId: true },
       }),
     ]);
-    const skip = new Set([ownerId, ...alreadyNotified.map(n => n.recipientId)]);
+    const skip = new Set([
+      ownerId,
+      ...alreadyNotified.map((n) => n.recipientId),
+    ]);
     await Promise.all(
       memberships
-        .filter(m => !skip.has(m.userId))
-        .map(m => this.notificationsService.notifyCommunityScheduledForSuspension(m.userId, ownerId, communityId)),
+        .filter((m) => !skip.has(m.userId))
+        .map((m) =>
+          this.notificationsService.notifyCommunityScheduledForSuspension(
+            m.userId,
+            ownerId,
+            communityId,
+          ),
+        ),
     );
   }
 
@@ -649,7 +716,12 @@ export class CommunitiesService {
   async windDownOwnedCommunitiesForUserDelete(userId: string): Promise<number> {
     const owned = await this.prisma.community.findMany({
       where: { ownerId: userId },
-      select: { id: true, name: true, nextBillingDate: true, subscriptionCancelledAt: true },
+      select: {
+        id: true,
+        name: true,
+        nextBillingDate: true,
+        subscriptionCancelledAt: true,
+      },
     });
     if (owned.length === 0) return 0;
     const now = new Date();
@@ -695,7 +767,9 @@ export class CommunitiesService {
   // the accurate grace-end before the owner confirms. Resolves a slug or
   // id; throws NotFoundException if the community doesn't exist. Open to
   // any authenticated user (the cancel modal is frontend-gated to owners).
-  async getCancellationPreview(idOrSlug: string): Promise<{ effectiveDate: Date }> {
+  async getCancellationPreview(
+    idOrSlug: string,
+  ): Promise<{ effectiveDate: Date }> {
     const id = await this.resolveId(idOrSlug);
     const community = await this.prisma.community.findUnique({
       where: { id },
@@ -745,7 +819,8 @@ export class CommunitiesService {
     });
     const candidates: Date[] = [requestedDate];
     if (ownerNextBillingDate) candidates.push(ownerNextBillingDate);
-    if (memberMax._max.currentPeriodEnd) candidates.push(memberMax._max.currentPeriodEnd);
+    if (memberMax._max.currentPeriodEnd)
+      candidates.push(memberMax._max.currentPeriodEnd);
     return candidates.reduce((latest, d) => (d > latest ? d : latest));
   }
 
@@ -774,12 +849,16 @@ export class CommunitiesService {
       // build the SOFT charge if a retry is warranted, plus community
       // name for the merchant-report Info line.
       select: {
-        id: true, name: true, ownerId: true,
-        subscriptionStatus: true, paymentMethodId: true,
+        id: true,
+        name: true,
+        ownerId: true,
+        subscriptionStatus: true,
+        paymentMethodId: true,
         plan: { select: { monthlyPriceILS: true } },
         owner: {
           select: {
-            email: true, name: true,
+            email: true,
+            name: true,
             plan: { select: { monthlyPriceILS: true } },
           },
         },
@@ -789,7 +868,9 @@ export class CommunitiesService {
       throw new NotFoundException('Community not found');
     }
     if (community.ownerId !== userId) {
-      throw new ForbiddenException('Only the community owner can update payment info');
+      throw new ForbiddenException(
+        'Only the community owner can update payment info',
+      );
     }
 
     // Same card already bound? Caller surfaces a different toast.
@@ -818,23 +899,29 @@ export class CommunitiesService {
       chargeAttempted = true;
       const pmRow = await this.prisma.userPaymentMethod.findUnique({
         where: { id: paymentMethod.id },
-        select: { hypPaymentMethodId: true, cardExpMonth: true, cardExpYear: true },
+        select: {
+          hypPaymentMethodId: true,
+          cardExpMonth: true,
+          cardExpYear: true,
+        },
       });
-      const planPrice = community.plan?.monthlyPriceILS ?? community.owner?.plan?.monthlyPriceILS;
+      const planPrice =
+        community.plan?.monthlyPriceILS ??
+        community.owner?.plan?.monthlyPriceILS;
       if (
-        !pmRow?.hypPaymentMethodId
-        || pmRow.cardExpMonth == null
-        || pmRow.cardExpYear == null
-        || !planPrice
-        || !community.owner?.email
+        !pmRow?.hypPaymentMethodId ||
+        pmRow.cardExpMonth == null ||
+        pmRow.cardExpYear == null ||
+        !planPrice ||
+        !community.owner?.email
       ) {
         // Missing data needed for SOFT — log + leave the community
         // SUSPENDED. Card is still bound; owner can try a different
         // card or retry once data is fixed.
         this.logger.warn(
           `Recovery SOFT not attempted for community ${communityId}: missing data ` +
-          `(token=${!!pmRow?.hypPaymentMethodId} expM=${pmRow?.cardExpMonth} ` +
-          `expY=${pmRow?.cardExpYear} planPrice=${planPrice} email=${community.owner?.email})`,
+            `(token=${!!pmRow?.hypPaymentMethodId} expM=${pmRow?.cardExpMonth} ` +
+            `expY=${pmRow?.cardExpYear} planPrice=${planPrice} email=${community.owner?.email})`,
         );
         chargeOk = false;
       } else {
@@ -853,7 +940,9 @@ export class CommunitiesService {
           chargeCCode = result.ccode;
           chargeHypTxnId = result.body.Id ?? null;
         } catch (err) {
-          this.logger.error(`Recovery SOFT threw for community ${communityId}: ${(err as Error).message}`);
+          this.logger.error(
+            `Recovery SOFT threw for community ${communityId}: ${(err as Error).message}`,
+          );
           chargeOk = false;
         }
       }
@@ -959,7 +1048,9 @@ export class CommunitiesService {
         name: true,
         ownerId: true,
         plan: { select: { commissionBasisPoints: true } },
-        owner: { select: { plan: { select: { commissionBasisPoints: true } } } },
+        owner: {
+          select: { plan: { select: { commissionBasisPoints: true } } },
+        },
       },
     });
     const user = await this.prisma.user.findUnique({
@@ -991,7 +1082,12 @@ export class CommunitiesService {
     }
 
     if (!chargeResult.ok) {
-      return { ok: false, ccode: chargeResult.ccode, hypTxnId: null, alreadyActive: false };
+      return {
+        ok: false,
+        ccode: chargeResult.ccode,
+        hypTxnId: null,
+        alreadyActive: false,
+      };
     }
 
     const now = new Date();
@@ -1017,7 +1113,9 @@ export class CommunitiesService {
     await this.transactionsService.recordCharge({
       kind: 'MEMBER_MONTHLY',
       grossAmount: amount,
-      commissionBasisPoints: community.plan?.commissionBasisPoints ?? community.owner?.plan?.commissionBasisPoints,
+      commissionBasisPoints:
+        community.plan?.commissionBasisPoints ??
+        community.owner?.plan?.commissionBasisPoints,
       communityId,
       ownerId: community.ownerId,
       payerId: userId,
@@ -1108,8 +1206,12 @@ export class CommunitiesService {
     const pm = await this.prisma.userPaymentMethod.findUnique({
       where: { id: paymentMethodId },
       select: {
-        id: true, userId: true, cardLastFour: true, cardBrand: true,
-        cardExpMonth: true, cardExpYear: true,
+        id: true,
+        userId: true,
+        cardLastFour: true,
+        cardBrand: true,
+        cardExpMonth: true,
+        cardExpYear: true,
       },
     });
     if (!pm || pm.userId !== userId) {
@@ -1135,8 +1237,12 @@ export class CommunitiesService {
     const pm = await this.prisma.userPaymentMethod.findUnique({
       where: { id: paymentMethodId },
       select: {
-        id: true, userId: true, cardLastFour: true, cardBrand: true,
-        cardExpMonth: true, cardExpYear: true,
+        id: true,
+        userId: true,
+        cardLastFour: true,
+        cardBrand: true,
+        cardExpMonth: true,
+        cardExpYear: true,
       },
     });
     if (!pm || pm.userId !== userId) {
@@ -1178,7 +1284,9 @@ export class CommunitiesService {
       throw new NotFoundException('Pending checkout not found');
     }
     if (pending.userId !== userId) {
-      throw new ForbiddenException('Pending checkout belongs to a different user');
+      throw new ForbiddenException(
+        'Pending checkout belongs to a different user',
+      );
     }
 
     // Resolve the plan the owner picked at checkout (pending.planId). Pin it
@@ -1252,8 +1360,14 @@ export class CommunitiesService {
     // Owner welcome email — fire-and-forget. Includes the trial-end
     // date so the owner knows when the first SOFT charge (Phase 4)
     // will hit. Falls back to 1-month trial if plan join failed.
-    void this.sendOwnerWelcomeEmailSafely(userId, community.id, community.trialStartDate).catch((err) => {
-      this.logger.warn(`Welcome email failed (community=${community.id}): ${(err as Error).message}`);
+    void this.sendOwnerWelcomeEmailSafely(
+      userId,
+      community.id,
+      community.trialStartDate,
+    ).catch((err) => {
+      this.logger.warn(
+        `Welcome email failed (community=${community.id}): ${(err as Error).message}`,
+      );
     });
 
     return community;
@@ -1271,7 +1385,11 @@ export class CommunitiesService {
     const [user, community] = await Promise.all([
       this.prisma.user.findUnique({
         where: { id: userId },
-        select: { email: true, name: true, plan: { select: { trialLengthMonths: true } } },
+        select: {
+          email: true,
+          name: true,
+          plan: { select: { trialLengthMonths: true } },
+        },
       }),
       this.prisma.community.findUnique({
         where: { id: communityId },
@@ -1280,7 +1398,8 @@ export class CommunitiesService {
     ]);
     if (!user?.email) return;
     // Community plan wins; owner plan is the legacy fallback.
-    const trialMonths = community?.plan?.trialLengthMonths ?? user.plan?.trialLengthMonths ?? 1;
+    const trialMonths =
+      community?.plan?.trialLengthMonths ?? user.plan?.trialLengthMonths ?? 1;
     const start = trialStartDate ?? new Date();
     const trialEnd = new Date(start);
     trialEnd.setMonth(trialEnd.getMonth() + trialMonths);
@@ -1304,8 +1423,13 @@ export class CommunitiesService {
     const pm = await this.prisma.userPaymentMethod.findUnique({
       where: { id: paymentMethodId },
       select: {
-        id: true, userId: true, cardLastFour: true, cardBrand: true,
-        hypPaymentMethodId: true, cardExpMonth: true, cardExpYear: true,
+        id: true,
+        userId: true,
+        cardLastFour: true,
+        cardBrand: true,
+        hypPaymentMethodId: true,
+        cardExpMonth: true,
+        cardExpYear: true,
       },
     });
     if (!pm || pm.userId !== userId) {
@@ -1370,11 +1494,18 @@ export class CommunitiesService {
     const community = await this.prisma.community.findUnique({
       where: { id: communityId },
       select: {
-        id: true, name: true, ownerId: true, status: true,
-        price: true, pendingPrice: true,
-        subscriptionStatus: true, subscriptionCancelledAt: true,
+        id: true,
+        name: true,
+        ownerId: true,
+        status: true,
+        price: true,
+        pendingPrice: true,
+        subscriptionStatus: true,
+        subscriptionCancelledAt: true,
         plan: { select: { commissionBasisPoints: true } },
-        owner: { select: { plan: { select: { commissionBasisPoints: true } } } },
+        owner: {
+          select: { plan: { select: { commissionBasisPoints: true } } },
+        },
       },
     });
     if (!community) {
@@ -1484,7 +1615,9 @@ export class CommunitiesService {
     await this.transactionsService.recordCharge({
       kind: 'MEMBER_MONTHLY',
       grossAmount: amount,
-      commissionBasisPoints: community.plan?.commissionBasisPoints ?? community.owner?.plan?.commissionBasisPoints,
+      commissionBasisPoints:
+        community.plan?.commissionBasisPoints ??
+        community.owner?.plan?.commissionBasisPoints,
       communityId: community.id,
       ownerId: community.ownerId,
       payerId: userId,
@@ -1503,7 +1636,9 @@ export class CommunitiesService {
         formatHebrewDate(nextBillingDate),
       )
       .catch((err) => {
-        this.logger.warn(`Paid-joined email failed (user=${userId}): ${(err as Error).message}`);
+        this.logger.warn(
+          `Paid-joined email failed (user=${userId}): ${(err as Error).message}`,
+        );
       });
     // Owner gets the bell-icon notification — existing
     // notifyCommunityJoin handles the per-type prefs (owner can
@@ -1537,7 +1672,11 @@ export class CommunitiesService {
       select: { role: true, joinedAt: true },
     });
     if (!member) {
-      return { isMember: false, hasPaidSubscription: false, subscription: null };
+      return {
+        isMember: false,
+        hasPaidSubscription: false,
+        subscription: null,
+      };
     }
     // Find the most recent paid subscription if any. The cron's period-end
     // pass deletes CommunityMember rows but KEEPS MemberSubscription rows
@@ -1558,7 +1697,8 @@ export class CommunitiesService {
     return {
       isMember: true,
       role: member.role,
-      hasPaidSubscription: !!sub && (sub.status === 'ACTIVE' || sub.status === 'PAST_DUE'),
+      hasPaidSubscription:
+        !!sub && (sub.status === 'ACTIVE' || sub.status === 'PAST_DUE'),
       subscription: sub,
     };
   }
@@ -1645,15 +1785,24 @@ export class CommunitiesService {
     );
   }
 
-  private async notifyCommunityReactivated(communityId: string, ownerId: string) {
+  private async notifyCommunityReactivated(
+    communityId: string,
+    ownerId: string,
+  ) {
     const memberships = await this.prisma.communityMember.findMany({
       where: { communityId },
       select: { userId: true },
     });
     await Promise.all(
       memberships
-        .filter(m => m.userId !== ownerId)
-        .map(m => this.notificationsService.notifyCommunityReactivated(m.userId, ownerId, communityId)),
+        .filter((m) => m.userId !== ownerId)
+        .map((m) =>
+          this.notificationsService.notifyCommunityReactivated(
+            m.userId,
+            ownerId,
+            communityId,
+          ),
+        ),
     );
   }
 
@@ -1696,7 +1845,10 @@ export class CommunitiesService {
       // Block joins during pending-cancellation too. Existing members are
       // grandfathered until the suspension date; new joiners shouldn't sign
       // up just to get kicked next month.
-      if (community.subscriptionCancelledAt && community.subscriptionCancelledAt > new Date()) {
+      if (
+        community.subscriptionCancelledAt &&
+        community.subscriptionCancelledAt > new Date()
+      ) {
         throw new ForbiddenException('COMMUNITY_PENDING_SUSPENSION');
       }
 
@@ -1715,8 +1867,13 @@ export class CommunitiesService {
           if (isIndefinite) {
             throw new ForbiddenException('You are banned from this community.');
           }
-          const daysLeft = Math.ceil((activeBan.expiresAt!.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-          throw new ForbiddenException(`You are banned from this community. Ban expires in ${daysLeft} day(s).`);
+          const daysLeft = Math.ceil(
+            (activeBan.expiresAt!.getTime() - Date.now()) /
+              (1000 * 60 * 60 * 24),
+          );
+          throw new ForbiddenException(
+            `You are banned from this community. Ban expires in ${daysLeft} day(s).`,
+          );
         }
 
         // Expired time-limited ban — clean it up.
@@ -1733,7 +1890,11 @@ export class CommunitiesService {
       });
 
       if (existing) {
-        return { message: 'Already a member', isMember: true, role: existing.role };
+        return {
+          message: 'Already a member',
+          isMember: true,
+          role: existing.role,
+        };
       }
 
       // Add membership with USER role
@@ -1741,9 +1902,16 @@ export class CommunitiesService {
         data: { userId, communityId, role: 'USER' },
       });
 
-      return { message: 'Joined community', isMember: true, role: membership.role };
+      return {
+        message: 'Joined community',
+        isMember: true,
+        role: membership.role,
+      };
     } catch (err) {
-      if (err instanceof ForbiddenException || err instanceof NotFoundException) {
+      if (
+        err instanceof ForbiddenException ||
+        err instanceof NotFoundException
+      ) {
         throw err;
       }
       throw new InternalServerErrorException('Could not join community');
@@ -1753,7 +1921,7 @@ export class CommunitiesService {
   async leaveCommunity(communityIdOrSlug: string, userId: string) {
     try {
       const communityId = await this.resolveId(communityIdOrSlug);
-      
+
       // Check if community owner
       const community = await this.prisma.community.findUnique({
         where: { id: communityId },
@@ -1796,7 +1964,8 @@ export class CommunitiesService {
       }),
     ]);
 
-    const isBanned = !!ban && (ban.expiresAt === null || ban.expiresAt > new Date());
+    const isBanned =
+      !!ban && (ban.expiresAt === null || ban.expiresAt > new Date());
     const isOwner = !!community && community.ownerId === userId;
 
     if (isOwner) {
@@ -1839,11 +2008,16 @@ export class CommunitiesService {
       canDelete: false,
       canManageRoles: false,
       isBanned,
-      banReason: isBanned ? ban?.reason ?? null : null,
+      banReason: isBanned ? (ban?.reason ?? null) : null,
     };
   }
 
-  async updateMemberRole(communityIdOrSlug: string, targetUserId: string, newRole: 'MANAGER' | 'USER', requesterId: string) {
+  async updateMemberRole(
+    communityIdOrSlug: string,
+    targetUserId: string,
+    newRole: 'MANAGER' | 'USER',
+    requesterId: string,
+  ) {
     const communityId = await this.resolveId(communityIdOrSlug);
 
     const community = await this.prisma.community.findUnique({
@@ -1889,7 +2063,11 @@ export class CommunitiesService {
 
   // Remove a member and create an indefinite ban. The member can rejoin only
   // after an owner/manager calls liftBan (which deletes the ban row).
-  async removeMember(communityIdOrSlug: string, targetUserId: string, requesterId: string) {
+  async removeMember(
+    communityIdOrSlug: string,
+    targetUserId: string,
+    requesterId: string,
+  ) {
     const communityId = await this.resolveId(communityIdOrSlug);
 
     const community = await this.prisma.community.findUnique({
@@ -1912,10 +2090,13 @@ export class CommunitiesService {
       : await this.prisma.communityMember.findUnique({
           where: { userId_communityId: { userId: requesterId, communityId } },
         });
-    const requesterIsManager = !requesterIsOwner && requesterMembership?.role === 'MANAGER';
+    const requesterIsManager =
+      !requesterIsOwner && requesterMembership?.role === 'MANAGER';
 
     if (!requesterIsOwner && !requesterIsManager) {
-      throw new ForbiddenException('Only owners and managers can remove members');
+      throw new ForbiddenException(
+        'Only owners and managers can remove members',
+      );
     }
 
     await this.assertActive(communityId);
@@ -2003,7 +2184,9 @@ export class CommunitiesService {
           select: {
             ownerId: true,
             plan: { select: { commissionBasisPoints: true } },
-            owner: { select: { plan: { select: { commissionBasisPoints: true } } } },
+            owner: {
+              select: { plan: { select: { commissionBasisPoints: true } } },
+            },
           },
         },
       },
@@ -2023,7 +2206,8 @@ export class CommunitiesService {
     // Prorated refund = priceAtJoin * (remaining / total). Round to whole
     // shekels — HYP rejects non-integer amounts. If the rounding zeroes
     // out (e.g., last day of the period on a ₪5 sub), skip the refund.
-    const totalMs = sub.currentPeriodEnd.getTime() - sub.currentPeriodStart.getTime();
+    const totalMs =
+      sub.currentPeriodEnd.getTime() - sub.currentPeriodStart.getTime();
     const remainingMs = sub.currentPeriodEnd.getTime() - now.getTime();
     const refundAmount = Math.round(sub.priceAtJoin * (remainingMs / totalMs));
     if (refundAmount <= 0) {
@@ -2038,14 +2222,15 @@ export class CommunitiesService {
     // returns the full amount regardless of refundAmount — for a same-
     // day kick of a member who joined hours ago, this is the right call.
     // Otherwise (different day), zikoyAPI with the prorated amount.
-    const isSameDay =
-      sub.createdAt.toDateString() === now.toDateString();
+    const isSameDay = sub.createdAt.toDateString() === now.toDateString();
 
     let refundOk = false;
     let failureReason: string | null = null;
     try {
       if (isSameDay) {
-        const result = await this.hypService.cancelTransaction(sub.hypSubscriptionId);
+        const result = await this.hypService.cancelTransaction(
+          sub.hypSubscriptionId,
+        );
         refundOk = result.ok;
         if (!refundOk) failureReason = `CancelTrans CCode=${result.ccode}`;
       } else {
@@ -2077,7 +2262,9 @@ export class CommunitiesService {
       await this.transactionsService.recordCharge({
         kind: 'REFUND',
         grossAmount: isSameDay ? Math.round(sub.priceAtJoin) : refundAmount,
-        commissionBasisPoints: sub.community.plan?.commissionBasisPoints ?? sub.community.owner?.plan?.commissionBasisPoints,
+        commissionBasisPoints:
+          sub.community.plan?.commissionBasisPoints ??
+          sub.community.owner?.plan?.commissionBasisPoints,
         communityId,
         ownerId: sub.community.ownerId,
         payerId: kickedUserId,
@@ -2128,7 +2315,9 @@ export class CommunitiesService {
       throw new NotFoundException('Community not found');
     }
     if (community.ownerId !== userId) {
-      throw new ForbiddenException('Only the community owner can view the payment method');
+      throw new ForbiddenException(
+        'Only the community owner can view the payment method',
+      );
     }
     return { paymentMethod: community.paymentMethod };
   }
@@ -2149,15 +2338,33 @@ export class CommunitiesService {
       select: {
         ownerId: true,
         // Per-community plan wins; owner plan is the legacy fallback.
-        plan: { select: { monthlyPriceILS: true, commissionBasisPoints: true, trialLengthMonths: true } },
-        owner: { select: { plan: { select: { monthlyPriceILS: true, commissionBasisPoints: true, trialLengthMonths: true } } } },
+        plan: {
+          select: {
+            monthlyPriceILS: true,
+            commissionBasisPoints: true,
+            trialLengthMonths: true,
+          },
+        },
+        owner: {
+          select: {
+            plan: {
+              select: {
+                monthlyPriceILS: true,
+                commissionBasisPoints: true,
+                trialLengthMonths: true,
+              },
+            },
+          },
+        },
       },
     });
     if (!community) {
       throw new NotFoundException('Community not found');
     }
     if (community.ownerId !== userId) {
-      throw new ForbiddenException('Only the community owner can view earnings');
+      throw new ForbiddenException(
+        'Only the community owner can view earnings',
+      );
     }
 
     const effectivePlan = community.plan ?? community.owner?.plan ?? null;
@@ -2205,7 +2412,7 @@ export class CommunitiesService {
       select: { communityId: true, role: true },
     });
 
-    return memberships.map(m => m.communityId);
+    return memberships.map((m) => m.communityId);
   }
 
   async getUserCommunitiesWithDetails(userId: string) {
@@ -2236,7 +2443,10 @@ export class CommunitiesService {
     });
 
     // Combine and deduplicate
-    const communityMap = new Map<string, { id: string; name: string; slug: string | null; logo: string | null }>();
+    const communityMap = new Map<
+      string,
+      { id: string; name: string; slug: string | null; logo: string | null }
+    >();
 
     for (const m of memberships) {
       communityMap.set(m.community.id, m.community);
@@ -2256,10 +2466,17 @@ export class CommunitiesService {
   private async assertCanViewMemberList(communityId: string, viewerId: string) {
     const role = await getEffectiveRole(this.prisma, communityId, viewerId);
     if (!role) {
-      throw new ForbiddenException('Only community members can view the member list');
+      throw new ForbiddenException(
+        'Only community members can view the member list',
+      );
     }
-    if (MANAGERS_ONLY_MEMBER_LIST_COMMUNITY_IDS.has(communityId) && !canManageCommunity(role)) {
-      throw new ForbiddenException('The member list of this community is visible to its managers only');
+    if (
+      MANAGERS_ONLY_MEMBER_LIST_COMMUNITY_IDS.has(communityId) &&
+      !canManageCommunity(role)
+    ) {
+      throw new ForbiddenException(
+        'The member list of this community is visible to its managers only',
+      );
     }
   }
 
@@ -2324,11 +2541,14 @@ export class CommunitiesService {
           role: 'OWNER' as const,
           isOwner: true,
           isManager: false,
-          isOnline: isOnline(community.owner.lastActiveAt, community.owner.showOnline),
+          isOnline: isOnline(
+            community.owner.lastActiveAt,
+            community.owner.showOnline,
+          ),
         }
       : null;
 
-    const memberEntries = memberships.map(m => ({
+    const memberEntries = memberships.map((m) => ({
       ...m.user,
       joinedAt: m.joinedAt,
       role: m.role,
@@ -2347,7 +2567,11 @@ export class CommunitiesService {
   // and gated each row through a memberIds Set; this version delegates the
   // counting to the database via groupBy and applies the same Set filter
   // before scoring).
-  async getTopMembers(communityIdOrSlug: string, viewerId: string, limit: number = 3) {
+  async getTopMembers(
+    communityIdOrSlug: string,
+    viewerId: string,
+    limit: number = 3,
+  ) {
     const communityId = await this.resolveId(communityIdOrSlug);
     await this.assertCanViewMemberList(communityId, viewerId);
 
@@ -2369,8 +2593,8 @@ export class CommunitiesService {
     // leaderboard. Drop them from the candidate set.
     const memberIds = new Set<string>(
       community.ownerId
-        ? [community.ownerId, ...memberships.map(m => m.userId)]
-        : memberships.map(m => m.userId),
+        ? [community.ownerId, ...memberships.map((m) => m.userId)]
+        : memberships.map((m) => m.userId),
     );
 
     // Six independent aggregations — fan out concurrently.
@@ -2423,7 +2647,10 @@ export class CommunitiesService {
     // toward any live member's points.
     for (const row of postCounts) {
       if (row.authorId && memberIds.has(row.authorId)) {
-        pointsMap.set(row.authorId, (pointsMap.get(row.authorId) ?? 0) + row._count._all * 5);
+        pointsMap.set(
+          row.authorId,
+          (pointsMap.get(row.authorId) ?? 0) + row._count._all * 5,
+        );
       }
     }
 
@@ -2433,7 +2660,10 @@ export class CommunitiesService {
     ) => {
       for (const row of rows) {
         if (row.userId && memberIds.has(row.userId)) {
-          pointsMap.set(row.userId, (pointsMap.get(row.userId) ?? 0) + row._count._all * multiplier);
+          pointsMap.set(
+            row.userId,
+            (pointsMap.get(row.userId) ?? 0) + row._count._all * multiplier,
+          );
         }
       }
     };
@@ -2455,7 +2685,7 @@ export class CommunitiesService {
       where: { id: { in: userIds } },
       select: { id: true, name: true, profileImage: true },
     });
-    const userMap = new Map(users.map(u => [u.id, u]));
+    const userMap = new Map(users.map((u) => [u.id, u]));
 
     return sortedMembers.map(([userId, points], index) => {
       const user = userMap.get(userId);
@@ -2472,18 +2702,21 @@ export class CommunitiesService {
   async getBannedUsers(communityIdOrSlug: string, requesterId: string) {
     const communityId = await this.resolveId(communityIdOrSlug);
 
-    if (!canManageCommunity(await getEffectiveRole(this.prisma, communityId, requesterId))) {
-      throw new ForbiddenException('Only owners and managers can view banned users');
+    if (
+      !canManageCommunity(
+        await getEffectiveRole(this.prisma, communityId, requesterId),
+      )
+    ) {
+      throw new ForbiddenException(
+        'Only owners and managers can view banned users',
+      );
     }
 
     // Get all active bans — indefinite (expiresAt null) OR not-yet-expired.
     const bans = await this.prisma.communityBan.findMany({
       where: {
         communityId,
-        OR: [
-          { expiresAt: null },
-          { expiresAt: { gt: new Date() } },
-        ],
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
       },
       include: {
         user: {
@@ -2497,7 +2730,7 @@ export class CommunitiesService {
       orderBy: { bannedAt: 'desc' },
     });
 
-    return bans.map(ban => ({
+    return bans.map((ban) => ({
       id: ban.id,
       userId: ban.userId,
       user: ban.user,
@@ -2505,7 +2738,9 @@ export class CommunitiesService {
       bannedAt: ban.bannedAt,
       expiresAt: ban.expiresAt,
       daysLeft: ban.expiresAt
-        ? Math.ceil((ban.expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        ? Math.ceil(
+            (ban.expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+          )
         : null,
     }));
   }
@@ -2513,7 +2748,11 @@ export class CommunitiesService {
   async liftBan(communityIdOrSlug: string, banId: string, requesterId: string) {
     const communityId = await this.resolveId(communityIdOrSlug);
 
-    if (!canManageCommunity(await getEffectiveRole(this.prisma, communityId, requesterId))) {
+    if (
+      !canManageCommunity(
+        await getEffectiveRole(this.prisma, communityId, requesterId),
+      )
+    ) {
       throw new ForbiddenException('Only owners and managers can lift bans');
     }
 
@@ -2534,7 +2773,11 @@ export class CommunitiesService {
     });
 
     // Return the unbanned userId so the caller can fire a notification.
-    return { message: 'Ban lifted successfully', unbannedUserId: ban.userId, communityId };
+    return {
+      message: 'Ban lifted successfully',
+      unbannedUserId: ban.userId,
+      communityId,
+    };
   }
 
   async getCommunityManagers(communityIdOrSlug: string) {
@@ -2565,15 +2808,17 @@ export class CommunitiesService {
     // Owner row omitted when the owner deleted their account (Phase 5
     // Mission 4 wind-down) — no person to attribute the OWNER role to.
     const ownerRow = community.owner
-      ? [{
-          id: community.owner.id,
-          name: community.owner.name,
-          role: 'OWNER' as const,
-        }]
+      ? [
+          {
+            id: community.owner.id,
+            name: community.owner.name,
+            role: 'OWNER' as const,
+          },
+        ]
       : [];
     return [
       ...ownerRow,
-      ...managers.map(m => ({
+      ...managers.map((m) => ({
         id: m.user.id,
         name: m.user.name,
         role: m.role,
@@ -2583,7 +2828,7 @@ export class CommunitiesService {
 
   async getOnlineMembersCount(communityIdOrSlug: string) {
     const communityId = await this.resolveId(communityIdOrSlug);
-    
+
     // Consider users "online" if they were active in the last 5 minutes AND showOnline is true
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 
@@ -2603,10 +2848,14 @@ export class CommunitiesService {
     return { onlineCount };
   }
 
-  async updateRules(communityIdOrSlug: string, userId: string, rules: string[]) {
+  async updateRules(
+    communityIdOrSlug: string,
+    userId: string,
+    rules: string[],
+  ) {
     try {
       const communityId = await this.resolveId(communityIdOrSlug);
-      
+
       const community = await this.prisma.community.findUnique({
         where: { id: communityId },
       });
@@ -2616,8 +2865,14 @@ export class CommunitiesService {
       }
 
       // Check if user has permission (owner or manager)
-      if (!canManageCommunity(await getEffectiveRole(this.prisma, communityId, userId))) {
-        throw new ForbiddenException('Only owners and managers can update community rules');
+      if (
+        !canManageCommunity(
+          await getEffectiveRole(this.prisma, communityId, userId),
+        )
+      ) {
+        throw new ForbiddenException(
+          'Only owners and managers can update community rules',
+        );
       }
 
       await this.assertActive(communityId);
@@ -2627,16 +2882,21 @@ export class CommunitiesService {
         data: { rules },
       });
     } catch (err) {
-      if (err instanceof NotFoundException || err instanceof ForbiddenException) {
+      if (
+        err instanceof NotFoundException ||
+        err instanceof ForbiddenException
+      ) {
         throw err;
       }
-      throw new InternalServerErrorException('Could not update community rules');
+      throw new InternalServerErrorException(
+        'Could not update community rules',
+      );
     }
   }
 
   async getRules(communityIdOrSlug: string) {
     const communityId = await this.resolveId(communityIdOrSlug);
-    
+
     const community = await this.prisma.community.findUnique({
       where: { id: communityId },
       select: { rules: true },
@@ -2675,7 +2935,10 @@ export class CommunitiesService {
   }
 
   // Check if a slug is available
-  async isSlugAvailable(slug: string, excludeCommunityId?: string): Promise<boolean> {
+  async isSlugAvailable(
+    slug: string,
+    excludeCommunityId?: string,
+  ): Promise<boolean> {
     const existing = await this.prisma.community.findUnique({
       where: { slug },
       select: { id: true },
@@ -2708,7 +2971,9 @@ export class CommunitiesService {
     // Validate slug format (only lowercase letters, numbers, hyphens)
     const slugRegex = /^[a-z0-9-]+$/;
     if (!slugRegex.test(slug)) {
-      throw new ForbiddenException('Slug can only contain lowercase letters, numbers, and hyphens');
+      throw new ForbiddenException(
+        'Slug can only contain lowercase letters, numbers, and hyphens',
+      );
     }
 
     if (slug.length < 3 || slug.length > 50) {

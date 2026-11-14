@@ -33,20 +33,24 @@ async function bootstrap() {
   // - transform applies @Type() conversions (e.g. multipart string -> number)
   // - transformOptions.enableImplicitConversion casts primitive query
   //   params (string '5' -> number 5) without an explicit @Type
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    forbidNonWhitelisted: true,
-    transform: true,
-    transformOptions: { enableImplicitConversion: true },
-  }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
+    }),
+  );
 
   // Helmet sets security-hardening response headers (X-Frame-Options,
   // X-Content-Type-Options, HSTS, default CSP, etc). Override the default
   // Cross-Origin-Resource-Policy so /uploads/* served from the API origin
   // can be loaded by the frontend at a different port/origin.
-  app.use(helmet({
-    crossOriginResourcePolicy: { policy: 'cross-origin' },
-  }));
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
 
   // Enable CORS first (before static assets)
   app.enableCors({
@@ -55,16 +59,16 @@ async function bootstrap() {
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
-  
+
   // Serve static files with CORS headers
-  app.useStaticAssets('uploads', { 
+  app.useStaticAssets('uploads', {
     prefix: '/uploads',
     setHeaders: (res: Response) => {
       res.set('Access-Control-Allow-Origin', '*');
       res.set('Access-Control-Allow-Methods', 'GET');
-    }
+    },
   });
-  
+
   await app.listen(4000);
 }
 // A failed startup must exit non-zero (so pm2 / the deploy notices) rather
@@ -73,4 +77,3 @@ bootstrap().catch((err) => {
   console.error('Failed to start the server:', err);
   process.exit(1);
 });
-

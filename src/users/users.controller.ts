@@ -1,4 +1,21 @@
-import { Controller, Get, Post, Put, Patch, Delete, UseGuards, Req, Res, UseInterceptors, UploadedFiles, Body, BadRequestException, Param, NotFoundException, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Patch,
+  Delete,
+  UseGuards,
+  Req,
+  Res,
+  UseInterceptors,
+  UploadedFiles,
+  Body,
+  BadRequestException,
+  Param,
+  NotFoundException,
+  Query,
+} from '@nestjs/common';
 import type { AuthenticatedRequest } from '../common/authenticated-request';
 import type { Response, Request } from 'express';
 import { clearAuthCookies } from '../auth/cookies.helper';
@@ -32,7 +49,10 @@ export class UsersController {
   // Search users by name for @mentions - MUST be before :userId routes
   @UseGuards(AuthGuard('jwt'))
   @Get('search')
-  async searchUsersByName(@Query('q') q: string, @Req() req: AuthenticatedRequest) {
+  async searchUsersByName(
+    @Query('q') q: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     return this.usersService.searchUsersByName(q || '', req.user.userId);
   }
 
@@ -54,18 +74,38 @@ export class UsersController {
 
   @UseGuards(AuthGuard('jwt'))
   @Patch('me')
-  @UseInterceptors(FileFieldsInterceptor([
-    { name: 'profileImage', maxCount: 1 },
-    { name: 'coverImage', maxCount: 1 },
-  ], { storage, fileFilter: imageFileFilter }))
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'profileImage', maxCount: 1 },
+        { name: 'coverImage', maxCount: 1 },
+      ],
+      { storage, fileFilter: imageFileFilter },
+    ),
+  )
   async updateProfile(
     @Req() req: AuthenticatedRequest,
     @Body() body: UpdateProfileDto,
-    @UploadedFiles() files?: { profileImage?: Express.Multer.File[]; coverImage?: Express.Multer.File[] },
+    @UploadedFiles()
+    files?: {
+      profileImage?: Express.Multer.File[];
+      coverImage?: Express.Multer.File[];
+    },
   ) {
-    const profileImage = files?.profileImage?.[0] ? await this.storageService.uploadFile(files.profileImage[0], 'profiles') : undefined;
-    const coverImage = files?.coverImage?.[0] ? await this.storageService.uploadFile(files.coverImage[0], 'profiles') : undefined;
-    const user = await this.usersService.updateProfile(req.user.userId, body.name, profileImage, coverImage, body.bio, body.location);
+    const profileImage = files?.profileImage?.[0]
+      ? await this.storageService.uploadFile(files.profileImage[0], 'profiles')
+      : undefined;
+    const coverImage = files?.coverImage?.[0]
+      ? await this.storageService.uploadFile(files.coverImage[0], 'profiles')
+      : undefined;
+    const user = await this.usersService.updateProfile(
+      req.user.userId,
+      body.name,
+      profileImage,
+      coverImage,
+      body.bio,
+      body.location,
+    );
     return {
       userId: user?.id,
       email: user?.email,
@@ -85,8 +125,14 @@ export class UsersController {
 
   @UseGuards(AuthGuard('jwt'))
   @Patch('me/online-status')
-  async toggleOnlineStatus(@Req() req: AuthenticatedRequest, @Body() body: ToggleOnlineStatusDto) {
-    return this.usersService.toggleOnlineStatus(req.user.userId, body.showOnline);
+  async toggleOnlineStatus(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: ToggleOnlineStatusDto,
+  ) {
+    return this.usersService.toggleOnlineStatus(
+      req.user.userId,
+      body.showOnline,
+    );
   }
 
   // Owner payout bank account (per-owner; used for monthly payout transfers).
@@ -98,7 +144,10 @@ export class UsersController {
 
   @UseGuards(AuthGuard('jwt'))
   @Put('me/bank-account')
-  async saveBankAccount(@Req() req: AuthenticatedRequest, @Body() body: SaveBankAccountDto) {
+  async saveBankAccount(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: SaveBankAccountDto,
+  ) {
     return this.usersService.saveBankAccount(req.user.userId, body);
   }
 
@@ -114,7 +163,10 @@ export class UsersController {
     @Req() req: AuthenticatedRequest,
     @Body() body: UpdateNotificationPreferencesDto,
   ) {
-    return this.usersService.updateNotificationPreferences(req.user.userId, body);
+    return this.usersService.updateNotificationPreferences(
+      req.user.userId,
+      body,
+    );
   }
 
   @UseGuards(AuthGuard('jwt'))
@@ -124,13 +176,20 @@ export class UsersController {
     @Body() body: ChangePasswordDto,
   ) {
     // ValidationPipe already enforces presence + min length 6 on newPassword.
-    await this.usersService.changePassword(req.user.userId, body.currentPassword, body.newPassword);
+    await this.usersService.changePassword(
+      req.user.userId,
+      body.currentPassword,
+      body.newPassword,
+    );
     return { message: 'Password changed successfully' };
   }
 
   @UseGuards(AuthGuard('jwt'))
   @Delete('me')
-  async deleteAccount(@Req() req: AuthenticatedRequest, @Res({ passthrough: true }) res: Response) {
+  async deleteAccount(
+    @Req() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const result = await this.usersService.deleteAccount(req.user.userId);
     // Clear auth cookies on the response so the browser drops both the
     // (now-rejected) access token and the (cascade-deleted) refresh token.
@@ -156,13 +215,19 @@ export class UsersController {
   // user viewing their own profile (sees DRAFT/PRIVATE/SUSPENDED/pending);
   // outside viewers only see fully-public, active, non-cancelled rows.
   @Get(':userId/communities/created')
-  async getCreatedCommunities(@Param('userId') userId: string, @Req() req: Request) {
+  async getCreatedCommunities(
+    @Param('userId') userId: string,
+    @Req() req: Request,
+  ) {
     const viewerUserId = getUserIdFromRequest(req);
     return this.usersService.getCreatedCommunities(userId, viewerUserId);
   }
 
   @Get(':userId/communities/member')
-  async getMemberCommunities(@Param('userId') userId: string, @Req() req: Request) {
+  async getMemberCommunities(
+    @Param('userId') userId: string,
+    @Req() req: Request,
+  ) {
     const viewerUserId = getUserIdFromRequest(req);
     return this.usersService.getMemberCommunities(userId, viewerUserId);
   }
@@ -176,29 +241,38 @@ export class UsersController {
   // Follow a user
   @UseGuards(AuthGuard('jwt'))
   @Post(':userId/follow')
-  async followUser(@Req() req: AuthenticatedRequest, @Param('userId') userId: string) {
+  async followUser(
+    @Req() req: AuthenticatedRequest,
+    @Param('userId') userId: string,
+  ) {
     if (req.user.userId === userId) {
       throw new BadRequestException('Cannot follow yourself');
     }
     const result = await this.usersService.followUser(req.user.userId, userId);
-    
+
     // Send follow notification
     await this.notificationsService.notifyFollow(userId, req.user.userId);
-    
+
     return result;
   }
 
   // Unfollow a user
   @UseGuards(AuthGuard('jwt'))
   @Delete(':userId/follow')
-  async unfollowUser(@Req() req: AuthenticatedRequest, @Param('userId') userId: string) {
+  async unfollowUser(
+    @Req() req: AuthenticatedRequest,
+    @Param('userId') userId: string,
+  ) {
     return this.usersService.unfollowUser(req.user.userId, userId);
   }
 
   // Check if current user follows a specific user
   @UseGuards(AuthGuard('jwt'))
   @Get(':userId/is-following')
-  async isFollowing(@Req() req: AuthenticatedRequest, @Param('userId') userId: string) {
+  async isFollowing(
+    @Req() req: AuthenticatedRequest,
+    @Param('userId') userId: string,
+  ) {
     return this.usersService.isFollowing(req.user.userId, userId);
   }
 
@@ -224,13 +298,19 @@ export class UsersController {
 
   @UseGuards(AuthGuard('jwt'))
   @Delete('me/payment-methods/:id')
-  async deletePaymentMethod(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
+  async deletePaymentMethod(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
     return this.usersService.deletePaymentMethod(req.user.userId, id);
   }
 
   @UseGuards(AuthGuard('jwt'))
   @Patch('me/payment-methods/:id/set-primary')
-  async setPrimaryPaymentMethod(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
+  async setPrimaryPaymentMethod(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
     return this.usersService.setPrimaryPaymentMethod(req.user.userId, id);
   }
 

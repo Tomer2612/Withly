@@ -1,4 +1,11 @@
-import { Injectable, UnauthorizedException, ForbiddenException, InternalServerErrorException, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ForbiddenException,
+  InternalServerErrorException,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { EmailService } from '../email/email.service';
 import { PlansService } from '../plans/plans.service';
@@ -44,7 +51,11 @@ export class AuthService {
 
       // Send verification email - don't fail signup if email fails
       try {
-        await this.emailService.sendVerificationEmail(email, name, verificationToken);
+        await this.emailService.sendVerificationEmail(
+          email,
+          name,
+          verificationToken,
+        );
       } catch {
         // Email send failed, continue with signup
       }
@@ -84,7 +95,12 @@ export class AuthService {
     return !!user;
   }
 
-  async loginWithGoogle(googleUser: { email: string; name: string; picture: string | null; provider: string }) {
+  async loginWithGoogle(googleUser: {
+    email: string;
+    name: string;
+    picture: string | null;
+    provider: string;
+  }) {
     // Check if user already exists with this email
     const existingUser = await this.prisma.user.findUnique({
       where: { email: googleUser.email },
@@ -134,7 +150,10 @@ export class AuthService {
       throw new BadRequestException('Invalid verification token');
     }
 
-    if (user.emailVerificationExpires && user.emailVerificationExpires < new Date()) {
+    if (
+      user.emailVerificationExpires &&
+      user.emailVerificationExpires < new Date()
+    ) {
       throw new BadRequestException('Verification token has expired');
     }
 
@@ -175,7 +194,11 @@ export class AuthService {
       },
     });
 
-    await this.emailService.sendVerificationEmail(email, user.name, verificationToken);
+    await this.emailService.sendVerificationEmail(
+      email,
+      user.name,
+      verificationToken,
+    );
 
     return { message: 'Verification email sent' };
   }
@@ -207,7 +230,11 @@ export class AuthService {
       },
     });
 
-    await this.emailService.sendPasswordResetEmail(email, user.name, resetToken);
+    await this.emailService.sendPasswordResetEmail(
+      email,
+      user.name,
+      resetToken,
+    );
 
     return { message: 'If the email exists, a reset link has been sent' };
   }
@@ -240,7 +267,12 @@ export class AuthService {
     return { message: 'Password reset successfully' };
   }
 
-  async sendContactForm(name: string, email: string, subject: string, message: string) {
+  async sendContactForm(
+    name: string,
+    email: string,
+    subject: string,
+    message: string,
+  ) {
     try {
       await this.emailService.sendContactEmail(name, email, subject, message);
     } catch {
@@ -259,7 +291,9 @@ export class AuthService {
   // Refresh tokens are random 32-byte values stored in DB by sha256 hash so
   // a leaked DB doesn't yield usable tokens. sha256 (not bcrypt) because the
   // input is already high-entropy random — slow hashing buys nothing.
-  private async createRefreshToken(userId: string): Promise<{ id: string; token: string }> {
+  private async createRefreshToken(
+    userId: string,
+  ): Promise<{ id: string; token: string }> {
     const token = crypto.randomBytes(32).toString('hex');
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -269,14 +303,22 @@ export class AuthService {
     return { id: row.id, token };
   }
 
-  async issueTokens(userId: string, email: string): Promise<{ accessToken: string; refreshToken: string }> {
+  async issueTokens(
+    userId: string,
+    email: string,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     const accessToken = this.signAccessToken(userId, email);
     const { token: refreshToken } = await this.createRefreshToken(userId);
     return { accessToken, refreshToken };
   }
 
-  async refreshTokens(submitted: string): Promise<{ accessToken: string; refreshToken: string }> {
-    const tokenHash = crypto.createHash('sha256').update(submitted).digest('hex');
+  async refreshTokens(
+    submitted: string,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(submitted)
+      .digest('hex');
     const row = await this.prisma.refreshToken.findUnique({
       where: { tokenHash },
       include: { user: { select: { id: true, email: true } } },
@@ -307,7 +349,9 @@ export class AuthService {
         where: { id: row.replacedById },
         select: { createdAt: true, revokedAt: true },
       });
-      const within = replacement && !replacement.revokedAt &&
+      const within =
+        replacement &&
+        !replacement.revokedAt &&
         Date.now() - replacement.createdAt.getTime() < REUSE_GRACE_MS;
       if (!within) {
         // Genuine reuse — burn every active token for this user.
@@ -326,7 +370,9 @@ export class AuthService {
       throw new UnauthorizedException('Refresh token expired');
     }
 
-    const { id: newId, token: newToken } = await this.createRefreshToken(row.userId);
+    const { id: newId, token: newToken } = await this.createRefreshToken(
+      row.userId,
+    );
     await this.prisma.refreshToken.update({
       where: { id: row.id },
       data: { revokedAt: new Date(), replacedById: newId },
@@ -340,7 +386,10 @@ export class AuthService {
 
   async logout(submitted: string | undefined): Promise<void> {
     if (!submitted) return;
-    const tokenHash = crypto.createHash('sha256').update(submitted).digest('hex');
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(submitted)
+      .digest('hex');
     await this.prisma.refreshToken.updateMany({
       where: { tokenHash, revokedAt: null },
       data: { revokedAt: new Date() },

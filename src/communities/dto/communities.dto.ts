@@ -1,4 +1,13 @@
-import { IsArray, IsIn, IsOptional, IsString, Matches, MaxLength, MinLength, ArrayMaxSize } from 'class-validator';
+import {
+  IsArray,
+  IsIn,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+  ArrayMaxSize,
+} from 'class-validator';
 
 const URL_MAX = 500;
 // Empty string clears the field; anything else must be an http(s) URL so a
@@ -14,19 +23,29 @@ const socialUrlOrEmpty = (domains: string[]) =>
   );
 const YOUTUBE_URL_OR_EMPTY = socialUrlOrEmpty(['youtube.com', 'youtu.be']);
 const WHATSAPP_URL_OR_EMPTY = socialUrlOrEmpty(['whatsapp.com', 'wa.me']);
-const FACEBOOK_URL_OR_EMPTY = socialUrlOrEmpty(['facebook.com', 'fb.com', 'fb.me']);
-const INSTAGRAM_URL_OR_EMPTY = socialUrlOrEmpty(['instagram.com', 'instagr.am']);
+const FACEBOOK_URL_OR_EMPTY = socialUrlOrEmpty([
+  'facebook.com',
+  'fb.com',
+  'fb.me',
+]);
+const INSTAGRAM_URL_OR_EMPTY = socialUrlOrEmpty([
+  'instagram.com',
+  'instagr.am',
+]);
 const LINKEDIN_URL_OR_EMPTY = socialUrlOrEmpty(['linkedin.com']);
 
 // Applies the max length + platform check to one social-link field.
-const SocialUrl = (pattern: RegExp, platform: string): PropertyDecorator =>
+const SocialUrl =
+  (pattern: RegExp, platform: string): PropertyDecorator =>
   (target, key) => {
     IsOptional()(target, key);
     IsString()(target, key);
     MaxLength(URL_MAX)(target, key);
-    Matches(pattern, { message: `${String(key)} must be a ${platform} link` })(target, key);
+    Matches(pattern, { message: `${String(key)} must be a ${platform} link` })(
+      target,
+      key,
+    );
   };
-
 
 // Existing-card flows (Phase 3.3+): the user picked a card from their
 // wallet instead of tokenizing a new one through HYP. The id is the
@@ -99,8 +118,12 @@ export class UpdateCommunityDto {
   @SocialUrl(FACEBOOK_URL_OR_EMPTY, 'Facebook') facebookUrl?: string;
   @SocialUrl(INSTAGRAM_URL_OR_EMPTY, 'Instagram') instagramUrl?: string;
   @SocialUrl(LINKEDIN_URL_OR_EMPTY, 'LinkedIn') linkedinUrl?: string;
-  @IsOptional() @IsString() @MaxLength(URL_MAX)
-  @Matches(HTTP_URL_OR_EMPTY, { message: 'customLinkUrl must start with http:// or https://' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(URL_MAX)
+  @Matches(HTTP_URL_OR_EMPTY, {
+    message: 'customLinkUrl must start with http:// or https://',
+  })
   customLinkUrl?: string;
   @IsOptional() @IsString() @MaxLength(20) customLinkLabel?: string;
 

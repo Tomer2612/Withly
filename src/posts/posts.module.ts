@@ -7,6 +7,6 @@ import { CommunitiesModule } from '../communities/communities.module';
 @Module({
   providers: [PostsService],
   controllers: [PostsController],
-  imports: [NotificationsModule, CommunitiesModule]
+  imports: [NotificationsModule, CommunitiesModule],
 })
 export class PostsModule {}

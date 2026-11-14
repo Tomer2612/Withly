@@ -1,8 +1,17 @@
-import { Injectable, InternalServerErrorException, NotFoundException, ForbiddenException, HttpException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+  ForbiddenException,
+  HttpException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { CommunitiesService } from '../communities/communities.service';
-import { canManageCommunity, getEffectiveRole } from '../common/community-roles.helper';
+import {
+  canManageCommunity,
+  getEffectiveRole,
+} from '../common/community-roles.helper';
 import { FileAttachment } from '../common/file-attachment.type';
 import { fetchPublicHtml } from '../common/safe-fetch';
 
@@ -14,19 +23,22 @@ export class PostsService {
   ) {}
 
   async create(
-    content: string, 
-    authorId: string, 
-    communityIdOrSlug: string, 
-    title?: string, 
+    content: string,
+    authorId: string,
+    communityIdOrSlug: string,
+    title?: string,
     images?: string[],
     files?: FileAttachment[],
     links?: string[],
     category?: string,
-    videos?: string[]
+    videos?: string[],
   ) {
     try {
       // Members only (also resolves a slug to the real community id).
-      const { communityId } = await this.communitiesService.assertMember(communityIdOrSlug, authorId);
+      const { communityId } = await this.communitiesService.assertMember(
+        communityIdOrSlug,
+        authorId,
+      );
 
       await this.communitiesService.assertActive(communityId);
 
@@ -40,7 +52,7 @@ export class PostsService {
           links: links || [],
           category,
           authorId,
-          communityId
+          communityId,
         },
         include: {
           author: {
@@ -65,7 +77,10 @@ export class PostsService {
 
   // Called by the controller BEFORE it uploads a new post's attachments, so a
   // non-member's files never reach storage. create() re-checks on its own.
-  async assertCanPost(communityIdOrSlug: string, userId: string): Promise<void> {
+  async assertCanPost(
+    communityIdOrSlug: string,
+    userId: string,
+  ): Promise<void> {
     await this.communitiesService.assertMember(communityIdOrSlug, userId);
   }
 
@@ -74,13 +89,16 @@ export class PostsService {
   // the viewer's own poll vote.
   async findByCommunity(communityIdOrSlug: string, userId: string) {
     // Members only (also resolves a slug to the real community id).
-    const { communityId } = await this.communitiesService.assertMember(communityIdOrSlug, userId);
+    const { communityId } = await this.communitiesService.assertMember(
+      communityIdOrSlug,
+      userId,
+    );
 
     const posts = await this.prisma.post.findMany({
       where: { communityId },
       orderBy: [
-        { isPinned: 'desc' },  // Pinned posts first
-        { pinnedAt: 'desc' },  // Most recently pinned first among pinned
+        { isPinned: 'desc' }, // Pinned posts first
+        { pinnedAt: 'desc' }, // Most recently pinned first among pinned
         { createdAt: 'desc' }, // Then by creation date
       ],
       include: {
@@ -90,14 +108,18 @@ export class PostsService {
         _count: {
           select: { likes: true, comments: true, savedBy: true },
         },
-        likes: userId ? {
-          where: { userId },
-          select: { id: true },
-        } : false,
-        savedBy: userId ? {
-          where: { userId },
-          select: { id: true },
-        } : false,
+        likes: userId
+          ? {
+              where: { userId },
+              select: { id: true },
+            }
+          : false,
+        savedBy: userId
+          ? {
+              where: { userId },
+              select: { id: true },
+            }
+          : false,
         poll: {
           include: {
             options: {
@@ -106,10 +128,12 @@ export class PostsService {
                 _count: {
                   select: { votes: true },
                 },
-                votes: userId ? {
-                  where: { userId: userId },
-                  select: { id: true },
-                } : false,
+                votes: userId
+                  ? {
+                      where: { userId: userId },
+                      select: { id: true },
+                    }
+                  : false,
               },
             },
           },
@@ -118,7 +142,7 @@ export class PostsService {
     });
 
     // Transform to include isLiked and isSaved booleans
-    return posts.map(post => {
+    return posts.map((post) => {
       // Transform poll data if exists
       let pollData: {
         id: string;
@@ -126,31 +150,48 @@ export class PostsService {
         expiresAt: Date | null;
         totalVotes: number;
         userVotedOptionId: string | null;
-        options: { id: string; text: string; votes: number; percentage: number }[];
+        options: {
+          id: string;
+          text: string;
+          votes: number;
+          percentage: number;
+        }[];
       } | null = null;
       if (post.poll) {
-        const totalVotes = post.poll.options.reduce((sum, opt) => sum + (opt._count?.votes || 0), 0);
+        const totalVotes = post.poll.options.reduce(
+          (sum, opt) => sum + (opt._count?.votes || 0),
+          0,
+        );
         pollData = {
           id: post.poll.id,
           question: post.poll.question,
           expiresAt: post.poll.expiresAt,
           totalVotes,
           userVotedOptionId: userId
-            ? post.poll.options.find(opt => Array.isArray(opt.votes) && opt.votes.length > 0)?.id || null
+            ? post.poll.options.find(
+                (opt) => Array.isArray(opt.votes) && opt.votes.length > 0,
+              )?.id || null
             : null,
-          options: post.poll.options.map(opt => ({
+          options: post.poll.options.map((opt) => ({
             id: opt.id,
             text: opt.text,
             votes: opt._count?.votes || 0,
-            percentage: totalVotes > 0 ? Math.round((opt._count?.votes || 0) / totalVotes * 100) : 0,
+            percentage:
+              totalVotes > 0
+                ? Math.round(((opt._count?.votes || 0) / totalVotes) * 100)
+                : 0,
           })),
         };
       }
 
       return {
         ...post,
-        isLiked: userId ? Array.isArray(post.likes) && post.likes.length > 0 : false,
-        isSaved: userId ? Array.isArray(post.savedBy) && post.savedBy.length > 0 : false,
+        isLiked: userId
+          ? Array.isArray(post.likes) && post.likes.length > 0
+          : false,
+        isSaved: userId
+          ? Array.isArray(post.savedBy) && post.savedBy.length > 0
+          : false,
         likes: undefined,
         savedBy: undefined,
         poll: pollData,
@@ -159,9 +200,9 @@ export class PostsService {
   }
 
   async update(
-    postId: string, 
-    content: string, 
-    userId: string, 
+    postId: string,
+    content: string,
+    userId: string,
     title?: string,
     images?: string[],
     files?: FileAttachment[],
@@ -174,7 +215,7 @@ export class PostsService {
     newPollQuestion?: string,
     newPollOptions?: string[],
     videos?: string[],
-    videosToRemove?: string[]
+    videosToRemove?: string[],
   ) {
     const post = await this.prisma.post.findUnique({
       where: { id: postId },
@@ -193,46 +234,46 @@ export class PostsService {
     await this.communitiesService.assertActive(post.communityId);
 
     const updateData: Prisma.PostUpdateInput = { content, title };
-    
+
     // Handle images - add new ones and remove specified
     if (images || imagesToRemove) {
       const currentImages = post.images || [];
       let newImages = [...currentImages];
-      
+
       // Remove specified images
       if (imagesToRemove && imagesToRemove.length > 0) {
-        newImages = newImages.filter(img => !imagesToRemove.includes(img));
+        newImages = newImages.filter((img) => !imagesToRemove.includes(img));
       }
-      
+
       // Add new images (up to limit of 6)
       if (images && images.length > 0) {
         newImages = [...newImages, ...images].slice(0, 6);
       }
-      
+
       updateData.images = newImages;
     }
-    
+
     // Handle files - add new ones and remove specified
     if (files || filesToRemove) {
       const currentFiles = (post.files as unknown as FileAttachment[]) || [];
       let newFiles = [...currentFiles];
-      
+
       // Remove specified files
       if (filesToRemove && filesToRemove.length > 0) {
-        newFiles = newFiles.filter(file => !filesToRemove.includes(file.url));
+        newFiles = newFiles.filter((file) => !filesToRemove.includes(file.url));
       }
-      
+
       // Add new files (up to limit of 6)
       if (files && files.length > 0) {
         newFiles = [...newFiles, ...files].slice(0, 6);
       }
-      
+
       // Cast at the Prisma boundary — InputJsonObject expects an index
       // signature, which our typed FileAttachment doesn't carry. Storage
       // is still Json[]; the type just guards us elsewhere in the code.
       updateData.files = newFiles as unknown as Prisma.InputJsonValue[];
     }
-    
+
     // Handle links - replace with new list (frontend sends kept links + handles removals)
     if (links !== undefined) {
       // Frontend sends the complete list of kept links
@@ -240,22 +281,24 @@ export class PostsService {
     } else if (linksToRemove && linksToRemove.length > 0) {
       // If only removing links (no new links array), filter the existing ones
       const currentLinks = post.links || [];
-      updateData.links = currentLinks.filter(link => !linksToRemove.includes(link));
+      updateData.links = currentLinks.filter(
+        (link) => !linksToRemove.includes(link),
+      );
     }
 
     // Handle videos - add new ones and remove specified
     if (videos || videosToRemove) {
       const currentVideos = post.videos || [];
       let newVideos = [...currentVideos];
-      
+
       if (videosToRemove && videosToRemove.length > 0) {
-        newVideos = newVideos.filter(v => !videosToRemove.includes(v));
+        newVideos = newVideos.filter((v) => !videosToRemove.includes(v));
       }
-      
+
       if (videos && videos.length > 0) {
         newVideos = [...newVideos, ...videos].slice(0, 3);
       }
-      
+
       updateData.videos = newVideos;
     }
 
@@ -265,14 +308,14 @@ export class PostsService {
       const existingPoll = await this.prisma.poll.findFirst({
         where: { postId },
       });
-      
+
       if (existingPoll) {
         // Update poll question
         await this.prisma.poll.update({
           where: { id: existingPoll.id },
           data: { question: pollQuestion },
         });
-        
+
         // Update each option
         for (const option of pollOptions) {
           await this.prisma.pollOption.update({
@@ -282,14 +325,14 @@ export class PostsService {
         }
       }
     }
-    
+
     // Handle creating a new poll
     if (newPollQuestion && newPollOptions && newPollOptions.length >= 2) {
       // Check if post already has a poll
       const existingPoll = await this.prisma.poll.findFirst({
         where: { postId },
       });
-      
+
       // Only create if no poll exists (max 1 per post)
       if (!existingPoll) {
         await this.prisma.poll.create({
@@ -297,7 +340,7 @@ export class PostsService {
             question: newPollQuestion,
             postId,
             options: {
-              create: newPollOptions.map(text => ({ text })),
+              create: newPollOptions.map((text) => ({ text })),
             },
           },
         });
@@ -385,18 +428,21 @@ export class PostsService {
           create: { userId, postId },
           update: {}, // No update needed, just ensure it exists
         });
-        
+
         // Get post for notification
         const post = await this.prisma.post.findUnique({
           where: { id: postId },
           select: { authorId: true, communityId: true },
         });
-        
+
         return { liked: true, post };
       }
     } catch (err) {
       // If there was a race condition and like already exists, treat as success
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
         return { liked: true, post: null };
       }
       throw err;
@@ -491,7 +537,10 @@ export class PostsService {
     }
 
     // A removed member must not be able to rewrite comments they left behind.
-    await this.communitiesService.assertMember(comment.post.communityId, userId);
+    await this.communitiesService.assertMember(
+      comment.post.communityId,
+      userId,
+    );
     await this.communitiesService.assertActive(comment.post.communityId);
 
     return this.prisma.comment.update({
@@ -543,7 +592,10 @@ export class PostsService {
         return { saved: true };
       }
     } catch (err) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
         return { saved: true };
       }
       throw err;
@@ -562,7 +614,11 @@ export class PostsService {
     }
 
     // Check if user is owner or manager of the community
-    if (!canManageCommunity(await getEffectiveRole(this.prisma, post.communityId, userId))) {
+    if (
+      !canManageCommunity(
+        await getEffectiveRole(this.prisma, post.communityId, userId),
+      )
+    ) {
       throw new ForbiddenException('Only owners and managers can pin posts');
     }
 
@@ -570,7 +626,7 @@ export class PostsService {
 
     // Toggle pin status
     const newPinStatus = !post.isPinned;
-    
+
     return this.prisma.post.update({
       where: { id: postId },
       data: {
@@ -600,34 +656,59 @@ export class PostsService {
 
       // Extract Open Graph meta tags
       const getMetaContent = (property: string): string | null => {
-        const match = html.match(new RegExp(`<meta[^>]*property=["']${property}["'][^>]*content=["']([^"']+)["']`, 'i')) 
-          || html.match(new RegExp(`<meta[^>]*content=["']([^"']+)["'][^>]*property=["']${property}["']`, 'i'));
+        const match =
+          html.match(
+            new RegExp(
+              `<meta[^>]*property=["']${property}["'][^>]*content=["']([^"']+)["']`,
+              'i',
+            ),
+          ) ||
+          html.match(
+            new RegExp(
+              `<meta[^>]*content=["']([^"']+)["'][^>]*property=["']${property}["']`,
+              'i',
+            ),
+          );
         return match ? match[1] : null;
       };
-      
+
       const getMetaName = (name: string): string | null => {
-        const match = html.match(new RegExp(`<meta[^>]*name=["']${name}["'][^>]*content=["']([^"']+)["']`, 'i'))
-          || html.match(new RegExp(`<meta[^>]*content=["']([^"']+)["'][^>]*name=["']${name}["']`, 'i'));
+        const match =
+          html.match(
+            new RegExp(
+              `<meta[^>]*name=["']${name}["'][^>]*content=["']([^"']+)["']`,
+              'i',
+            ),
+          ) ||
+          html.match(
+            new RegExp(
+              `<meta[^>]*content=["']([^"']+)["'][^>]*name=["']${name}["']`,
+              'i',
+            ),
+          );
         return match ? match[1] : null;
       };
-      
+
       // Get title
       let title = getMetaContent('og:title') || getMetaName('twitter:title');
       if (!title) {
         const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
         title = titleMatch ? titleMatch[1].trim() : null;
       }
-      
+
       // Get description
-      const description = getMetaContent('og:description') || getMetaName('description') || getMetaName('twitter:description');
-      
+      const description =
+        getMetaContent('og:description') ||
+        getMetaName('description') ||
+        getMetaName('twitter:description');
+
       // Get image
       let image = getMetaContent('og:image') || getMetaName('twitter:image');
       if (image && !image.startsWith('http')) {
         // Relative to the page we actually landed on (after redirects).
         image = new URL(image, finalUrl).toString();
       }
-      
+
       return {
         url,
         title: title || new URL(url).hostname,
@@ -652,7 +733,13 @@ export class PostsService {
   }
 
   // Create a poll for a post
-  async createPoll(postId: string, userId: string, question: string, options: string[], expiresAt?: Date) {
+  async createPoll(
+    postId: string,
+    userId: string,
+    question: string,
+    options: string[],
+    expiresAt?: Date,
+  ) {
     // Verify post exists and user is author
     const post = await this.prisma.post.findUnique({
       where: { id: postId },
@@ -685,7 +772,7 @@ export class PostsService {
         postId,
         expiresAt: expiresAt || null,
         options: {
-          create: options.map(text => ({ text })),
+          create: options.map((text) => ({ text })),
         },
       },
       include: {
@@ -705,7 +792,7 @@ export class PostsService {
       expiresAt: poll.expiresAt,
       totalVotes: 0,
       userVotedOptionId: null,
-      options: poll.options.map(opt => ({
+      options: poll.options.map((opt) => ({
         id: opt.id,
         text: opt.text,
         votes: 0,
@@ -735,7 +822,7 @@ export class PostsService {
     }
 
     // Verify option belongs to this poll
-    const option = poll.options.find(opt => opt.id === optionId);
+    const option = poll.options.find((opt) => opt.id === optionId);
     if (!option) {
       throw new NotFoundException('Option not found in this poll');
     }
@@ -784,7 +871,10 @@ export class PostsService {
       },
     });
 
-    const totalVotes = updatedPoll!.options.reduce((sum, opt) => sum + (opt._count?.votes || 0), 0);
+    const totalVotes = updatedPoll!.options.reduce(
+      (sum, opt) => sum + (opt._count?.votes || 0),
+      0,
+    );
 
     return {
       id: updatedPoll!.id,
@@ -792,11 +882,14 @@ export class PostsService {
       expiresAt: updatedPoll!.expiresAt,
       totalVotes,
       userVotedOptionId: optionId,
-      options: updatedPoll!.options.map(opt => ({
+      options: updatedPoll!.options.map((opt) => ({
         id: opt.id,
         text: opt.text,
         votes: opt._count?.votes || 0,
-        percentage: totalVotes > 0 ? Math.round((opt._count?.votes || 0) / totalVotes * 100) : 0,
+        percentage:
+          totalVotes > 0
+            ? Math.round(((opt._count?.votes || 0) / totalVotes) * 100)
+            : 0,
       })),
     };
   }
@@ -848,7 +941,10 @@ export class PostsService {
       },
     });
 
-    const totalVotes = updatedPoll!.options.reduce((sum, opt) => sum + (opt._count?.votes || 0), 0);
+    const totalVotes = updatedPoll!.options.reduce(
+      (sum, opt) => sum + (opt._count?.votes || 0),
+      0,
+    );
 
     return {
       id: updatedPoll!.id,
@@ -856,11 +952,14 @@ export class PostsService {
       expiresAt: updatedPoll!.expiresAt,
       totalVotes,
       userVotedOptionId: null,
-      options: updatedPoll!.options.map(opt => ({
+      options: updatedPoll!.options.map((opt) => ({
         id: opt.id,
         text: opt.text,
         votes: opt._count?.votes || 0,
-        percentage: totalVotes > 0 ? Math.round((opt._count?.votes || 0) / totalVotes * 100) : 0,
+        percentage:
+          totalVotes > 0
+            ? Math.round(((opt._count?.votes || 0) / totalVotes) * 100)
+            : 0,
       })),
     };
   }

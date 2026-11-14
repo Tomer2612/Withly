@@ -69,7 +69,9 @@ export class CommunityBillingCronService {
     });
 
     if (due.length === 0) return;
-    this.logger.log(`Applying ${due.length} due member cancellation(s) at period end`);
+    this.logger.log(
+      `Applying ${due.length} due member cancellation(s) at period end`,
+    );
 
     for (const sub of due) {
       try {
@@ -113,7 +115,9 @@ export class CommunityBillingCronService {
     }
 
     if (due.length > 0) {
-      this.logger.log(`Suspended ${due.length} community/communities past cancellation date`);
+      this.logger.log(
+        `Suspended ${due.length} community/communities past cancellation date`,
+      );
     }
   }
 
@@ -147,12 +151,18 @@ export class CommunityBillingCronService {
             },
           }),
           this.prisma.memberSubscription.updateMany({
-            where: { communityId: c.id, status: { in: ['ACTIVE', 'PAST_DUE'] } },
+            where: {
+              communityId: c.id,
+              status: { in: ['ACTIVE', 'PAST_DUE'] },
+            },
             data: { priceAtJoin: c.pendingPrice! },
           }),
         ]);
       } catch (err) {
-        this.logger.error(`Failed to apply price change for community ${c.id}`, err as Error);
+        this.logger.error(
+          `Failed to apply price change for community ${c.id}`,
+          err as Error,
+        );
       }
     }
 
@@ -184,12 +194,17 @@ export class CommunityBillingCronService {
       try {
         await this.prisma.community.delete({ where: { id: c.id } });
       } catch (err) {
-        this.logger.error(`Failed to delete abandoned draft community ${c.id}`, err as Error);
+        this.logger.error(
+          `Failed to delete abandoned draft community ${c.id}`,
+          err as Error,
+        );
       }
     }
 
     if (orphans.length > 0) {
-      this.logger.log(`Deleted ${orphans.length} abandoned draft community/communities`);
+      this.logger.log(
+        `Deleted ${orphans.length} abandoned draft community/communities`,
+      );
     }
   }
 
@@ -232,14 +247,21 @@ export class CommunityBillingCronService {
       }
 
       try {
-        await this.prisma.pendingCommunityCreation.delete({ where: { id: p.id } });
+        await this.prisma.pendingCommunityCreation.delete({
+          where: { id: p.id },
+        });
       } catch (err) {
-        this.logger.error(`Failed to delete abandoned pending checkout ${p.id}`, err as Error);
+        this.logger.error(
+          `Failed to delete abandoned pending checkout ${p.id}`,
+          err as Error,
+        );
       }
     }
 
     if (orphans.length > 0) {
-      this.logger.log(`Deleted ${orphans.length} abandoned pending checkout(s)`);
+      this.logger.log(
+        `Deleted ${orphans.length} abandoned pending checkout(s)`,
+      );
     }
   }
 
@@ -301,12 +323,17 @@ export class CommunityBillingCronService {
           data: { priceChangeReminderSentAt: now },
         });
       } catch (err) {
-        this.logger.error(`Failed to stamp priceChangeReminderSentAt for ${c.id}`, err as Error);
+        this.logger.error(
+          `Failed to stamp priceChangeReminderSentAt for ${c.id}`,
+          err as Error,
+        );
       }
     }
 
     if (due.length > 0) {
-      this.logger.log(`Sent price-change reminders for ${due.length} community/communities`);
+      this.logger.log(
+        `Sent price-change reminders for ${due.length} community/communities`,
+      );
     }
   }
 
@@ -357,12 +384,17 @@ export class CommunityBillingCronService {
           data: { suspensionReminderSentAt: now },
         });
       } catch (err) {
-        this.logger.error(`Failed to stamp suspensionReminderSentAt for ${c.id}`, err as Error);
+        this.logger.error(
+          `Failed to stamp suspensionReminderSentAt for ${c.id}`,
+          err as Error,
+        );
       }
     }
 
     if (due.length > 0) {
-      this.logger.log(`Sent suspension reminders for ${due.length} community/communities`);
+      this.logger.log(
+        `Sent suspension reminders for ${due.length} community/communities`,
+      );
     }
   }
 
@@ -405,7 +437,8 @@ export class CommunityBillingCronService {
     for (const c of due) {
       // Per-community plan wins; fall back to the owner's plan for rows that
       // predate per-community plans.
-      const monthlyPrice = c.plan?.monthlyPriceILS ?? c.owner?.plan?.monthlyPriceILS;
+      const monthlyPrice =
+        c.plan?.monthlyPriceILS ?? c.owner?.plan?.monthlyPriceILS;
       if (!c.nextBillingDate || !c.owner?.email || !monthlyPrice) continue;
       try {
         await this.emailService.sendTrialEndingReminderEmail(
@@ -426,12 +459,17 @@ export class CommunityBillingCronService {
           data: { trialEndReminderSentAt: now },
         });
       } catch (err) {
-        this.logger.error(`Failed to stamp trialEndReminderSentAt for ${c.id}`, err as Error);
+        this.logger.error(
+          `Failed to stamp trialEndReminderSentAt for ${c.id}`,
+          err as Error,
+        );
       }
     }
 
     if (due.length > 0) {
-      this.logger.log(`Sent trial-ending reminders for ${due.length} community/communities`);
+      this.logger.log(
+        `Sent trial-ending reminders for ${due.length} community/communities`,
+      );
     }
   }
 
@@ -518,25 +556,30 @@ export class CommunityBillingCronService {
     now: Date,
   ) {
     // Per-community plan wins; owner plan is the legacy fallback.
-    const monthlyPrice = c.plan?.monthlyPriceILS ?? c.owner?.plan?.monthlyPriceILS;
+    const monthlyPrice =
+      c.plan?.monthlyPriceILS ?? c.owner?.plan?.monthlyPriceILS;
     // Defensive validations — these should never trip post-Phase 3.3.
     // ownerId NULL would mean the owner deleted their account (Phase 5
     // Mission 4 wind-down) and we shouldn't charge; the cron's findMany
     // filter already excludes these but assert here too for type safety.
     if (!c.ownerId) {
-      this.logger.warn(`Community ${c.id}: ownerId NULL (wind-down) — skipping charge`);
+      this.logger.warn(
+        `Community ${c.id}: ownerId NULL (wind-down) — skipping charge`,
+      );
       return;
     }
     if (
-      !c.paymentMethod?.hypPaymentMethodId
-      || c.paymentMethod.cardExpMonth == null
-      || c.paymentMethod.cardExpYear == null
+      !c.paymentMethod?.hypPaymentMethodId ||
+      c.paymentMethod.cardExpMonth == null ||
+      c.paymentMethod.cardExpYear == null
     ) {
       this.logger.error(`Community ${c.id}: missing token/expiry; skipping`);
       return;
     }
     if (!monthlyPrice) {
-      this.logger.error(`Community ${c.id}: no plan price (community or owner); skipping`);
+      this.logger.error(
+        `Community ${c.id}: no plan price (community or owner); skipping`,
+      );
       return;
     }
     // Owner is needed for the charge's clientName/email. ownerId is already
@@ -552,7 +595,8 @@ export class CommunityBillingCronService {
 
     // Card expiry pre-check. HYP will reject anyway, but failing here gives
     // a clean log message and skips the network round-trip.
-    const expYM = c.paymentMethod.cardExpYear * 100 + c.paymentMethod.cardExpMonth;
+    const expYM =
+      c.paymentMethod.cardExpYear * 100 + c.paymentMethod.cardExpMonth;
     const nowYM = now.getFullYear() * 100 + (now.getMonth() + 1);
     if (expYM < nowYM) {
       this.logger.warn(
@@ -609,10 +653,15 @@ export class CommunityBillingCronService {
       });
       this.logger.log(
         `Charged owner ${c.owner.email} ₪${monthlyPrice} for community ${c.id} ` +
-        `(${c.name}): hypId=${result.body.Id}, next=${nextBillingDate.toISOString()}`,
+          `(${c.name}): hypId=${result.body.Id}, next=${nextBillingDate.toISOString()}`,
       );
     } else {
-      await this.handleChargeFailure(c, `CCode=${result.ccode}`, now, result.ccode);
+      await this.handleChargeFailure(
+        c,
+        `CCode=${result.ccode}`,
+        now,
+        result.ccode,
+      );
     }
   }
 
@@ -637,7 +686,8 @@ export class CommunityBillingCronService {
     now: Date,
     ccode?: string | null,
   ) {
-    const monthlyPrice = c.plan?.monthlyPriceILS ?? c.owner?.plan?.monthlyPriceILS;
+    const monthlyPrice =
+      c.plan?.monthlyPriceILS ?? c.owner?.plan?.monthlyPriceILS;
     await this.prisma.community.update({
       where: { id: c.id },
       data: { subscriptionStatus: 'SUSPENDED', suspendedAt: now },
@@ -648,7 +698,9 @@ export class CommunityBillingCronService {
     // Skipped when ownerId is null (wind-down case — owner already gone,
     // no recipient).
     if (c.ownerId) {
-      await this.notificationsService.notifyPaymentFailed(c.ownerId, c.id).catch(() => {});
+      await this.notificationsService
+        .notifyPaymentFailed(c.ownerId, c.id)
+        .catch(() => {});
     }
     if (c.owner?.email && monthlyPrice && c.ownerId) {
       // Phase 6.4 — generate (or reuse) a dunning link before the email
@@ -691,7 +743,9 @@ export class CommunityBillingCronService {
     // access disappears with context (matches the manual-cancel path).
     await this.notifyMembersSuspended(c.id, c.ownerId).catch(() => {});
 
-    this.logger.warn(`Suspended community ${c.id} due to charge failure (${reason})`);
+    this.logger.warn(
+      `Suspended community ${c.id} due to charge failure (${reason})`,
+    );
   }
 
   // Phase 4 Mission 4 — recurring SOFT charges for paying members. Picks
@@ -732,7 +786,9 @@ export class CommunityBillingCronService {
             name: true,
             ownerId: true,
             plan: { select: { commissionBasisPoints: true } },
-            owner: { select: { plan: { select: { commissionBasisPoints: true } } } },
+            owner: {
+              select: { plan: { select: { commissionBasisPoints: true } } },
+            },
           },
         },
         user: { select: { email: true, name: true } },
@@ -769,7 +825,9 @@ export class CommunityBillingCronService {
           select: {
             ownerId: true,
             plan: { select: { commissionBasisPoints: true } },
-            owner: { select: { plan: { select: { commissionBasisPoints: true } } } },
+            owner: {
+              select: { plan: { select: { commissionBasisPoints: true } } },
+            },
           },
         },
       },
@@ -797,20 +855,28 @@ export class CommunityBillingCronService {
           await this.transactionsService.recordCharge({
             kind: 'REFUND',
             grossAmount: amount,
-            commissionBasisPoints: sub.community.plan?.commissionBasisPoints ?? sub.community.owner?.plan?.commissionBasisPoints,
+            commissionBasisPoints:
+              sub.community.plan?.commissionBasisPoints ??
+              sub.community.owner?.plan?.commissionBasisPoints,
             communityId: sub.communityId,
             ownerId: sub.community.ownerId,
             payerId: sub.userId,
             memberSubscriptionId: sub.id,
             hypOrderId: `refund-of-${sub.hypSubscriptionId}`,
           });
-          this.logger.log(`Owed refund settled: sub=${sub.id} amount=₪${amount}`);
+          this.logger.log(
+            `Owed refund settled: sub=${sub.id} amount=₪${amount}`,
+          );
         } else {
           await this.prisma.memberSubscription.update({
             where: { id: sub.id },
-            data: { refundFailureReason: `Retry zikoyAPI CCode=${result.ccode}` },
+            data: {
+              refundFailureReason: `Retry zikoyAPI CCode=${result.ccode}`,
+            },
           });
-          this.logger.warn(`Owed refund retry FAILED: sub=${sub.id} CCode=${result.ccode}`);
+          this.logger.warn(
+            `Owed refund retry FAILED: sub=${sub.id} CCode=${result.ccode}`,
+          );
         }
       } catch (err) {
         this.logger.error(
@@ -860,7 +926,9 @@ export class CommunityBillingCronService {
     });
 
     if (due.length === 0) return;
-    this.logger.log(`Hard-deleting ${due.length} wound-down community/communities`);
+    this.logger.log(
+      `Hard-deleting ${due.length} wound-down community/communities`,
+    );
 
     for (const c of due) {
       // Build flat list of R2 URLs to delete. The Lesson.files column is
@@ -879,7 +947,9 @@ export class CommunityBillingCronService {
           for (const l of ch.lessons) {
             if (l.videoUrl) urls.push(l.videoUrl);
             urls.push(...l.images);
-            for (const f of l.files as unknown as Array<{ url?: string } | string>) {
+            for (const f of l.files as unknown as Array<
+              { url?: string } | string
+            >) {
               if (typeof f === 'string') urls.push(f);
               else if (f && typeof f.url === 'string') urls.push(f.url);
             }
@@ -899,7 +969,9 @@ export class CommunityBillingCronService {
 
       try {
         await this.prisma.community.delete({ where: { id: c.id } });
-        this.logger.log(`Hard-deleted community ${c.id} (${c.name}) — ${urls.length} R2 files attempted`);
+        this.logger.log(
+          `Hard-deleted community ${c.id} (${c.name}) — ${urls.length} R2 files attempted`,
+        );
       } catch (err) {
         this.logger.error(
           `Hard-delete failed for community ${c.id}: ${(err as Error).message}`,
@@ -935,15 +1007,18 @@ export class CommunityBillingCronService {
     now: Date,
   ) {
     if (
-      !sub.paymentMethod?.hypPaymentMethodId
-      || sub.paymentMethod.cardExpMonth == null
-      || sub.paymentMethod.cardExpYear == null
+      !sub.paymentMethod?.hypPaymentMethodId ||
+      sub.paymentMethod.cardExpMonth == null ||
+      sub.paymentMethod.cardExpYear == null
     ) {
-      this.logger.error(`MemberSubscription ${sub.id}: missing token/expiry; skipping`);
+      this.logger.error(
+        `MemberSubscription ${sub.id}: missing token/expiry; skipping`,
+      );
       return;
     }
 
-    const expYM = sub.paymentMethod.cardExpYear * 100 + sub.paymentMethod.cardExpMonth;
+    const expYM =
+      sub.paymentMethod.cardExpYear * 100 + sub.paymentMethod.cardExpMonth;
     const nowYM = now.getFullYear() * 100 + (now.getMonth() + 1);
     if (expYM < nowYM) {
       this.logger.warn(
@@ -990,7 +1065,9 @@ export class CommunityBillingCronService {
       await this.transactionsService.recordCharge({
         kind: 'MEMBER_MONTHLY',
         grossAmount: amount,
-        commissionBasisPoints: sub.community.plan?.commissionBasisPoints ?? sub.community.owner?.plan?.commissionBasisPoints,
+        commissionBasisPoints:
+          sub.community.plan?.commissionBasisPoints ??
+          sub.community.owner?.plan?.commissionBasisPoints,
         communityId: sub.communityId,
         ownerId: sub.community.ownerId,
         payerId: sub.userId,
@@ -1000,10 +1077,15 @@ export class CommunityBillingCronService {
       });
       this.logger.log(
         `Charged member ${sub.user.email} ₪${amount} for membership ${sub.id} ` +
-        `(community "${sub.community.name}"): hypId=${result.body.Id}, next=${nextBillingDate.toISOString()}`,
+          `(community "${sub.community.name}"): hypId=${result.body.Id}, next=${nextBillingDate.toISOString()}`,
       );
     } else {
-      await this.handleMemberChargeFailure(sub, `CCode=${result.ccode}`, now, result.ccode);
+      await this.handleMemberChargeFailure(
+        sub,
+        `CCode=${result.ccode}`,
+        now,
+        result.ccode,
+      );
     }
   }
 
@@ -1029,7 +1111,9 @@ export class CommunityBillingCronService {
       data: { status: 'PAST_DUE' },
     });
 
-    await this.notificationsService.notifyPaymentFailed(sub.userId, sub.communityId).catch(() => {});
+    await this.notificationsService
+      .notifyPaymentFailed(sub.userId, sub.communityId)
+      .catch(() => {});
     // Phase 6.4 — dunning link generation; same fail-soft pattern as owner.
     let dunningUrl: string | null = null;
     try {
@@ -1064,7 +1148,10 @@ export class CommunityBillingCronService {
     this.logger.warn(`MemberSubscription ${sub.id} → PAST_DUE (${reason})`);
   }
 
-  private async notifyMembersSuspended(communityId: string, ownerId: string | null) {
+  private async notifyMembersSuspended(
+    communityId: string,
+    ownerId: string | null,
+  ) {
     const memberships = await this.prisma.communityMember.findMany({
       where: { communityId },
       select: { userId: true },
@@ -1075,8 +1162,8 @@ export class CommunityBillingCronService {
     // accepts the null actor; UI renders without an actor attribution.
     await Promise.all(
       memberships
-        .filter(m => ownerId == null || m.userId !== ownerId)
-        .map(m =>
+        .filter((m) => ownerId == null || m.userId !== ownerId)
+        .map((m) =>
           this.notificationsService
             .notifyCommunitySuspended(m.userId, ownerId, communityId)
             .catch(() => {}),

@@ -1,4 +1,11 @@
-import { IsEnum, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsEnum,
+  IsIn,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { RsvpStatus } from '@prisma/client';
 
 const TITLE_MAX = 200;

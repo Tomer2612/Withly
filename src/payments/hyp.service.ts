@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 
 // Thin wrapper around the HYP Pay API. All server-to-server calls to
 // https://pay.hyp.co.il/p/ go through here so the rest of the app can
@@ -170,7 +174,9 @@ export class HypService {
       this.logger.error(
         `HYP did not return a signature. CCode=${ccode ?? '?'} body=${text}`,
       );
-      throw new InternalServerErrorException('Payment provider rejected request');
+      throw new InternalServerErrorException(
+        'Payment provider rejected request',
+      );
     }
 
     return `${HYP_BASE}?${text}`;
@@ -186,9 +192,11 @@ export class HypService {
    * Returns the parsed verification response so the caller can decide what to
    * do (update DB, redirect, etc). `ok` is true only when CCode === '0'.
    */
-  async verifyTransaction(
-    params: Record<string, string>,
-  ): Promise<{ ok: boolean; ccode: string | null; body: Record<string, string> }> {
+  async verifyTransaction(params: Record<string, string>): Promise<{
+    ok: boolean;
+    ccode: string | null;
+    body: Record<string, string>;
+  }> {
     const verifyParams = new URLSearchParams({
       ...params,
       action: 'APISign',
@@ -263,7 +271,9 @@ export class HypService {
         body: params.toString(),
       });
     } catch (err) {
-      this.logger.error(`HYP getToken network error: ${(err as Error).message}`);
+      this.logger.error(
+        `HYP getToken network error: ${(err as Error).message}`,
+      );
       throw new InternalServerErrorException('Payment provider unreachable');
     }
 
@@ -342,14 +352,20 @@ export class HypService {
     order: string;
     /** Optional free-text description on the HYP merchant report. */
     info?: string;
-  }): Promise<{ ok: boolean; ccode: string | null; body: Record<string, string> }> {
+  }): Promise<{
+    ok: boolean;
+    ccode: string | null;
+    body: Record<string, string>;
+  }> {
     if (!this.masofToken || !this.passpToken) {
       throw new Error(
         'SOFT charge requires HYP_MASOF_TOKEN + HYP_PASSP_TOKEN env vars.',
       );
     }
     if (!Number.isInteger(input.amount) || input.amount <= 0) {
-      throw new Error(`SOFT charge amount must be a positive integer (got ${input.amount}).`);
+      throw new Error(
+        `SOFT charge amount must be a positive integer (got ${input.amount}).`,
+      );
     }
     if (input.cardExpMonth < 1 || input.cardExpMonth > 12) {
       throw new Error(`Invalid cardExpMonth ${input.cardExpMonth}.`);
@@ -397,7 +413,9 @@ export class HypService {
         body: params.toString(),
       });
     } catch (err) {
-      this.logger.error(`HYP softCharge network error: ${(err as Error).message}`);
+      this.logger.error(
+        `HYP softCharge network error: ${(err as Error).message}`,
+      );
       throw new InternalServerErrorException('Payment provider unreachable');
     }
 
@@ -415,9 +433,13 @@ export class HypService {
     const ok = ccode === '0';
 
     if (!ok) {
-      this.logger.warn(`HYP softCharge rejected: CCode=${ccode} Order=${input.order} body=${text}`);
+      this.logger.warn(
+        `HYP softCharge rejected: CCode=${ccode} Order=${input.order} body=${text}`,
+      );
     } else {
-      this.logger.log(`HYP softCharge OK: Id=${body.Id} Amount=${input.amount} Order=${input.order}`);
+      this.logger.log(
+        `HYP softCharge OK: Id=${body.Id} Amount=${input.amount} Order=${input.order}`,
+      );
     }
 
     return { ok, ccode, body };
@@ -469,7 +491,9 @@ export class HypService {
         body: params.toString(),
       });
     } catch (err) {
-      this.logger.error(`HYP CancelTrans network error: ${(err as Error).message}`);
+      this.logger.error(
+        `HYP CancelTrans network error: ${(err as Error).message}`,
+      );
       throw new InternalServerErrorException('Payment provider unreachable');
     }
     if (!res.ok) {
@@ -479,7 +503,8 @@ export class HypService {
 
     const text = await res.text();
     const body: Record<string, string> = {};
-    for (const [k, v] of new URLSearchParams(text).entries()) body[k] = v.trim();
+    for (const [k, v] of new URLSearchParams(text).entries())
+      body[k] = v.trim();
     const ccode = body.CCode ?? null;
     const reversalStatus = body.ReversalStatus ?? null;
     const ok = ccode === '0';
@@ -515,14 +540,20 @@ export class HypService {
     transId: string;
     /** ILS amount to refund (positive integer, <= original amount). */
     amount: number;
-  }): Promise<{ ok: boolean; ccode: string | null; body: Record<string, string> }> {
+  }): Promise<{
+    ok: boolean;
+    ccode: string | null;
+    body: Record<string, string>;
+  }> {
     if (!this.masofToken || !this.passpToken) {
       throw new Error(
         'zikoyAPI refund requires HYP_MASOF_TOKEN + HYP_PASSP_TOKEN env vars.',
       );
     }
     if (!Number.isInteger(input.amount) || input.amount <= 0) {
-      throw new Error(`Refund amount must be a positive integer (got ${input.amount}).`);
+      throw new Error(
+        `Refund amount must be a positive integer (got ${input.amount}).`,
+      );
     }
 
     const params = new URLSearchParams({
@@ -544,7 +575,9 @@ export class HypService {
         body: params.toString(),
       });
     } catch (err) {
-      this.logger.error(`HYP zikoyAPI network error: ${(err as Error).message}`);
+      this.logger.error(
+        `HYP zikoyAPI network error: ${(err as Error).message}`,
+      );
       throw new InternalServerErrorException('Payment provider unreachable');
     }
     if (!res.ok) {
@@ -554,7 +587,8 @@ export class HypService {
 
     const text = await res.text();
     const body: Record<string, string> = {};
-    for (const [k, v] of new URLSearchParams(text).entries()) body[k] = v.trim();
+    for (const [k, v] of new URLSearchParams(text).entries())
+      body[k] = v.trim();
     const ccode = body.CCode ?? null;
     const ok = ccode === '0';
 

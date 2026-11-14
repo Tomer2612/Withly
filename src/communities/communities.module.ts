@@ -27,4 +27,3 @@ import { TransactionsModule } from '../transactions/transactions.module';
   exports: [CommunitiesService],
 })
 export class CommunitiesModule {}
-

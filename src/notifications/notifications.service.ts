@@ -43,12 +43,12 @@ export class NotificationsService {
     // this method.
     if (user) {
       const preferenceMap: Partial<Record<NotificationType, boolean>> = {
-        'LIKE': user.notifyLikes,
-        'COMMENT': user.notifyComments,
-        'FOLLOW': user.notifyFollows,
-        'NEW_POST': user.notifyNewPosts,
-        'MENTION': user.notifyMentions,
-        'COMMUNITY_JOIN': user.notifyCommunityJoins,
+        LIKE: user.notifyLikes,
+        COMMENT: user.notifyComments,
+        FOLLOW: user.notifyFollows,
+        NEW_POST: user.notifyNewPosts,
+        MENTION: user.notifyMentions,
+        COMMUNITY_JOIN: user.notifyCommunityJoins,
       };
 
       if (preferenceMap[data.type] === false) {
@@ -67,7 +67,10 @@ export class NotificationsService {
 
     // Emit real-time notification via WebSocket
     if (notification && this.messagesGateway) {
-      this.messagesGateway.sendNotificationToUser(data.recipientId, notification);
+      this.messagesGateway.sendNotificationToUser(
+        data.recipientId,
+        notification,
+      );
     }
 
     return notification;
@@ -100,8 +103,20 @@ export class NotificationsService {
     ]);
 
     // Enrich notifications with post and community data
-    const postIds = [...new Set(rawNotifications.map(n => n.postId).filter((id): id is string => !!id))];
-    const communityIds = [...new Set(rawNotifications.map(n => n.communityId).filter((id): id is string => !!id))];
+    const postIds = [
+      ...new Set(
+        rawNotifications
+          .map((n) => n.postId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    const communityIds = [
+      ...new Set(
+        rawNotifications
+          .map((n) => n.communityId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
 
     // Both queries are started before either is awaited, so they still run in
     // parallel; awaiting them separately keeps each result's row type.
@@ -109,10 +124,10 @@ export class NotificationsService {
       postIds.length > 0
         ? this.prisma.post.findMany({
             where: { id: { in: postIds } },
-            select: { 
-              id: true, 
+            select: {
+              id: true,
               title: true,
-              community: { select: { id: true, name: true } }
+              community: { select: { id: true, name: true } },
             },
           })
         : null,
@@ -124,17 +139,23 @@ export class NotificationsService {
             // ownerId lets the bell route PAYMENT_FAILED to the owner's
             // /manage vs a member's /settings#payment. logo is the avatar
             // fallback for actor-less, community-scoped rows (PAYMENT_FAILED).
-            select: { id: true, name: true, slug: true, ownerId: true, logo: true },
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              ownerId: true,
+              logo: true,
+            },
           })
         : null,
     ] as const;
     const posts = postsQuery ? await postsQuery : [];
     const communities = communitiesQuery ? await communitiesQuery : [];
 
-    const postMap = new Map(posts.map(p => [p.id, p] as const));
-    const communityMap = new Map(communities.map(c => [c.id, c] as const));
+    const postMap = new Map(posts.map((p) => [p.id, p] as const));
+    const communityMap = new Map(communities.map((c) => [c.id, c] as const));
 
-    const notifications = rawNotifications.map(n => ({
+    const notifications = rawNotifications.map((n) => ({
       ...n,
       post: n.postId ? postMap.get(n.postId) : undefined,
       community: n.communityId ? communityMap.get(n.communityId) : undefined,
@@ -182,7 +203,12 @@ export class NotificationsService {
   }
 
   // Helper methods to create specific notification types
-  async notifyLike(postAuthorId: string, actorId: string, postId: string, communityId: string) {
+  async notifyLike(
+    postAuthorId: string,
+    actorId: string,
+    postId: string,
+    communityId: string,
+  ) {
     return this.create({
       type: 'LIKE',
       recipientId: postAuthorId,
@@ -192,7 +218,12 @@ export class NotificationsService {
     });
   }
 
-  async notifyComment(postAuthorId: string, actorId: string, postId: string, communityId: string) {
+  async notifyComment(
+    postAuthorId: string,
+    actorId: string,
+    postId: string,
+    communityId: string,
+  ) {
     return this.create({
       type: 'COMMENT',
       recipientId: postAuthorId,
@@ -218,7 +249,7 @@ export class NotificationsService {
     if (existingNotification) {
       const updated = await this.prisma.notification.update({
         where: { id: existingNotification.id },
-        data: { 
+        data: {
           createdAt: new Date(),
           isRead: false, // Mark as unread again
         },
@@ -228,12 +259,12 @@ export class NotificationsService {
           },
         },
       });
-      
+
       // Emit real-time notification via WebSocket for the updated notification
       if (updated && this.messagesGateway) {
         this.messagesGateway.sendNotificationToUser(followedUserId, updated);
       }
-      
+
       return updated;
     }
 
@@ -258,7 +289,7 @@ export class NotificationsService {
     for (let i = 0; i < followers.length; i += BATCH_SIZE) {
       const chunk = followers.slice(i, i + BATCH_SIZE);
       const chunkResults = await Promise.all(
-        chunk.map(f =>
+        chunk.map((f) =>
           this.create({
             type: 'NEW_POST',
             recipientId: f.followerId,
@@ -278,7 +309,11 @@ export class NotificationsService {
   // Bypasses the per-user notification preference check by going through
   // a direct create — moderation actions shouldn't be silenceable by the
   // recipient.
-  async notifyCommunityBan(bannedUserId: string, actorId: string, communityId: string) {
+  async notifyCommunityBan(
+    bannedUserId: string,
+    actorId: string,
+    communityId: string,
+  ) {
     return this.createUnconditional({
       type: 'COMMUNITY_BAN',
       recipientId: bannedUserId,
@@ -288,7 +323,11 @@ export class NotificationsService {
   }
 
   // Notify a user that their ban was lifted.
-  async notifyCommunityBanLifted(unbannedUserId: string, actorId: string, communityId: string) {
+  async notifyCommunityBanLifted(
+    unbannedUserId: string,
+    actorId: string,
+    communityId: string,
+  ) {
     return this.createUnconditional({
       type: 'COMMUNITY_BAN_LIFTED',
       recipientId: unbannedUserId,
@@ -299,7 +338,11 @@ export class NotificationsService {
 
   // Owner scheduled the community for suspension (cancelled subscription).
   // Members can't opt out — they need to know access is going away.
-  async notifyCommunityScheduledForSuspension(recipientUserId: string, actorId: string, communityId: string) {
+  async notifyCommunityScheduledForSuspension(
+    recipientUserId: string,
+    actorId: string,
+    communityId: string,
+  ) {
     return this.createUnconditional({
       type: 'COMMUNITY_SCHEDULED_FOR_SUSPENSION',
       recipientId: recipientUserId,
@@ -312,7 +355,11 @@ export class NotificationsService {
   // actorId is null when the suspension is triggered by an owner-deletion
   // wind-down (Phase 5 Mission 4) — there's no actor at the moment of the
   // suspension cron run since the owner row is already gone.
-  async notifyCommunitySuspended(recipientUserId: string, actorId: string | null, communityId: string) {
+  async notifyCommunitySuspended(
+    recipientUserId: string,
+    actorId: string | null,
+    communityId: string,
+  ) {
     return this.createUnconditional({
       type: 'COMMUNITY_SUSPENDED',
       recipientId: recipientUserId,
@@ -322,7 +369,11 @@ export class NotificationsService {
   }
 
   // Owner reactivated a suspended community (placeholder pre-HYP, charge-success post-HYP).
-  async notifyCommunityReactivated(recipientUserId: string, actorId: string, communityId: string) {
+  async notifyCommunityReactivated(
+    recipientUserId: string,
+    actorId: string,
+    communityId: string,
+  ) {
     return this.createUnconditional({
       type: 'COMMUNITY_REACTIVATED',
       recipientId: recipientUserId,
@@ -335,7 +386,11 @@ export class NotificationsService {
   // icon entry so members who don't open the community AND don't check
   // email still know. Unconditional (can't opt out): pricing changes
   // affect what they pay; we must surface them everywhere.
-  async notifyPriceChangeAnnounced(recipientUserId: string, actorId: string, communityId: string) {
+  async notifyPriceChangeAnnounced(
+    recipientUserId: string,
+    actorId: string,
+    communityId: string,
+  ) {
     return this.createUnconditional({
       type: 'PRICE_CHANGE_ANNOUNCED',
       recipientId: recipientUserId,
@@ -348,7 +403,11 @@ export class NotificationsService {
   // attendees an hour before / day before / whatever reminderDays is.
   // Unconditional (can't opt out): the user already RSVPed GOING, so
   // they want to know.
-  async notifyEventReminder(recipientUserId: string, actorId: string, communityId: string) {
+  async notifyEventReminder(
+    recipientUserId: string,
+    actorId: string,
+    communityId: string,
+  ) {
     return this.createUnconditional({
       type: 'EVENT_REMINDER',
       recipientId: recipientUserId,
@@ -390,12 +449,19 @@ export class NotificationsService {
       },
     });
     if (notification && this.messagesGateway) {
-      this.messagesGateway.sendNotificationToUser(data.recipientId, notification);
+      this.messagesGateway.sendNotificationToUser(
+        data.recipientId,
+        notification,
+      );
     }
     return notification;
   }
 
-  async notifyCommunityJoin(communityOwnerId: string, actorId: string, communityId: string) {
+  async notifyCommunityJoin(
+    communityOwnerId: string,
+    actorId: string,
+    communityId: string,
+  ) {
     return this.create({
       type: 'COMMUNITY_JOIN',
       recipientId: communityOwnerId,
@@ -405,7 +471,12 @@ export class NotificationsService {
   }
 
   // Notify a user when they are mentioned in a comment
-  async notifyMention(mentionedUserId: string, actorId: string, postId: string, communityId: string) {
+  async notifyMention(
+    mentionedUserId: string,
+    actorId: string,
+    postId: string,
+    communityId: string,
+  ) {
     return this.create({
       type: 'MENTION',
       recipientId: mentionedUserId,
@@ -429,7 +500,7 @@ export class NotificationsService {
     if (!mentions || mentions.length === 0) return [];
 
     // Extract usernames (remove @ symbol and trim)
-    const usernames = mentions.map(m => m.slice(1).trim());
+    const usernames = mentions.map((m) => m.slice(1).trim());
 
     // Find users by name (exact match, case-insensitive). Substring match
     // would notify lookalike names: @Yossi would also notify Yossi-Cohen,
@@ -437,7 +508,7 @@ export class NotificationsService {
     // the content, so equality is the right check here.
     const users = await this.prisma.user.findMany({
       where: {
-        OR: usernames.map(username => ({
+        OR: usernames.map((username) => ({
           name: { equals: username, mode: 'insensitive' as const },
         })),
         id: { not: actorId }, // Don't notify yourself
@@ -452,7 +523,7 @@ export class NotificationsService {
     for (let i = 0; i < users.length; i += BATCH_SIZE) {
       const chunk = users.slice(i, i + BATCH_SIZE);
       const chunkResults = await Promise.all(
-        chunk.map(user =>
+        chunk.map((user) =>
           this.notifyMention(user.id, actorId, postId, communityId),
         ),
       );

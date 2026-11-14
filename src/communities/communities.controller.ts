@@ -1,4 +1,19 @@
-import { BadRequestException, Controller, Get, Post, Body, UseGuards, Req, Param, Put, Patch, Delete, Query, UseInterceptors, UploadedFiles } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Post,
+  Body,
+  UseGuards,
+  Req,
+  Param,
+  Put,
+  Patch,
+  Delete,
+  Query,
+  UseInterceptors,
+  UploadedFiles,
+} from '@nestjs/common';
 import type { Request } from 'express';
 import type { AuthenticatedRequest } from '../common/authenticated-request';
 import { parseStringArray } from '../common/parse-json';
@@ -42,7 +57,10 @@ export class CommunitiesController {
   // atomic Community creation + payment-method bind + pending row delete.
   @UseGuards(AuthGuard('jwt'))
   @Post('begin-checkout')
-  beginCheckout(@Req() req: AuthenticatedRequest, @Body() body: BeginCheckoutDto) {
+  beginCheckout(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: BeginCheckoutDto,
+  ) {
     const userId = req.user.userId;
     return this.communitiesService.beginCheckout(userId, body);
   }
@@ -81,41 +99,62 @@ export class CommunitiesController {
   }
 
   @Get('check-slug/:slug')
-  async checkSlug(@Param('slug') slug: string, @Query('excludeId') excludeId?: string) {
-    const isAvailable = await this.communitiesService.isSlugAvailable(slug, excludeId);
+  async checkSlug(
+    @Param('slug') slug: string,
+    @Query('excludeId') excludeId?: string,
+  ) {
+    const isAvailable = await this.communitiesService.isSlugAvailable(
+      slug,
+      excludeId,
+    );
     return { available: isAvailable };
   }
 
   @Get(':id')
-  findOne(
-    @Param('id') id: string,
-    @Req() req: Request,
-  ) {
+  findOne(@Param('id') id: string, @Req() req: Request) {
     const viewerUserId = getUserIdFromRequest(req);
     return this.communitiesService.findById(id, viewerUserId);
   }
 
   @UseGuards(AuthGuard('jwt'))
   @Put(':id')
-  @UseInterceptors(FileFieldsInterceptor([
-    { name: 'image', maxCount: 1 },
-    { name: 'logo', maxCount: 1 },
-    { name: 'galleryImages', maxCount: 10 },
-    { name: 'galleryVideoFiles', maxCount: 5 },
-  ], { storage, fileFilter: imageOrVideoFileFilter, limits: { fileSize: MAX_VIDEO_SIZE } }))
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'image', maxCount: 1 },
+        { name: 'logo', maxCount: 1 },
+        { name: 'galleryImages', maxCount: 10 },
+        { name: 'galleryVideoFiles', maxCount: 5 },
+      ],
+      {
+        storage,
+        fileFilter: imageOrVideoFileFilter,
+        limits: { fileSize: MAX_VIDEO_SIZE },
+      },
+    ),
+  )
   async update(
     @Param('id') id: string,
     @Req() req: AuthenticatedRequest,
     @Body() body: UpdateCommunityDto,
-    @UploadedFiles() files?: { image?: Express.Multer.File[]; logo?: Express.Multer.File[]; galleryImages?: Express.Multer.File[]; galleryVideoFiles?: Express.Multer.File[] },
+    @UploadedFiles()
+    files?: {
+      image?: Express.Multer.File[];
+      logo?: Express.Multer.File[];
+      galleryImages?: Express.Multer.File[];
+      galleryVideoFiles?: Express.Multer.File[];
+    },
   ) {
     const userId = req.user.userId;
     let imagePath: string | null | undefined = undefined;
     let logoPath: string | null | undefined = undefined;
-    
+
     if (files?.image?.[0]) {
       // New image uploaded
-      imagePath = await this.storageService.uploadFile(files.image[0], 'communities');
+      imagePath = await this.storageService.uploadFile(
+        files.image[0],
+        'communities',
+      );
     } else if (body.existingPrimaryImage) {
       // Keep existing primary image (don't change it)
       imagePath = body.existingPrimaryImage;
@@ -123,10 +162,13 @@ export class CommunitiesController {
       // Remove image
       imagePath = null;
     }
-    
+
     if (files?.logo?.[0]) {
       // New logo uploaded
-      logoPath = await this.storageService.uploadFile(files.logo[0], 'communities');
+      logoPath = await this.storageService.uploadFile(
+        files.logo[0],
+        'communities',
+      );
     } else if (body.existingLogo) {
       // Keep existing logo
       logoPath = body.existingLogo;
@@ -134,23 +176,36 @@ export class CommunitiesController {
       // Remove logo
       logoPath = null;
     }
-    
-    const newGalleryPaths = files?.galleryImages ? await this.storageService.uploadFiles(files.galleryImages, 'communities') : [];
+
+    const newGalleryPaths = files?.galleryImages
+      ? await this.storageService.uploadFiles(
+          files.galleryImages,
+          'communities',
+        )
+      : [];
     // These lists REPLACE the stored gallery, so a malformed value must be
     // rejected — treating it as empty would wipe the gallery.
     const existingGallery = parseStringArray(body.existingGalleryImages);
     const existingVideoUrls = parseStringArray(body.existingGalleryVideos);
-    if ((body.existingGalleryImages && !existingGallery) || (body.existingGalleryVideos && !existingVideoUrls)) {
+    if (
+      (body.existingGalleryImages && !existingGallery) ||
+      (body.existingGalleryVideos && !existingVideoUrls)
+    ) {
       throw new BadRequestException('INVALID_GALLERY_LIST');
     }
     const galleryImages = [...(existingGallery ?? []), ...newGalleryPaths];
 
     // Handle gallery videos: merge existing URLs + newly uploaded MP4s
-    const uploadedVideoPaths = files?.galleryVideoFiles ? await this.storageService.uploadFiles(files.galleryVideoFiles, 'communities') : [];
+    const uploadedVideoPaths = files?.galleryVideoFiles
+      ? await this.storageService.uploadFiles(
+          files.galleryVideoFiles,
+          'communities',
+        )
+      : [];
     const galleryVideos = [...(existingVideoUrls ?? []), ...uploadedVideoPaths];
-    
+
     const price = body.price !== undefined ? parseFloat(body.price) : undefined;
-    
+
     return this.communitiesService.update(
       id,
       userId,
@@ -166,7 +221,9 @@ export class CommunitiesController {
       galleryImages,
       galleryVideos,
       price,
-      body.showOnlineMembers !== undefined ? body.showOnlineMembers === 'true' : undefined,
+      body.showOnlineMembers !== undefined
+        ? body.showOnlineMembers === 'true'
+        : undefined,
       body.status,
       {
         linkedinUrl: body.linkedinUrl,
@@ -182,7 +239,7 @@ export class CommunitiesController {
   async join(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     const userId = req.user.userId;
     const result = await this.communitiesService.joinCommunity(id, userId);
-    
+
     // Notify community owner if this is a new join. Skip when ownerId is
     // NULL — owner deleted their account (Phase 5 Mission 4 wind-down),
     // no recipient to notify.
@@ -196,7 +253,7 @@ export class CommunitiesController {
         );
       }
     }
-    
+
     return result;
   }
 
@@ -228,7 +285,10 @@ export class CommunitiesController {
   // manage-page payments tab. Service enforces ownership.
   @UseGuards(AuthGuard('jwt'))
   @Get(':id/payment-method')
-  getOwnerPaymentMethod(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+  getOwnerPaymentMethod(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     return this.communitiesService.getOwnerPaymentMethod(id, req.user.userId);
   }
 
@@ -243,7 +303,10 @@ export class CommunitiesController {
 
   @UseGuards(AuthGuard('jwt'))
   @Post(':id/cancel-paid-membership')
-  cancelPaidMembership(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+  cancelPaidMembership(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const userId = req.user.userId;
     return this.communitiesService.cancelPaidMembership(id, userId);
   }
@@ -257,7 +320,12 @@ export class CommunitiesController {
     @Req() req: AuthenticatedRequest,
   ) {
     const userId = req.user.userId;
-    return this.communitiesService.updateMemberRole(id, memberId, body.role, userId);
+    return this.communitiesService.updateMemberRole(
+      id,
+      memberId,
+      body.role,
+      userId,
+    );
   }
 
   @UseGuards(AuthGuard('jwt'))
@@ -268,12 +336,20 @@ export class CommunitiesController {
     @Req() req: AuthenticatedRequest,
   ) {
     const userId = req.user.userId;
-    const result = await this.communitiesService.removeMember(id, memberId, userId);
+    const result = await this.communitiesService.removeMember(
+      id,
+      memberId,
+      userId,
+    );
     // Notify the banned user. Fire-and-forget — the ban itself succeeded
     // and a downstream notification glitch shouldn't fail the response.
-    const community = await this.communitiesService.findById(id, userId).catch(() => null);
+    const community = await this.communitiesService
+      .findById(id, userId)
+      .catch(() => null);
     if (community) {
-      this.notificationsService.notifyCommunityBan(memberId, userId, community.id).catch(() => {});
+      this.notificationsService
+        .notifyCommunityBan(memberId, userId, community.id)
+        .catch(() => {});
     }
     return result;
   }
@@ -294,7 +370,10 @@ export class CommunitiesController {
 
   @UseGuards(AuthGuard('jwt'))
   @Get(':id/members')
-  getCommunityMembers(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+  getCommunityMembers(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     return this.communitiesService.getCommunityMembers(id, req.user.userId);
   }
 
@@ -307,15 +386,21 @@ export class CommunitiesController {
 
   @UseGuards(AuthGuard('jwt'))
   @Delete(':id/banned/:banId')
-  async liftBan(@Param('id') id: string, @Param('banId') banId: string, @Req() req: AuthenticatedRequest) {
+  async liftBan(
+    @Param('id') id: string,
+    @Param('banId') banId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const userId = req.user.userId;
     const result = await this.communitiesService.liftBan(id, banId, userId);
     // Notify the unbanned user. Fire-and-forget.
-    this.notificationsService.notifyCommunityBanLifted(
-      result.unbannedUserId,
-      userId,
-      result.communityId,
-    ).catch(() => {});
+    this.notificationsService
+      .notifyCommunityBanLifted(
+        result.unbannedUserId,
+        userId,
+        result.communityId,
+      )
+      .catch(() => {});
     return { message: result.message };
   }
 
@@ -331,9 +416,17 @@ export class CommunitiesController {
 
   @UseGuards(AuthGuard('jwt'))
   @Get(':id/top-members')
-  getTopMembers(@Param('id') id: string, @Req() req: AuthenticatedRequest, @Query('limit') limit?: string) {
+  getTopMembers(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+    @Query('limit') limit?: string,
+  ) {
     const memberLimit = limit ? parseInt(limit, 10) : 3;
-    return this.communitiesService.getTopMembers(id, req.user.userId, Math.min(memberLimit, 100));
+    return this.communitiesService.getTopMembers(
+      id,
+      req.user.userId,
+      Math.min(memberLimit, 100),
+    );
   }
 
   @Get(':id/rules')
@@ -354,10 +447,7 @@ export class CommunitiesController {
 
   @UseGuards(AuthGuard('jwt'))
   @Patch(':id/slug')
-  updateSlug(
-    @Param('id') id: string,
-    @Body() body: UpdateSlugDto,
-  ) {
+  updateSlug(@Param('id') id: string, @Body() body: UpdateSlugDto) {
     return this.communitiesService.updateSlug(id, body.slug);
   }
 
@@ -372,13 +462,20 @@ export class CommunitiesController {
     @Req() req: AuthenticatedRequest,
   ) {
     const userId = req.user.userId;
-    return this.communitiesService.announcePriceChange(id, userId, Number(body.newPrice));
+    return this.communitiesService.announcePriceChange(
+      id,
+      userId,
+      Number(body.newPrice),
+    );
   }
 
   // Member-side: dismiss the price-change announcement popup. Idempotent.
   @UseGuards(AuthGuard('jwt'))
   @Post(':id/acknowledge-price-change')
-  acknowledgePriceChange(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+  acknowledgePriceChange(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const userId = req.user.userId;
     return this.communitiesService.acknowledgePriceChange(id, userId);
   }
@@ -386,7 +483,10 @@ export class CommunitiesController {
   // Member-side: dismiss the scheduled-suspension popup. Idempotent.
   @UseGuards(AuthGuard('jwt'))
   @Post(':id/acknowledge-suspension-scheduled')
-  acknowledgeSuspensionScheduled(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+  acknowledgeSuspensionScheduled(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const userId = req.user.userId;
     return this.communitiesService.acknowledgeSuspensionScheduled(id, userId);
   }

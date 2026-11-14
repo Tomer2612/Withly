@@ -65,11 +65,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
           message = 'Resource already exists';
           break;
         default:
-          this.logger.error(`Unhandled Prisma error ${exception.code}: ${exception.message}`);
+          this.logger.error(
+            `Unhandled Prisma error ${exception.code}: ${exception.message}`,
+          );
       }
     } else if (exception instanceof Error) {
       // Don't leak Error.message to clients — could expose internals.
-      this.logger.error(`Unhandled error on ${request?.url}: ${exception.message}`, exception.stack);
+      this.logger.error(
+        `Unhandled error on ${request?.url}: ${exception.message}`,
+        exception.stack,
+      );
     }
 
     httpAdapter.reply(

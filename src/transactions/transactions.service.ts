@@ -79,8 +79,8 @@ export class TransactionsService {
     } catch (err) {
       this.logger.error(
         `Failed to record ${input.kind} transaction ` +
-        `(gross=${input.grossAmount}, community=${input.communityId}, ` +
-        `hypTxn=${input.hypTxnId}): ${(err as Error).message}`,
+          `(gross=${input.grossAmount}, community=${input.communityId}, ` +
+          `hypTxn=${input.hypTxnId}): ${(err as Error).message}`,
       );
     }
   }

@@ -20,10 +20,14 @@ export class ActivityMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction) {
     try {
       // Pull the access token from the httpOnly cookie set on login.
-      const cookies = (req as { cookies?: unknown }).cookies as Record<string, string> | undefined;
+      const cookies = (req as { cookies?: unknown }).cookies as
+        | Record<string, string>
+        | undefined;
       const cookieToken = cookies?.[ACCESS_TOKEN_COOKIE];
       if (cookieToken) {
-        const decoded = jwt.verify(cookieToken, getJwtSecret()) as { sub?: string };
+        const decoded = jwt.verify(cookieToken, getJwtSecret()) as {
+          sub?: string;
+        };
 
         if (decoded?.sub) {
           const userId = decoded.sub;
@@ -33,12 +37,14 @@ export class ActivityMiddleware implements NestMiddleware {
           if (!last || now - last > ACTIVITY_THROTTLE_MS) {
             this.lastWriteByUser.set(userId, now);
             // Update lastActiveAt in background (don't await to not slow down request)
-            this.prisma.user.update({
-              where: { id: userId },
-              data: { lastActiveAt: new Date() },
-            }).catch(() => {
-              // Silently ignore errors (user might not exist, etc.)
-            });
+            this.prisma.user
+              .update({
+                where: { id: userId },
+                data: { lastActiveAt: new Date() },
+              })
+              .catch(() => {
+                // Silently ignore errors (user might not exist, etc.)
+              });
           }
         }
       }

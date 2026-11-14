@@ -33,8 +33,13 @@ export const imageOrVideoFileFilter = (
   file: Express.Multer.File,
   cb: FileFilterCallback,
 ) => {
-  if (!file.mimetype.startsWith('image/') && !file.mimetype.startsWith('video/')) {
-    return cb(new BadRequestException(ERROR_MESSAGES.UPLOAD_IMAGE_OR_VIDEO_ONLY));
+  if (
+    !file.mimetype.startsWith('image/') &&
+    !file.mimetype.startsWith('video/')
+  ) {
+    return cb(
+      new BadRequestException(ERROR_MESSAGES.UPLOAD_IMAGE_OR_VIDEO_ONLY),
+    );
   }
   cb(null, true);
 };

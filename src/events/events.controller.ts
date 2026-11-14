@@ -47,11 +47,13 @@ export class EventsController {
     @UploadedFile() coverImage?: Express.Multer.File,
   ) {
     const userId = req.user.userId;
-    
+
     return this.eventsService.create(communityId, userId, {
       title: body.title,
       description: body.description,
-      coverImage: coverImage ? await this.storageService.uploadFile(coverImage, 'events') : undefined,
+      coverImage: coverImage
+        ? await this.storageService.uploadFile(coverImage, 'events')
+        : undefined,
       date: new Date(body.date),
       endDate: body.endDate ? new Date(body.endDate) : undefined,
       duration: body.duration ? parseInt(body.duration) : undefined,
@@ -90,7 +92,11 @@ export class EventsController {
     @Query('limit') limit: string,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.eventsService.findUpcoming(communityId, req.user.userId, Math.min(limit ? parseInt(limit) : 5, 50));
+    return this.eventsService.findUpcoming(
+      communityId,
+      req.user.userId,
+      Math.min(limit ? parseInt(limit) : 5, 50),
+    );
   }
 
   // Get events for specific month (for calendar view)
@@ -113,7 +119,10 @@ export class EventsController {
   // Get single event
   @UseGuards(AuthGuard('jwt'))
   @Get(':eventId')
-  async findOne(@Param('eventId') eventId: string, @Req() req: AuthenticatedRequest) {
+  async findOne(
+    @Param('eventId') eventId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     return this.eventsService.findOne(eventId, req.user.userId);
   }
 
@@ -158,21 +167,28 @@ export class EventsController {
     if (body.title !== undefined) data.title = body.title;
     if (body.description !== undefined) data.description = body.description;
     if (body.timezone !== undefined) data.timezone = body.timezone;
-    if (body.recurringType !== undefined) data.recurringType = body.recurringType;
+    if (body.recurringType !== undefined)
+      data.recurringType = body.recurringType;
     if (body.locationType !== undefined) data.locationType = body.locationType;
     if (body.locationName !== undefined) data.locationName = body.locationName;
     if (body.locationUrl !== undefined) data.locationUrl = body.locationUrl;
     if (body.category !== undefined) data.category = body.category;
     if (body.attendeeType !== undefined) data.attendeeType = body.attendeeType;
 
-    if (coverImage) data.coverImage = await this.storageService.uploadFile(coverImage, 'events');
+    if (coverImage)
+      data.coverImage = await this.storageService.uploadFile(
+        coverImage,
+        'events',
+      );
     if (body.date) data.date = new Date(body.date);
     if (body.endDate) data.endDate = new Date(body.endDate);
     if (body.duration) data.duration = parseInt(body.duration);
     if (body.capacity) data.capacity = parseInt(body.capacity);
     if (body.reminderDays) data.reminderDays = parseInt(body.reminderDays);
-    if (body.isRecurring !== undefined) data.isRecurring = body.isRecurring === 'true';
-    if (body.sendReminders !== undefined) data.sendReminders = body.sendReminders === 'true';
+    if (body.isRecurring !== undefined)
+      data.isRecurring = body.isRecurring === 'true';
+    if (body.sendReminders !== undefined)
+      data.sendReminders = body.sendReminders === 'true';
 
     return this.eventsService.update(eventId, userId, data);
   }
@@ -180,7 +196,10 @@ export class EventsController {
   // Delete event
   @UseGuards(AuthGuard('jwt'))
   @Delete(':eventId')
-  async delete(@Param('eventId') eventId: string, @Req() req: AuthenticatedRequest) {
+  async delete(
+    @Param('eventId') eventId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const userId = req.user.userId;
     return this.eventsService.delete(eventId, userId);
   }
@@ -200,7 +219,10 @@ export class EventsController {
   // Remove RSVP
   @UseGuards(AuthGuard('jwt'))
   @Delete(':eventId/rsvp')
-  async removeRsvp(@Param('eventId') eventId: string, @Req() req: AuthenticatedRequest) {
+  async removeRsvp(
+    @Param('eventId') eventId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const userId = req.user.userId;
     return this.eventsService.removeRsvp(eventId, userId);
   }

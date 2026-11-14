@@ -1,8 +1,16 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { Prisma, RsvpStatus } from '@prisma/client';
 import { CommunitiesService } from '../communities/communities.service';
-import { canManageCommunity, getEffectiveRole, type EffectiveRole } from '../common/community-roles.helper';
+import {
+  canManageCommunity,
+  getEffectiveRole,
+  type EffectiveRole,
+} from '../common/community-roles.helper';
 
 @Injectable()
 export class EventsService {
@@ -32,13 +40,18 @@ export class EventsService {
       sendReminders?: boolean;
       reminderDays?: number;
       attendeeType?: string;
-    }
+    },
   ) {
     // Resolve slug to actual community ID
-    const communityId = await this.communitiesService.resolveId(communityIdOrSlug);
-    
+    const communityId =
+      await this.communitiesService.resolveId(communityIdOrSlug);
+
     // Verify user is owner or manager
-    if (!canManageCommunity(await getEffectiveRole(this.prisma, communityId, createdById))) {
+    if (
+      !canManageCommunity(
+        await getEffectiveRole(this.prisma, communityId, createdById),
+      )
+    ) {
       throw new ForbiddenException('Only community managers can create events');
     }
 
@@ -50,38 +63,50 @@ export class EventsService {
     if (data.isRecurring && data.recurringType) {
       const baseDate = new Date(data.date);
       // Practical occurrences: daily: 30 (1 month), weekly: 12 (3 months), monthly: 12 (1 year)
-      const occurrences = data.recurringType === 'daily' ? 30 : data.recurringType === 'weekly' ? 12 : 12;
+      const occurrences =
+        data.recurringType === 'daily'
+          ? 30
+          : data.recurringType === 'weekly'
+            ? 12
+            : 12;
 
-      const events = await this.prisma.$transaction(async (tx) => {
-        const created: Array<{ id: string; title: string; [key: string]: unknown }> = [];
-        for (let i = 0; i < occurrences; i++) {
-          const eventDate = new Date(baseDate);
+      const events = await this.prisma.$transaction(
+        async (tx) => {
+          const created: Array<{
+            id: string;
+            title: string;
+            [key: string]: unknown;
+          }> = [];
+          for (let i = 0; i < occurrences; i++) {
+            const eventDate = new Date(baseDate);
 
-          if (data.recurringType === 'daily') {
-            eventDate.setDate(eventDate.getDate() + i);
-          } else if (data.recurringType === 'weekly') {
-            eventDate.setDate(eventDate.getDate() + (i * 7));
-          } else if (data.recurringType === 'monthly') {
-            eventDate.setMonth(eventDate.getMonth() + i);
-          }
+            if (data.recurringType === 'daily') {
+              eventDate.setDate(eventDate.getDate() + i);
+            } else if (data.recurringType === 'weekly') {
+              eventDate.setDate(eventDate.getDate() + i * 7);
+            } else if (data.recurringType === 'monthly') {
+              eventDate.setMonth(eventDate.getMonth() + i);
+            }
 
-          const event = await tx.event.create({
-            data: {
-              ...data,
-              date: eventDate,
-              communityId,
-              createdById,
-            },
-            include: {
-              _count: {
-                select: { rsvps: true },
+            const event = await tx.event.create({
+              data: {
+                ...data,
+                date: eventDate,
+                communityId,
+                createdById,
               },
-            },
-          });
-          created.push(event);
-        }
-        return created;
-      }, { timeout: 30_000 });
+              include: {
+                _count: {
+                  select: { rsvps: true },
+                },
+              },
+            });
+            created.push(event);
+          }
+          return created;
+        },
+        { timeout: 30_000 },
+      );
 
       return events[0]; // Return the first event
     }
@@ -123,7 +148,10 @@ export class EventsService {
     if (!event) {
       throw new NotFoundException('Event not found');
     }
-    const { role } = await this.communitiesService.assertMember(event.communityId, userId);
+    const { role } = await this.communitiesService.assertMember(
+      event.communityId,
+      userId,
+    );
     if (event.attendeeType !== 'all' && !canManageCommunity(role)) {
       throw new NotFoundException('Event not found');
     }
@@ -132,7 +160,10 @@ export class EventsService {
 
   async findByCommunity(communityIdOrSlug: string, userId: string) {
     // Members only (also resolves a slug to the real community id).
-    const { communityId, role } = await this.communitiesService.assertMember(communityIdOrSlug, userId);
+    const { communityId, role } = await this.communitiesService.assertMember(
+      communityIdOrSlug,
+      userId,
+    );
 
     const events = await this.prisma.event.findMany({
       where: { communityId, ...this.visibleTo(role) },
@@ -141,10 +172,12 @@ export class EventsService {
         _count: {
           select: { rsvps: true },
         },
-        rsvps: userId ? {
-          where: { userId },
-          select: { status: true, userId: true },
-        } : false,
+        rsvps: userId
+          ? {
+              where: { userId },
+              select: { status: true, userId: true },
+            }
+          : false,
       },
     });
 
@@ -153,31 +186,50 @@ export class EventsService {
     const grouped = events.length
       ? await this.prisma.eventRsvp.groupBy({
           by: ['eventId', 'status'],
-          where: { eventId: { in: events.map(e => e.id) } },
+          where: { eventId: { in: events.map((e) => e.id) } },
           _count: { _all: true },
         })
       : [];
-    const countsByEvent = new Map<string, { going: number; maybe: number; notGoing: number }>();
+    const countsByEvent = new Map<
+      string,
+      { going: number; maybe: number; notGoing: number }
+    >();
     for (const row of grouped) {
-      const c = countsByEvent.get(row.eventId) ?? { going: 0, maybe: 0, notGoing: 0 };
+      const c = countsByEvent.get(row.eventId) ?? {
+        going: 0,
+        maybe: 0,
+        notGoing: 0,
+      };
       if (row.status === 'GOING') c.going = row._count._all;
       else if (row.status === 'MAYBE') c.maybe = row._count._all;
       else if (row.status === 'NOT_GOING') c.notGoing = row._count._all;
       countsByEvent.set(row.eventId, c);
     }
 
-    return events.map(event => ({
+    return events.map((event) => ({
       ...event,
-      userRsvp: userId && event.rsvps && event.rsvps.length > 0
-        ? event.rsvps[0].status
-        : null,
-      rsvpCounts: countsByEvent.get(event.id) ?? { going: 0, maybe: 0, notGoing: 0 },
+      userRsvp:
+        userId && event.rsvps && event.rsvps.length > 0
+          ? event.rsvps[0].status
+          : null,
+      rsvpCounts: countsByEvent.get(event.id) ?? {
+        going: 0,
+        maybe: 0,
+        notGoing: 0,
+      },
     }));
   }
 
-  async findUpcoming(communityIdOrSlug: string, userId: string, limit: number = 5) {
+  async findUpcoming(
+    communityIdOrSlug: string,
+    userId: string,
+    limit: number = 5,
+  ) {
     // Members only (also resolves a slug to the real community id).
-    const { communityId, role } = await this.communitiesService.assertMember(communityIdOrSlug, userId);
+    const { communityId, role } = await this.communitiesService.assertMember(
+      communityIdOrSlug,
+      userId,
+    );
     const now = new Date();
 
     const events = await this.prisma.event.findMany({
@@ -192,18 +244,21 @@ export class EventsService {
         _count: {
           select: { rsvps: true },
         },
-        rsvps: userId ? {
-          where: { userId },
-          select: { status: true },
-        } : false,
+        rsvps: userId
+          ? {
+              where: { userId },
+              select: { status: true },
+            }
+          : false,
       },
     });
 
-    return events.map(event => ({
+    return events.map((event) => ({
       ...event,
-      userRsvp: userId && event.rsvps && event.rsvps.length > 0 
-        ? event.rsvps[0].status 
-        : null,
+      userRsvp:
+        userId && event.rsvps && event.rsvps.length > 0
+          ? event.rsvps[0].status
+          : null,
     }));
   }
 
@@ -232,13 +287,13 @@ export class EventsService {
 
     // Count RSVPs by status
     const rsvpCounts = {
-      going: event.rsvps.filter(r => r.status === 'GOING').length,
-      maybe: event.rsvps.filter(r => r.status === 'MAYBE').length,
-      notGoing: event.rsvps.filter(r => r.status === 'NOT_GOING').length,
+      going: event.rsvps.filter((r) => r.status === 'GOING').length,
+      maybe: event.rsvps.filter((r) => r.status === 'MAYBE').length,
+      notGoing: event.rsvps.filter((r) => r.status === 'NOT_GOING').length,
     };
 
-    const userRsvp = userId 
-      ? event.rsvps.find(r => r.userId === userId)?.status || null
+    const userRsvp = userId
+      ? event.rsvps.find((r) => r.userId === userId)?.status || null
       : null;
 
     return {
@@ -269,7 +324,7 @@ export class EventsService {
       sendReminders: boolean;
       reminderDays: number;
       attendeeType: string;
-    }>
+    }>,
   ) {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
@@ -281,7 +336,11 @@ export class EventsService {
     }
 
     // Verify user is owner or manager
-    if (!canManageCommunity(await getEffectiveRole(this.prisma, event.communityId, userId))) {
+    if (
+      !canManageCommunity(
+        await getEffectiveRole(this.prisma, event.communityId, userId),
+      )
+    ) {
       throw new ForbiddenException('Only community managers can update events');
     }
 
@@ -303,7 +362,11 @@ export class EventsService {
     }
 
     // Verify user is owner or manager
-    if (!canManageCommunity(await getEffectiveRole(this.prisma, event.communityId, userId))) {
+    if (
+      !canManageCommunity(
+        await getEffectiveRole(this.prisma, event.communityId, userId),
+      )
+    ) {
       throw new ForbiddenException('Only community managers can delete events');
     }
 
@@ -385,15 +448,15 @@ export class EventsService {
     });
 
     // Get user details for each RSVP. No email — this endpoint is public.
-    const userIds = rsvps.map(r => r.userId);
+    const userIds = rsvps.map((r) => r.userId);
     const users = await this.prisma.user.findMany({
       where: { id: { in: userIds } },
       select: { id: true, name: true, profileImage: true },
     });
 
-    return rsvps.map(rsvp => ({
+    return rsvps.map((rsvp) => ({
       ...rsvp,
-      user: users.find(u => u.id === rsvp.userId),
+      user: users.find((u) => u.id === rsvp.userId),
     }));
   }
 
@@ -407,9 +470,17 @@ export class EventsService {
     return { going, maybe, notGoing };
   }
 
-  async getEventsForMonth(communityIdOrSlug: string, year: number, month: number, userId: string) {
+  async getEventsForMonth(
+    communityIdOrSlug: string,
+    year: number,
+    month: number,
+    userId: string,
+  ) {
     // Members only (also resolves a slug to the real community id).
-    const { communityId, role } = await this.communitiesService.assertMember(communityIdOrSlug, userId);
+    const { communityId, role } = await this.communitiesService.assertMember(
+      communityIdOrSlug,
+      userId,
+    );
 
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0, 23, 59, 59);
@@ -434,18 +505,18 @@ export class EventsService {
       },
     });
 
-    return events.map(event => {
+    return events.map((event) => {
       // Calculate rsvpCounts for all events
       const rsvpCounts = {
-        going: event.rsvps.filter(r => r.status === 'GOING').length,
-        maybe: event.rsvps.filter(r => r.status === 'MAYBE').length,
-        notGoing: event.rsvps.filter(r => r.status === 'NOT_GOING').length,
+        going: event.rsvps.filter((r) => r.status === 'GOING').length,
+        maybe: event.rsvps.filter((r) => r.status === 'MAYBE').length,
+        notGoing: event.rsvps.filter((r) => r.status === 'NOT_GOING').length,
       };
 
       return {
         ...event,
         userRsvp: userId
-          ? event.rsvps.find(r => r.userId === userId)?.status || null
+          ? event.rsvps.find((r) => r.userId === userId)?.status || null
           : null,
         rsvpCounts,
         rsvps: undefined, // Don't expose full rsvps array

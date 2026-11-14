@@ -10,12 +10,16 @@ export class EmailService {
   private resend: Resend;
   private fromEmail: string;
   private frontendUrl: string;
-  private inlineAttachmentsPromise: Promise<{ filename: string; content: Buffer; contentId: string }[]> | null = null;
+  private inlineAttachmentsPromise: Promise<
+    { filename: string; content: Buffer; contentId: string }[]
+  > | null = null;
 
   constructor(private configService: ConfigService) {
     this.resend = new Resend(this.configService.get<string>('RESEND_API_KEY'));
-    this.fromEmail = this.configService.get<string>('EMAIL_FROM') || 'noreply@withly.co.il';
-    this.frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    this.fromEmail =
+      this.configService.get<string>('EMAIL_FROM') || 'noreply@withly.co.il';
+    this.frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
   }
 
   /** Shared email wrapper: thick green bar → logo+Withly text → thin divider → content → thin divider → footer */
@@ -101,7 +105,10 @@ export class EmailService {
     `;
   }
 
-  private buildVerificationBody(name: string, verificationLink: string): string {
+  private buildVerificationBody(
+    name: string,
+    verificationLink: string,
+  ): string {
     return `
                 <!-- 9. Email text -->
                 <tr>
@@ -135,13 +142,22 @@ export class EmailService {
                 </tr>`;
   }
 
-  async sendVerificationEmail(email: string, name: string, token: string): Promise<void> {
+  async sendVerificationEmail(
+    email: string,
+    name: string,
+    token: string,
+  ): Promise<void> {
     const verificationLink = `${this.frontendUrl}/verify-email?token=${token}`;
     const bodyContent = this.buildVerificationBody(name, verificationLink);
     const htmlBody = this.buildEmailHtml(bodyContent);
     const textBody = `שלום ${name},\n\nתודה שבחרת להצטרף ל-Withly!\nכדי להשלים את תהליך ההרשמה ולהפעיל את הכתובת יש לאמת את כתובת המייל בלחיצה על הקישור:\n${verificationLink}\n\nאם לא נרשמת לשירות, ניתן להתעלם מהודעה זו והפרטים שלך יימחקו מהמערכת\nהקישור יהיה תקף למשך 24 שעות בלבד\n\nבברכה,\nצוות Withly`;
 
-    await this.sendEmail(email, 'ברוכים הבאים ל-Withly! אימות כתובת המייל שלך', htmlBody, textBody);
+    await this.sendEmail(
+      email,
+      'ברוכים הבאים ל-Withly! אימות כתובת המייל שלך',
+      htmlBody,
+      textBody,
+    );
   }
 
   private buildWelcomeBody(name: string): string {
@@ -217,16 +233,30 @@ export class EmailService {
                 </tr>`;
   }
 
-  async sendPasswordResetEmail(email: string, name: string, token: string): Promise<void> {
+  async sendPasswordResetEmail(
+    email: string,
+    name: string,
+    token: string,
+  ): Promise<void> {
     const resetLink = `${this.frontendUrl}/reset-password?token=${token}`;
     const bodyContent = this.buildPasswordResetBody(name, resetLink);
     const htmlBody = this.buildEmailHtml(bodyContent);
     const textBody = `שלום ${name},\n\nקיבלנו בקשה לאיפוס הסיסמה לחשבונך. כדי להגדיר סיסמה חדשה, לחץ על הקישור:\n${resetLink}\n\nאם לא ביקשת לבצע פעולה זו, ניתן להתעלם מהודעה זו והסיסמה שלך תישאר ללא שינוי\nשים לב: הקישור יהיה תקף למשך שעה בלבד\n\nבברכה,\nצוות Withly`;
 
-    await this.sendEmail(email, 'איפוס סיסמה לחשבון Withly שלך', htmlBody, textBody);
+    await this.sendEmail(
+      email,
+      'איפוס סיסמה לחשבון Withly שלך',
+      htmlBody,
+      textBody,
+    );
   }
 
-  async sendContactEmail(name: string, email: string, subject: string, message: string): Promise<void> {
+  async sendContactEmail(
+    name: string,
+    email: string,
+    subject: string,
+    message: string,
+  ): Promise<void> {
     const supportEmails = ['support@withly.co.il'];
 
     const bodyContent = `
@@ -254,10 +284,22 @@ export class EmailService {
     const htmlBody = this.buildEmailHtml(bodyContent);
     const textBody = `פנייה חדשה מטופס יצירת קשר\n\nשם: ${name}\nאימייל: ${email}\nנושא: ${subject}\n\nהודעה:\n${message}`;
 
-    await this.sendEmail(supportEmails, `צור קשר: ${subject}`, htmlBody, textBody);
+    await this.sendEmail(
+      supportEmails,
+      `צור קשר: ${subject}`,
+      htmlBody,
+      textBody,
+    );
   }
 
-  private buildEventReminderBody(userName: string, eventTitle: string, eventDate: string, eventTime: string, communityName: string, eventLink: string): string {
+  private buildEventReminderBody(
+    userName: string,
+    eventTitle: string,
+    eventDate: string,
+    eventTime: string,
+    communityName: string,
+    eventLink: string,
+  ): string {
     return `
                 <!-- 9. Email text -->
                 <tr>
@@ -332,7 +374,12 @@ export class EmailService {
     const htmlBody = this.buildEmailHtml(bodyContent);
     const textBody = `שלום ${name},\n\nכרטיס אשראי חדש נוסף לחשבון שלך ב-Withly:\n${cardLine}\n\nאם לא ביצעת את הפעולה הזו בעצמך, אנא צור איתנו קשר מיד.\n\nבברכה,\nצוות Withly`;
 
-    await this.sendEmail(email, 'כרטיס אשראי נוסף לחשבון Withly שלך', htmlBody, textBody);
+    await this.sendEmail(
+      email,
+      'כרטיס אשראי נוסף לחשבון Withly שלך',
+      htmlBody,
+      textBody,
+    );
   }
 
   // Phase 3.6 — sent after the billing card for a specific community is
@@ -356,7 +403,12 @@ export class EmailService {
     const htmlBody = this.buildEmailHtml(bodyContent);
     const textBody = `שלום ${name},\n\nאמצעי התשלום של הקהילה "${communityName}" עודכן בהצלחה:\n${cardLine}\n\nחיובים עתידיים של המנוי יבוצעו לכרטיס זה.\n\nאם לא ביצעת את הפעולה הזו בעצמך, אנא צור איתנו קשר מיד.\n\nבברכה,\nצוות Withly`;
 
-    await this.sendEmail(email, `אמצעי התשלום של ${communityName} עודכן`, htmlBody, textBody);
+    await this.sendEmail(
+      email,
+      `אמצעי התשלום של ${communityName} עודכן`,
+      htmlBody,
+      textBody,
+    );
   }
 
   async sendEventReminder(
@@ -368,11 +420,23 @@ export class EmailService {
     communityName: string,
     eventLink: string,
   ): Promise<void> {
-    const bodyContent = this.buildEventReminderBody(userName, eventTitle, eventDate, eventTime, communityName, eventLink);
+    const bodyContent = this.buildEventReminderBody(
+      userName,
+      eventTitle,
+      eventDate,
+      eventTime,
+      communityName,
+      eventLink,
+    );
     const htmlBody = this.buildEmailHtml(bodyContent);
     const textBody = `שלום ${userName},\n\nרצינו להזכיר לך שהאירוע "${eventTitle}" בקהילת ${communityName} מתקרב!\n\n📅 ${eventDate} בשעה ${eventTime}\n\nצפייה באירוע: ${eventLink}\n\nבברכה,\nצוות Withly`;
 
-    await this.sendEmail(email, `תזכורת: ${eventTitle} מתקרב!`, htmlBody, textBody);
+    await this.sendEmail(
+      email,
+      `תזכורת: ${eventTitle} מתקרב!`,
+      htmlBody,
+      textBody,
+    );
   }
 
   // Lazy-load + cache the inline image attachments. Reading on first send
@@ -388,8 +452,16 @@ export class EmailService {
             readFile(path.join(__dirname, 'assets', 'WithlyHeader.png')),
           ]);
           return [
-            { filename: 'WithlyLogo.png', content: markPng, contentId: 'WithlyLogo' },
-            { filename: 'WithlyHeader.png', content: textPng, contentId: 'WithlyHeader' },
+            {
+              filename: 'WithlyLogo.png',
+              content: markPng,
+              contentId: 'WithlyLogo',
+            },
+            {
+              filename: 'WithlyHeader.png',
+              content: textPng,
+              contentId: 'WithlyHeader',
+            },
           ];
         } catch {
           return [];
@@ -399,7 +471,12 @@ export class EmailService {
     return this.inlineAttachmentsPromise;
   }
 
-  private async sendEmail(to: string | string[], subject: string, htmlBody: string, textBody: string): Promise<void> {
+  private async sendEmail(
+    to: string | string[],
+    subject: string,
+    htmlBody: string,
+    textBody: string,
+  ): Promise<void> {
     const attachments = await this.getInlineAttachments();
     const { error } = await this.resend.emails.send({
       from: this.fromEmail,
@@ -413,7 +490,9 @@ export class EmailService {
     if (error) {
       // Resend returns a plain object, not an Error — wrap it so callers get
       // a real Error (message + stack) while keeping the original details.
-      throw Object.assign(new Error(`Resend: ${error.message}`), { resendError: error });
+      throw Object.assign(new Error(`Resend: ${error.message}`), {
+        resendError: error,
+      });
     }
   }
 
@@ -803,9 +882,7 @@ export class EmailService {
       `כל המנויים הפעילים בוטלו והחיובים החודשיים נעצרו.`,
     ];
     if (hadOwnedCommunities) {
-      lines.push(
-        `כל הקהילות שבבעלותך יימחקו תוך חודש לכל היותר.`,
-      );
+      lines.push(`כל הקהילות שבבעלותך יימחקו תוך חודש לכל היותר.`);
     }
     lines.push(`לכל שאלה או תקלה, אנחנו כאן.`);
     // Passing null for name so the greeting reads "שלום," (no name) —

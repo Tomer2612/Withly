@@ -7,7 +7,12 @@ import { StorageModule } from '../common/storage.module';
 import { CommunitiesModule } from '../communities/communities.module';
 
 @Module({
-  imports: [NotificationsModule, EmailModule, StorageModule, forwardRef(() => CommunitiesModule)],
+  imports: [
+    NotificationsModule,
+    EmailModule,
+    StorageModule,
+    forwardRef(() => CommunitiesModule),
+  ],
   providers: [UsersService],
   controllers: [UsersController],
   exports: [UsersService],

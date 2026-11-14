@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 // Same limit as SendMessageDto. Enforced in the service too because the
 // WebSocket path (MessagesGateway) doesn't go through the DTO validation pipe.
@@ -12,21 +16,28 @@ export class MessagesService {
   // Check if a conversation exists between two users
   async hasConversation(userId1: string, userId2: string): Promise<boolean> {
     const [participant1Id, participant2Id] = [userId1, userId2].sort();
-    
+
     const conversation = await this.prisma.conversation.findUnique({
       where: {
         participant1Id_participant2Id: { participant1Id, participant2Id },
       },
       select: { id: true },
     });
-    
+
     return !!conversation;
   }
 
   // A conversation needs a real second person: not yourself, and an account
   // that exists (an unknown id used to surface as a 500 from the foreign key).
-  private async assertValidRecipient(senderId: string, recipientId: string): Promise<void> {
-    if (typeof recipientId !== 'string' || !recipientId || recipientId === senderId) {
+  private async assertValidRecipient(
+    senderId: string,
+    recipientId: string,
+  ): Promise<void> {
+    if (
+      typeof recipientId !== 'string' ||
+      !recipientId ||
+      recipientId === senderId
+    ) {
       throw new BadRequestException('INVALID_RECIPIENT');
     }
     const recipient = await this.prisma.user.findUnique({
@@ -84,13 +95,20 @@ export class MessagesService {
 
   // Send a message
   async sendMessage(senderId: string, recipientId: string, content: string) {
-    if (typeof content !== 'string' || !content.trim() || content.length > MESSAGE_MAX_LENGTH) {
+    if (
+      typeof content !== 'string' ||
+      !content.trim() ||
+      content.length > MESSAGE_MAX_LENGTH
+    ) {
       throw new BadRequestException('INVALID_MESSAGE');
     }
     await this.assertValidRecipient(senderId, recipientId);
 
     // Get or create conversation
-    const conversation = await this.getOrCreateConversation(senderId, recipientId);
+    const conversation = await this.getOrCreateConversation(
+      senderId,
+      recipientId,
+    );
 
     // Create the message
     const message = await this.prisma.message.create({
@@ -111,7 +129,8 @@ export class MessagesService {
       where: { id: conversation.id },
       data: {
         lastMessageAt: message.createdAt,
-        lastMessageText: content.length > 100 ? content.slice(0, 100) + '...' : content,
+        lastMessageText:
+          content.length > 100 ? content.slice(0, 100) + '...' : content,
       },
     });
 
@@ -126,10 +145,7 @@ export class MessagesService {
   async getConversations(userId: string) {
     const conversations = await this.prisma.conversation.findMany({
       where: {
-        OR: [
-          { participant1Id: userId },
-          { participant2Id: userId },
-        ],
+        OR: [{ participant1Id: userId }, { participant2Id: userId }],
       },
       include: {
         participant1: {
@@ -150,7 +166,7 @@ export class MessagesService {
     const unreadCounts = await this.prisma.message.groupBy({
       by: ['conversationId'],
       where: {
-        conversationId: { in: conversations.map(c => c.id) },
+        conversationId: { in: conversations.map((c) => c.id) },
         senderId: { not: userId },
         isRead: false,
       },
@@ -158,9 +174,11 @@ export class MessagesService {
     });
 
     // Create a map for quick lookup
-    const unreadMap = new Map(unreadCounts.map(u => [u.conversationId, u._count.id]));
+    const unreadMap = new Map(
+      unreadCounts.map((u) => [u.conversationId, u._count.id]),
+    );
 
-    return conversations.map(conv => ({
+    return conversations.map((conv) => ({
       id: conv.id,
       participant1: conv.participant1,
       participant2: conv.participant2,
@@ -172,15 +190,17 @@ export class MessagesService {
   }
 
   // Get messages in a conversation
-  async getMessages(conversationId: string, userId: string, limit = 50, offset = 0) {
+  async getMessages(
+    conversationId: string,
+    userId: string,
+    limit = 50,
+    offset = 0,
+  ) {
     // Verify user is part of conversation and get participant info
     const conversation = await this.prisma.conversation.findFirst({
       where: {
         id: conversationId,
-        OR: [
-          { participant1Id: userId },
-          { participant2Id: userId },
-        ],
+        OR: [{ participant1Id: userId }, { participant2Id: userId }],
       },
       include: {
         participant1: {
@@ -232,10 +252,7 @@ export class MessagesService {
     await this.prisma.message.updateMany({
       where: {
         conversation: {
-          OR: [
-            { participant1Id: userId },
-            { participant2Id: userId },
-          ],
+          OR: [{ participant1Id: userId }, { participant2Id: userId }],
         },
         senderId: { not: userId },
         isRead: false,
@@ -254,10 +271,7 @@ export class MessagesService {
       by: ['conversationId'],
       where: {
         conversation: {
-          OR: [
-            { participant1Id: userId },
-            { participant2Id: userId },
-          ],
+          OR: [{ participant1Id: userId }, { participant2Id: userId }],
         },
         senderId: { not: userId },
         isRead: false,
@@ -268,8 +282,11 @@ export class MessagesService {
 
   // Get conversation with a specific user
   async getConversationWithUser(currentUserId: string, otherUserId: string) {
-    const [participant1Id, participant2Id] = [currentUserId, otherUserId].sort();
-    
+    const [participant1Id, participant2Id] = [
+      currentUserId,
+      otherUserId,
+    ].sort();
+
     return this.prisma.conversation.findUnique({
       where: {
         participant1Id_participant2Id: { participant1Id, participant2Id },
