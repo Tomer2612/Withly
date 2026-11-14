@@ -130,6 +130,76 @@ function CourseViewerContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
+  const findLessonById = (lessonId: string): Lesson | null => {
+    if (!course) return null;
+    for (const chapter of course.chapters) {
+      const lesson = chapter.lessons.find(l => l.id === lessonId);
+      if (lesson) return lesson;
+    }
+    return null;
+  };
+
+  const fetchCourse = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/${courseId}`, );
+      if (res.ok) {
+        setCourse(await res.json());
+      } else if (res.status === 404) {
+        // Course not found - redirect to courses list
+        router.push(`/communities/${communityId}/courses`);
+      } else {
+        // Other error (500, etc.) - log but don't redirect, show error state
+        console.error('Failed to fetch course:', res.status, res.statusText);
+      }
+    } catch (err) {
+      // Network error - don't redirect, retry will happen on next navigation
+      console.error('Failed to fetch course:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCompleteLesson = async (lessonId?: string) => {
+    const targetLessonId = lessonId || currentLesson?.id;
+    if (!targetLessonId || !course?.enrollment) return;
+    const isCompleted = course.lessonProgress[targetLessonId];
+
+    // Optimistic update - immediately update UI
+    setCourse(prev => {
+      if (!prev) return prev;
+      const newProgress = { ...prev.lessonProgress, [targetLessonId]: !isCompleted };
+      const totalLessons = prev.chapters.reduce((acc, ch) => acc + ch.lessons.length, 0);
+      const completedLessons = Object.values(newProgress).filter(Boolean).length;
+      const newProgressPercent = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+      return {
+        ...prev,
+        lessonProgress: newProgress,
+        enrollment: prev.enrollment ? { ...prev.enrollment, progress: newProgressPercent } : null,
+      };
+    });
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/lessons/${targetLessonId}/complete`, {
+        method: isCompleted ? 'DELETE' : 'POST',
+      });
+      if (!res.ok) {
+        // Revert on error
+        setCourse(prev => {
+          if (!prev) return prev;
+          return { ...prev, lessonProgress: { ...prev.lessonProgress, [targetLessonId]: isCompleted } };
+        });
+      }
+    } catch (err) {
+      console.error('Failed to toggle lesson completion:', err);
+      // Revert on error
+      setCourse(prev => {
+        if (!prev) return prev;
+        return { ...prev, lessonProgress: { ...prev.lessonProgress, [targetLessonId]: isCompleted } };
+      });
+    }
+  };
+
   useEffect(() => {
     fetchCourse();
     // Load once per course. fetchCourse is recreated on every render, so
@@ -334,36 +404,6 @@ function CourseViewerContent() {
     checkAutoComplete();
   }, [hasVideoEnded, hasScrolledToBottom, clickedLinks, viewedImages, checkAutoComplete]);
 
-  const findLessonById = (lessonId: string): Lesson | null => {
-    if (!course) return null;
-    for (const chapter of course.chapters) {
-      const lesson = chapter.lessons.find(l => l.id === lessonId);
-      if (lesson) return lesson;
-    }
-    return null;
-  };
-
-  const fetchCourse = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/${courseId}`, );
-      if (res.ok) {
-        setCourse(await res.json());
-      } else if (res.status === 404) {
-        // Course not found - redirect to courses list
-        router.push(`/communities/${communityId}/courses`);
-      } else {
-        // Other error (500, etc.) - log but don't redirect, show error state
-        console.error('Failed to fetch course:', res.status, res.statusText);
-      }
-    } catch (err) {
-      // Network error - don't redirect, retry will happen on next navigation
-      console.error('Failed to fetch course:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleEnroll = async () => {
     if (!userEmail) { router.push('/login'); return; }
     setEnrolling(true);
@@ -404,46 +444,6 @@ function CourseViewerContent() {
       alert('שגיאה בביטול הרשמה');
     }
     finally { setUnenrolling(false); }
-  };
-
-  const handleCompleteLesson = async (lessonId?: string) => {
-    const targetLessonId = lessonId || currentLesson?.id;
-    if (!targetLessonId || !course?.enrollment) return;
-    const isCompleted = course.lessonProgress[targetLessonId];
-    
-    // Optimistic update - immediately update UI
-    setCourse(prev => {
-      if (!prev) return prev;
-      const newProgress = { ...prev.lessonProgress, [targetLessonId]: !isCompleted };
-      const totalLessons = prev.chapters.reduce((acc, ch) => acc + ch.lessons.length, 0);
-      const completedLessons = Object.values(newProgress).filter(Boolean).length;
-      const newProgressPercent = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
-      return {
-        ...prev,
-        lessonProgress: newProgress,
-        enrollment: prev.enrollment ? { ...prev.enrollment, progress: newProgressPercent } : null,
-      };
-    });
-    
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/lessons/${targetLessonId}/complete`, {
-        method: isCompleted ? 'DELETE' : 'POST',
-      });
-      if (!res.ok) {
-        // Revert on error
-        setCourse(prev => {
-          if (!prev) return prev;
-          return { ...prev, lessonProgress: { ...prev.lessonProgress, [targetLessonId]: isCompleted } };
-        });
-      }
-    } catch (err) {
-      console.error('Failed to toggle lesson completion:', err);
-      // Revert on error
-      setCourse(prev => {
-        if (!prev) return prev;
-        return { ...prev, lessonProgress: { ...prev.lessonProgress, [targetLessonId]: isCompleted } };
-      });
-    }
   };
 
   const handleDeleteCourse = async () => {

@@ -253,6 +253,24 @@ export default function NotificationBell() {
   const isOpenRef = useRef(isOpen);
   useEffect(() => { isOpenRef.current = isOpen; }, [isOpen]);
 
+  const fetchNotifications = async () => {
+    if (!user) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications?limit=50`);
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data.notifications || []);
+        setUnreadCount(data.unreadCount ?? 0);
+      }
+    } catch (err) {
+      console.error('Failed to fetch notifications:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Subscribe to socket-pushed notifications so the bell badge updates in
   // real time. We refetch the authoritative unread count from the server
   // rather than `prev + 1` — the JS counter drifts (e.g. when an action on
@@ -329,24 +347,6 @@ export default function NotificationBell() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const fetchNotifications = async () => {
-    if (!user) return;
-
-    setLoading(true);
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications?limit=50`);
-      if (res.ok) {
-        const data = await res.json();
-        setNotifications(data.notifications || []);
-        setUnreadCount(data.unreadCount ?? 0);
-      }
-    } catch (err) {
-      console.error('Failed to fetch notifications:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const markGroupAsRead = async (group: GroupedNotification, e?: React.MouseEvent) => {
     if (e) {

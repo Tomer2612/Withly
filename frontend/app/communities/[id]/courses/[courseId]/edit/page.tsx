@@ -167,31 +167,6 @@ export default function EditCoursePage() {
     return `${hoursText} ו${remainingMinutes} דקות`;
   };
 
-  useEffect(() => {
-    if (!user) {
-      router.push('/login');
-      return;
-    }
-
-    (async () => {
-      try {
-        const communityRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
-        if (!communityRes.ok) return;
-        const data = await communityRes.json();
-        setCommunity({ name: data.name, logo: data.logo });
-        setIsOwner(data.ownerId === user.userId);
-      } catch (err) {
-        console.error('Failed to load community:', err);
-      }
-    })();
-
-    fetchCourse();
-    // Load when the course, community or user changes. fetchCourse is
-    // recreated on every render, so listing it would refetch in a loop and
-    // overwrite the form while it is being edited.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId, router, communityId, user]);
-
   const fetchCourse = async () => {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/${courseId}`, );
@@ -248,6 +223,31 @@ export default function EditCoursePage() {
       console.error('Failed to fetch course:', err);
     }
   };
+
+  useEffect(() => {
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    (async () => {
+      try {
+        const communityRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
+        if (!communityRes.ok) return;
+        const data = await communityRes.json();
+        setCommunity({ name: data.name, logo: data.logo });
+        setIsOwner(data.ownerId === user.userId);
+      } catch (err) {
+        console.error('Failed to load community:', err);
+      }
+    })();
+
+    fetchCourse();
+    // Load when the course, community or user changes. fetchCourse is
+    // recreated on every render, so listing it would refetch in a loop and
+    // overwrite the form while it is being edited.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseId, router, communityId, user]);
 
   const addChapter = () => {
     if (!course) return;

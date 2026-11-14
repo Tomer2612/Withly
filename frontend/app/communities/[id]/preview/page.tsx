@@ -206,6 +206,48 @@ function CommunityPreviewContent() {
   const [selectedCardId, setSelectedCardId] = useState<string>('');
   const [finalizingPaidJoin, setFinalizingPaidJoin] = useState(false);
 
+  // Fetches the user's wallet, filters to unexpired cards, sorts primary-
+  // first/newest-first, and opens either ExistingCardConfirmModal (≥1 card)
+  // or the HYP iframe directly (empty wallet). Identical pattern to the
+  // pricing page Phase 3.3 picker.
+  const openPaidJoinPicker = async () => {
+    setPaidJoinError(null);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/payment-methods`, {
+        credentials: 'include',
+      });
+      const allCards: typeof savedCards = res.ok ? await res.json() : [];
+      const now = new Date();
+      const nowYM = now.getFullYear() * 100 + (now.getMonth() + 1);
+      const unexpired = allCards.filter(c => {
+        if (c.cardExpMonth == null || c.cardExpYear == null) return true;
+        return c.cardExpYear * 100 + c.cardExpMonth >= nowYM;
+      });
+      unexpired.sort((a, b) => {
+        if (a.isPrimary !== b.isPrimary) return a.isPrimary ? -1 : 1;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+      setSavedCards(unexpired);
+      if (unexpired.length === 0) {
+        setPickerView('iframe');
+      } else {
+        setSelectedCardId(unexpired[0].id);
+        setPickerView('confirm');
+      }
+    } catch {
+      // Network blip — fall back to the iframe (legacy behavior).
+      setPickerView('iframe');
+    }
+  };
+
+  // Same flow used by ?showPayment=true URL return-from-signup.
+  const handleJoinClickForResume = async () => {
+    if (!community || isBanned) return;
+    const effectivePrice = joinPrice(community);
+    if (effectivePrice <= 0) return;
+    await openPaidJoinPicker();
+  };
+
   // Show payment popup after returning from signup. Banned users skip
   // this - the banner replaces the join flow entirely.
   useEffect(() => {
@@ -330,48 +372,6 @@ function CommunityPreviewContent() {
 
     // Paid path — fetch wallet, decide picker vs iframe.
     await openPaidJoinPicker();
-  };
-
-  // Same flow used by ?showPayment=true URL return-from-signup.
-  const handleJoinClickForResume = async () => {
-    if (!community || isBanned) return;
-    const effectivePrice = joinPrice(community);
-    if (effectivePrice <= 0) return;
-    await openPaidJoinPicker();
-  };
-
-  // Fetches the user's wallet, filters to unexpired cards, sorts primary-
-  // first/newest-first, and opens either ExistingCardConfirmModal (≥1 card)
-  // or the HYP iframe directly (empty wallet). Identical pattern to the
-  // pricing page Phase 3.3 picker.
-  const openPaidJoinPicker = async () => {
-    setPaidJoinError(null);
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/payment-methods`, {
-        credentials: 'include',
-      });
-      const allCards: typeof savedCards = res.ok ? await res.json() : [];
-      const now = new Date();
-      const nowYM = now.getFullYear() * 100 + (now.getMonth() + 1);
-      const unexpired = allCards.filter(c => {
-        if (c.cardExpMonth == null || c.cardExpYear == null) return true;
-        return c.cardExpYear * 100 + c.cardExpMonth >= nowYM;
-      });
-      unexpired.sort((a, b) => {
-        if (a.isPrimary !== b.isPrimary) return a.isPrimary ? -1 : 1;
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
-      setSavedCards(unexpired);
-      if (unexpired.length === 0) {
-        setPickerView('iframe');
-      } else {
-        setSelectedCardId(unexpired[0].id);
-        setPickerView('confirm');
-      }
-    } catch {
-      // Network blip — fall back to the iframe (legacy behavior).
-      setPickerView('iframe');
-    }
   };
 
   // Existing-card path: POST to backend; on success it returns the

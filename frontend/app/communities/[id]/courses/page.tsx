@@ -87,23 +87,6 @@ export default function CoursesPage() {
   const [myCoursesPage, setMyCoursesPage] = useState(1);
   const coursesPerPage = 3;
 
-  useEffect(() => {
-    fetchCommunity();
-    fetchCourses();
-    // Load once per community. Both loaders are recreated on every render, so
-    // listing them would refetch in a loop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [communityId]);
-
-  // Set default tab based on user role
-  useEffect(() => {
-    if (isOwner) {
-      setActiveTab('my-courses');
-    } else {
-      setActiveTab('all');
-    }
-  }, [isOwner]);
-
   const fetchCommunity = async () => {
     try {
       const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${communityId}`);
@@ -133,6 +116,23 @@ export default function CoursesPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchCommunity();
+    fetchCourses();
+    // Load once per community. Both loaders are recreated on every render, so
+    // listing them would refetch in a loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [communityId]);
+
+  // Set default tab based on user role
+  useEffect(() => {
+    if (isOwner) {
+      setActiveTab('my-courses');
+    } else {
+      setActiveTab('all');
+    }
+  }, [isOwner]);
 
   const formatDuration = (minutes: number) => {
     if (minutes < 60) return `${minutes} דקות`;

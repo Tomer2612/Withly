@@ -417,6 +417,19 @@ function EventsPageContent() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
 
+  const fetchEventsForMonth = async (year: number, month: number) => {
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/events/community/${communityId}/calendar?year=${year}&month=${month}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setEvents(data);
+      }
+    } catch (err) {
+      console.error('Error fetching events:', err);
+    }
+  };
 
   useEffect(() => {
     if (!communityId) return;
@@ -464,20 +477,6 @@ function EventsPageContent() {
     // retrigger this and reload both lists.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [communityId]);
-
-  const fetchEventsForMonth = async (year: number, month: number) => {
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/events/community/${communityId}/calendar?year=${year}&month=${month}`
-      );
-      if (res.ok) {
-        const data = await res.json();
-        setEvents(data);
-      }
-    } catch (err) {
-      console.error('Error fetching events:', err);
-    }
-  };
 
   const fetchAllEvents = async () => {
     try {
