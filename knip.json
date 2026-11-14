@@ -11,7 +11,8 @@
       ],
       "ignoreDependencies": [
         "ts-loader",
-        "ts-node"
+        "ts-node",
+        "pg"
       ],
       "ignoreBinaries": [
         "prettier"
