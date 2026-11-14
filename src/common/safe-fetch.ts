@@ -152,7 +152,7 @@ function requestOnce(
       url,
       {
         method: 'GET',
-        lookup: publicOnlyLookup as unknown as typeof dns.lookup,
+        lookup: publicOnlyLookup,
         timeout: timeoutMs,
         headers: {
           'User-Agent':
