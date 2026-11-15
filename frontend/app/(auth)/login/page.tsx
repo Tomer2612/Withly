@@ -7,7 +7,7 @@ import GoogleIcon from '../../components/icons/GoogleIcon';
 import MailIcon from '../../components/icons/MailIcon';
 import KeyIcon from '../../components/icons/KeyIcon';
 import { useUser } from '../../lib/UserContext';
-import { rememberReturnUrlForGoogle } from '../../lib/auth';
+import { rememberReturnUrlForGoogle, safeReturnPath } from '../../lib/auth';
 
 function LoginContent() {
   const router = useRouter();
@@ -141,7 +141,9 @@ function LoginContent() {
             }
           }
         } else {
-          router.push(returnUrl || '/');
+          // Only destinations on this site: a crafted ?returnUrl= must not
+          // bounce a user who just logged in to another site.
+          router.push(safeReturnPath(returnUrl) ?? '/');
         }
       } else if (res.status === 403 && typeof data.message === 'string' && data.message.includes('not verified')) {
         setNeedsVerification(true);
