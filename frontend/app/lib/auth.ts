@@ -52,6 +52,41 @@ export function clearSessionAndRedirect() {
 }
 
 /**
+ * A post-login destination, only if it stays on this site: a path like
+ * "/settings" or "/communities/x/feed?tab=1". Anything that could leave the
+ * site ("https://other.example", "//other.example", "/\\other.example") gives
+ * null, so a crafted ?returnUrl= link can't bounce a user who just signed in
+ * to another site (an open redirect).
+ */
+export function safeReturnPath(value: string | null | undefined): string | null {
+  if (!value || !value.startsWith('/') || value.startsWith('//') || value.startsWith('/\\')) return null;
+  try {
+    const base = 'https://withly.invalid';
+    const url = new URL(value, base);
+    if (url.origin !== base) return null;
+    return url.pathname + url.search + url.hash;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Called by the Google buttons on /login and /signup just before the browser
+ * leaves for Google: stores the destination (if it's on this site) so
+ * /google-success can go there after sign-in, instead of the home page.
+ */
+export function rememberReturnUrlForGoogle(returnUrl: string | null) {
+  const safe = safeReturnPath(returnUrl);
+  try {
+    if (safe) localStorage.setItem('returnUrl', safe);
+    else localStorage.removeItem('returnUrl');
+  } catch {
+    // Storage unavailable (private mode etc.) — sign-in still works, it just
+    // lands on the home page.
+  }
+}
+
+/**
  * Wrapper around fetch for API calls. Cookies are sent automatically by
  * the global fetch interceptor — this wrapper exists mostly so call sites
  * can keep using the same import name and so future auth concerns have a

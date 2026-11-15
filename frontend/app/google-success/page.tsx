@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '../lib/UserContext';
+import { safeReturnPath } from '../lib/auth';
 
 export default function GoogleSuccessPage() {
   const router = useRouter();
@@ -20,6 +21,10 @@ export default function GoogleSuccessPage() {
       // pendingJoinCommunity) is taken into that community, not dropped on
       // the home page.
       const pendingJoinCommunity = localStorage.getItem('pendingJoinCommunity');
+      // Where the user was headed before signing in (stored by the Google
+      // buttons on /login and /signup). Read once, then cleared.
+      const returnUrl = safeReturnPath(localStorage.getItem('returnUrl'));
+      localStorage.removeItem('returnUrl');
       if (pendingJoinCommunity) {
         const pendingPayment = localStorage.getItem('pendingPayment');
         localStorage.removeItem('pendingJoinCommunity');
@@ -43,7 +48,7 @@ export default function GoogleSuccessPage() {
         return;
       }
 
-      router.push('/');
+      router.push(returnUrl ?? '/');
     })();
   }, [router, refreshUser]);
 

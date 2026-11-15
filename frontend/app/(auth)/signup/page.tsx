@@ -10,6 +10,7 @@ import CheckIcon from '../../components/icons/CheckIcon';
 import CloseIcon from '../../components/icons/CloseIcon';
 import UserIcon from '../../components/icons/UserIcon';
 import { useUser } from '../../lib/UserContext';
+import { rememberReturnUrlForGoogle } from '../../lib/auth';
 
 // Checkmark Icon component
 const CheckmarkIcon = ({ className = "w-3 h-2.5" }: { className?: string }) => (
@@ -416,6 +417,9 @@ function SignupContent() {
                 {/* Google Button */}
                 <a
                   href={`${process.env.NEXT_PUBLIC_API_URL}/auth/google`}
+                  // Google sign-in leaves the site; remember where to go
+                  // afterwards (read by /google-success).
+                  onClick={() => rememberReturnUrlForGoogle(returnUrl)}
                   className="flex items-center justify-center gap-2 p-3 rounded-lg text-[16px] hover:opacity-80 transition border"
                   style={{ borderColor: '#E1E1E2', backgroundColor: '#F4F4F5' }}
                 >

@@ -7,6 +7,7 @@ import GoogleIcon from '../../components/icons/GoogleIcon';
 import MailIcon from '../../components/icons/MailIcon';
 import KeyIcon from '../../components/icons/KeyIcon';
 import { useUser } from '../../lib/UserContext';
+import { rememberReturnUrlForGoogle } from '../../lib/auth';
 
 function LoginContent() {
   const router = useRouter();
@@ -201,6 +202,9 @@ function LoginContent() {
                 {/* Google Button */}
                 <a
                   href={`${process.env.NEXT_PUBLIC_API_URL}/auth/google`}
+                  // Google sign-in leaves the site; remember where to go
+                  // afterwards (read by /google-success).
+                  onClick={() => rememberReturnUrlForGoogle(returnUrl)}
                   className="flex items-center justify-center gap-2 p-3 rounded-lg text-[16px] hover:opacity-80 transition border"
                   style={{ borderColor: '#E1E1E2', backgroundColor: '#F4F4F5' }}
                 >
