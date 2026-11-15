@@ -10,11 +10,41 @@ export default function GoogleSuccessPage() {
 
   // The OAuth callback already set the httpOnly access + refresh cookies
   // on the backend response before redirecting here. Refresh the
-  // UserContext so the new session shows up everywhere, then land on home.
+  // UserContext so the new session shows up everywhere, then continue.
   useEffect(() => {
-    void refreshUser().then(() => {
+    void (async () => {
+      await refreshUser();
+
+      // Same as the login and signup pages: a visitor who clicked "join" on a
+      // community's preview page while signed out (the preview page stored
+      // pendingJoinCommunity) is taken into that community, not dropped on
+      // the home page.
+      const pendingJoinCommunity = localStorage.getItem('pendingJoinCommunity');
+      if (pendingJoinCommunity) {
+        const pendingPayment = localStorage.getItem('pendingPayment');
+        localStorage.removeItem('pendingJoinCommunity');
+        localStorage.removeItem('pendingPayment');
+
+        if (pendingPayment) {
+          // Paid community: back to its preview with the payment modal open.
+          router.push(`/communities/${pendingJoinCommunity}/preview?showPayment=true`);
+          return;
+        }
+        // Free community: join directly. The global fetch interceptor adds
+        // credentials, so the new access cookie authenticates this.
+        try {
+          const joinRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/communities/${pendingJoinCommunity}/join`, {
+            method: 'POST',
+          });
+          router.push(`/communities/${pendingJoinCommunity}/${joinRes.ok ? 'feed' : 'preview'}`);
+        } catch {
+          router.push(`/communities/${pendingJoinCommunity}/preview`);
+        }
+        return;
+      }
+
       router.push('/');
-    });
+    })();
   }, [router, refreshUser]);
 
   return (
